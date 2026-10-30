@@ -1,0 +1,291 @@
+[metadata]
+creation_date = "2026/10/01"
+integration = ["network_traffic"]
+maturity = "production"
+min_stack_comments = "Requires ES|QL INLINE STATS, generally available since 9.3."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an internal client that resolves or negotiates TLS with a Polygon RPC endpoint used for EtherHiding
+dead-drop resolution, then completes TLS on port 443 to a different external server name within five minutes.
+EtherHiding stores command-and-control URLs in a Polygon smart contract, so the C2 name can rotate while the RPC
+hosts stay stable. DNS question names and TLS server names are visible without HTTPS decryption. A Polygon RPC
+observation alone does not match. The same client must complete TLS to between one and five other external names
+in that window.
+"""
+false_positives = [
+    """
+    A quiet wallet, dApp, or blockchain development host can match when it contacts a Polygon RPC endpoint and then
+    completes TLS to only a few other external names. OCSP, CRL, and software-update connections count toward that
+    set. Recursive resolvers and NAT devices can collapse many clients into one address.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Polygon RPC Resolution Followed by External TLS Connection"
+note = """## Triage and analysis
+
+### Investigating Polygon RPC Resolution Followed by External TLS Connection
+
+EtherHiding keeps a command-and-control URL in a Polygon smart contract and reads it with a JSON-RPC `eth_call` to
+`getDomain()` (function selector `0xb68d1809`). The contract and the C2 name change. The public RPC hosts do not.
+This rule looks for that read at the network layer, then for a completed TLS connection to some other external
+server name. It does not require HTTPS decryption, and it cannot see the RPC request body. A match means the client
+used one of the RPC names and then opened a small number of other HTTPS connections. It does not by itself prove
+the follow-on name was returned by the contract.
+
+The RPC leg is a DNS question or a TLS server name for a Polygon RPC host, including `polygon.drpc.org`,
+`polygon-rpc.com`, `polygon-mainnet*`, `*.matic.quiknode.pro`, `polygon-public.nodes.app`, `1rpc.io`,
+`*.blastapi.io`, `polygon.gateway.tenderly.co`, `polygon.publicnode.com`, and `polygon-bor-rpc.publicnode.com`.
+The follow-on leg is an established TCP/443 TLS session whose server name is outside that RPC set and outside other
+public chain providers (`*.infura.io`, `*.alchemy.com`, `*.ankr.com`, `*.quiknode.pro`, `*.publicnode.com`,
+`*.tenderly.co`, `*.drpc.org`). The follow-on must start after the first RPC observation and no more than five
+minutes later. Clients with more than five such follow-on names in that window are dropped, because a browser or
+dApp loads many unrelated sites after it touches an RPC.
+
+### Possible investigation steps
+
+- Review `Esql.client_ip`, `Esql.first_rpc`, `Esql.rpc_name_values`, `Esql.follow_on_names`,
+  `Esql.follow_on_ip_values`, and `Esql.seconds_from_rpc_to_follow_on`. The follow-on names are candidates for the
+  retrieved C2 URL. Compare each name's timestamp with `Esql.first_rpc`.
+- Identify the asset behind `Esql.client_ip`. A shared resolver or NAT address needs a pivot to the original client
+  before the activity can be attributed to one host.
+- On the endpoint, within a few minutes of `Esql.first_rpc`, review process network and process-start events for
+  `curl`, `python`, `bash`, `osascript`, or an unexpected binary. Command lines containing `eth_call` and
+  `0xb68d1809` confirm a contract read. Process command lines are not present on these network events.
+- Search the follow-on server names and destination IPs across other internal clients. A name that appears only on
+  the alerting client, shortly after a Polygon RPC observation, is more consistent with a retrieved C2 domain than
+  with a common website.
+- Check whether the client is an approved Web3 wallet, browser extension, or development host before closing the
+  alert as benign.
+
+### False positive analysis
+
+- Confirm quiet legitimate Polygon use with the asset owner: wallets, dApps, and engineering tools that talk to a
+  public RPC and then to a handful of other HTTPS services.
+- Scope an exception to the specific client and RPC name after that confirmation. Do not exclude the RPC domains
+  globally. Those names are shared public infrastructure, and a global exclusion would remove the dead-drop signal.
+- If `Esql.client_ip` is a DNS resolver or an egress NAT address, treat the alert as a lead to find the originating
+  host rather than as a single-host compromise.
+
+### Response and remediation
+
+- Isolate the originating host when the process is unexpected or the follow-on name has no business purpose.
+- Preserve the DNS question, TLS server name, destination IP, and JA3 for the RPC connection and the follow-on
+  connection. Collect the endpoint process command line from the same host and time window.
+- Block a confirmed C2 name. Blocking the public Polygon RPC hosts will also block legitimate Web3 use and should be
+  a separate risk decision.
+- Search other clients for the same follow-on name and for `eth_call` with selector `0xb68d1809`.
+"""
+references = [
+    "https://www.whalebone.io/post/the-secrets-of-blockchain-clickfix-utilizes-polygon-for-c2-domain-distribution",
+    "https://securityarsenal.com/blog/amos-stealer-xmrig-macos-clickfix-crimekit-etherhiding-c2-on-polygon-blockchain-otx-detection-pack",
+    "https://securityarsenal.com/blog/aeternum-blockchain-c2-botnet-xwormzingostealer-loader-chain-otx-pulse-analysis-polygon-smart-contract-detection-pack",
+    "https://cloud.google.com/blog/topics/threat-intelligence/unc5142-etherhiding-distribute-malware",
+]
+risk_score = 47
+rule_id = "b634974b-8a6d-4b6f-9db1-8088ddaa692c"
+setup = """## Setup
+
+This rule requires Elastic Network Packet Capture DNS events (`logs-network_traffic.dns-*`) and TLS events
+(`logs-network_traffic.tls-*`). The RPC leg uses `dns.question.name` or `tls.client.server_name`. The follow-on leg
+uses an established TLS session (`tls.established` and `destination.port` 443) and `tls.client.server_name` from the
+ClientHello. HTTPS decryption is not required. The JSON-RPC body, including `eth_call` and function selector
+`0xb68d1809`, is not visible in this telemetry.
+
+The RPC observation and the later TLS connection must share a client address. The query uses `client.ip` when it is
+populated and otherwise `source.ip`. Observe both protocols before source NAT. DNS-over-HTTPS, DNS-over-TLS, and
+Encrypted Client Hello hide the names this rule depends on.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Command and Control",
+    "Rule Type: ES|QL",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Slow",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.dns-*, logs-network_traffic.tls-*
+| where
+    data_stream.dataset in ("network_traffic.dns", "network_traffic.tls") and
+    CIDR_MATCH(
+      source.ip,
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "fc00::/7"
+    )
+| eval
+    Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.observed_name = TO_LOWER(COALESCE(dns.question.name, tls.client.server_name))
+| where
+    Esql.client_ip is not null and
+    Esql.observed_name is not null and
+    LENGTH(Esql.observed_name) > 1
+| eval Esql.observed_name = CASE(
+    ENDS_WITH(Esql.observed_name, "."),
+    SUBSTRING(Esql.observed_name, 1, LENGTH(Esql.observed_name) - 1),
+    Esql.observed_name
+  )
+| eval Esql.is_polygon_rpc = Esql.observed_name like (
+      "polygon.drpc.org",
+      "polygon-rpc.com",
+      "polygon-mainnet*",
+      "*.matic.quiknode.pro",
+      "polygon-public.nodes.app",
+      "1rpc.io",
+      "*.1rpc.io",
+      "*.blastapi.io",
+      "polygon.gateway.tenderly.co",
+      "polygon.publicnode.com",
+      "polygon-bor-rpc.publicnode.com"
+    )
+| eval Esql.is_follow_on =
+    data_stream.dataset == "network_traffic.tls" and
+    tls.established == true and
+    network.transport == "tcp" and
+    destination.port == 443 and
+    destination.ip is not null and
+    not Esql.is_polygon_rpc and
+    not Esql.observed_name like (
+      "*.drpc.org",
+      "polygon-rpc.com",
+      "polygon-mainnet*",
+      "*.quiknode.pro",
+      "polygon-public.nodes.app",
+      "1rpc.io",
+      "*.1rpc.io",
+      "*.blastapi.io",
+      "*.tenderly.co",
+      "*.publicnode.com",
+      "*.polygon.technology",
+      "*.infura.io",
+      "*.alchemy.com",
+      "*.alchemyapi.io",
+      "*.ankr.com",
+      "localhost",
+      "*.local",
+      "*.localdomain",
+      "*.internal",
+      "*.arpa",
+      "*.home",
+      "*.lan"
+    ) and
+    not CIDR_MATCH(
+      destination.ip,
+      "0.0.0.0/8",
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "172.16.0.0/12",
+      "192.0.0.0/24",
+      "192.0.2.0/24",
+      "192.168.0.0/16",
+      "192.175.48.0/24",
+      "192.31.196.0/24",
+      "192.52.193.0/24",
+      "192.88.99.0/24",
+      "198.18.0.0/15",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4",
+      "::/128",
+      "::1/128",
+      "2001:db8::/32",
+      "fc00::/7",
+      "fe80::/10",
+      "ff00::/8"
+    )
+| where Esql.is_polygon_rpc or Esql.is_follow_on
+| eval Esql.rpc_name = CASE(Esql.is_polygon_rpc, Esql.observed_name, null)
+| inline stats
+    Esql.first_rpc = MIN(@timestamp) where Esql.is_polygon_rpc,
+    Esql.rpc_names = VALUES(Esql.rpc_name)
+  by Esql.client_ip
+| where
+    Esql.is_follow_on and
+    Esql.first_rpc is not null and
+    @timestamp > Esql.first_rpc and
+    DATE_DIFF("seconds", Esql.first_rpc, @timestamp) <= 300
+| eval Esql.rpc_names_joined = MV_CONCAT(Esql.rpc_names, ", ")
+| stats
+    Esql.follow_on_name_count = COUNT_DISTINCT(Esql.observed_name),
+    Esql.follow_on_names = MV_SLICE(VALUES(Esql.observed_name), 0, 10),
+    Esql.follow_on_ip_values = MV_SLICE(VALUES(destination.ip), 0, 10),
+    Esql.follow_on_event_count = COUNT(*),
+    Esql.earliest_follow_on = MIN(@timestamp),
+    Esql.latest_follow_on = MAX(@timestamp),
+    Esql.first_rpc = MIN(Esql.first_rpc),
+    Esql.rpc_name_values = VALUES(Esql.rpc_names_joined),
+    Esql.dataset_values = MV_SLICE(VALUES(data_stream.dataset), 0, 5),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 10),
+    Esql.community_id_values = MV_SLICE(VALUES(network.community_id), 0, 10)
+  by Esql.client_ip
+| where Esql.follow_on_name_count <= 5
+| eval Esql.seconds_from_rpc_to_follow_on = DATE_DIFF("seconds", Esql.first_rpc, Esql.earliest_follow_on)
+| keep Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.client_ip",
+    "Esql.first_rpc",
+    "Esql.rpc_name_values",
+    "Esql.follow_on_names",
+    "Esql.follow_on_name_count",
+    "Esql.follow_on_ip_values",
+    "Esql.follow_on_event_count",
+    "Esql.earliest_follow_on",
+    "Esql.latest_follow_on",
+    "Esql.seconds_from_rpc_to_follow_on",
+    "Esql.dataset_values",
+    "Esql.observer_name_values",
+    "Esql.community_id_values",
+]
