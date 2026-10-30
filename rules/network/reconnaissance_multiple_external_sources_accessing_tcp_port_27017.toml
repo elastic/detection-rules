@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple distinct external source IP addresses contacting one destination on TCP port 27017 within a
+five-minute window as observed by one verified Network Packet Capture agent. Port 27017 is commonly associated with
+MongoDB, and this fan-in behavior may indicate distributed probing of an exposed service. Port and flow metadata do not
+establish the application or prove scanning.
+"""
+false_positives = [
+    """
+    Distributed monitoring, authorized vulnerability assessment, penetration tests, internet research, and legitimate
+    clients can produce this activity. Confirm the destination service and exposure before treating the activity as
+    reconnaissance.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple External Sources Accessing TCP Port 27017"
+note = """## Triage and analysis
+
+### Investigating Multiple External Sources Accessing TCP Port 27017
+
+MongoDB commonly listens on TCP port 27017, but any application can use that port. This rule detects target-side fan-in
+from multiple external addresses to one destination on TCP/27017. The behavior may represent distributed probing,
+expected client activity, or monitoring. It does not identify a source-centric scanner and does not prove that the
+destination is running MongoDB.
+
+The rule uses flow metadata only and does not require payload decryption or protocol decoding.
+
+### Possible investigation steps
+
+- Review `destination.ip`, `Esql.source_ip_count_distinct`, `Esql.source_ip_values`, `Esql.completed_flow_count`,
+  `Esql.first_seen`, and `Esql.last_seen`.
+- Confirm which service is listening on TCP port 27017 and whether it is intentionally reachable from the internet.
+- Determine whether source addresses belong to approved clients, vulnerability scanners, uptime monitors, cloud
+  providers, or internet research projects.
+- Pivot on `destination.ip` to identify earlier connection attempts, authentication failures, response-byte volume, or
+  protocol-specific events.
+- Correlate the activity with firewall, load balancer, application, server, and endpoint telemetry. Flow data alone
+  cannot determine whether a connection or exploitation attempt succeeded.
+
+### False positive analysis
+
+- Authorized distributed scanning, penetration testing, and third-party monitoring can trigger the rule.
+- Legitimate MongoDB clients distributed across public infrastructure may resemble probing.
+- Public honeypots and research systems should be excluded by destination after validation.
+
+### Response and remediation
+
+- Restrict TCP/27017 access to approved application and administration ranges.
+- If MongoDB is confirmed, verify authorization and TLS requirements and apply current security updates.
+- Preserve flow, firewall, application, and server evidence when access is unexpected.
+- Investigate the destination for compromise when suspicious authentication, data access, or outbound activity follows.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1595/",
+    "https://www.mongodb.com/docs/manual/administration/security-checklist/",
+    "https://www.elastic.co/docs/reference/integrations/network_traffic",
+]
+risk_score = 21
+rule_id = "4f342748-b3ea-4f62-a35a-315afd97c94e"
+setup = """## Setup
+
+This rule requires final flow events from the Elastic Network Packet Capture integration in
+`logs-network_traffic.flow-*`. Enable `map_to_ecs` so the integration emits `network_traffic.flow.final` and the ECS
+address, port, and transport fields used by the query.
+
+Confirm that `source.ip` and `destination.ip` reflect the original client and server after NAT, proxying, or load
+balancing. The rule requires non-null `agent.id` with `event.agent_id_status:verified` and evaluates each Elastic Agent
+separately. Events with missing or unverified agent identity are excluded. This prevents agents sharing an observer
+display name from merging, but does not deduplicate repeated ingestion within one agent or prevent independent alerts
+when multiple agents observe the same traffic. Counts represent final flows completing in the bucket, not
+connection-attempt rate. Tune the source-count and completed-flow thresholds to the protected environment and exclude
+approved clients, monitors, and scanners.
+"""
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.flow-*
+| where
+    data_stream.dataset == "network_traffic.flow"
+    and event.action == "network_flow"
+    and network_traffic.flow.final == true
+    and network.transport == "tcp"
+    and destination.port == 27017
+    and event.agent_id_status == "verified"
+    and agent.id is not null
+    and source.ip is not null
+    and destination.ip is not null
+| where not CIDR_MATCH(
+    source.ip,
+    "0.0.0.0/8",
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.0.0.0/24",
+    "192.0.2.0/24",
+    "192.168.0.0/16",
+    "198.18.0.0/15",
+    "198.51.100.0/24",
+    "203.0.113.0/24",
+    "224.0.0.0/4",
+    "240.0.0.0/4",
+    "::/128",
+    "::1/128",
+    "2001:db8::/32",
+    "fc00::/7",
+    "fe80::/10",
+    "ff00::/8"
+  )
+| eval
+    Esql.time_window = DATE_TRUNC(5 minutes, @timestamp)
+| stats
+    Esql.completed_flow_count = COUNT(*),
+    Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
+    Esql.source_ip_values = MV_SLICE(VALUES(source.ip), 0, 100),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  by Esql.time_window, agent.id, destination.ip, destination.port, network.transport
+| where Esql.source_ip_count_distinct >= 10 and Esql.completed_flow_count >= 20
+| keep
+    destination.ip,
+    destination.port,
+    network.transport,
+    agent.id,
+    Esql.time_window,
+    Esql.completed_flow_count,
+    Esql.source_ip_count_distinct,
+    Esql.source_ip_values,
+    Esql.first_seen,
+    Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.investigation_fields]
+field_names = [
+    "destination.ip",
+    "destination.port",
+    "network.transport",
+    "agent.id",
+    "Esql.source_ip_count_distinct",
+    "Esql.source_ip_values",
+    "Esql.completed_flow_count",
+    "Esql.time_window",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]

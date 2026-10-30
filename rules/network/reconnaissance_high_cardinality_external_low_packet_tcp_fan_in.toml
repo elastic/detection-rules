@@ -1,0 +1,207 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies final, low-packet TCP flows from many distinct external source IP addresses to one private or unique-local
+destination IP and port within a five-minute window as observed by one verified Network Packet Capture agent. This
+fan-in pattern can indicate distributed probing or early-stage resource-exhaustion activity, but does not by itself
+establish a denial-of-service attack.
+"""
+false_positives = [
+    """
+    Popular services, globally distributed health checks, content delivery networks, authorized load tests, and
+    internet-wide research can produce low-packet connections from many distinct sources. Validate the destination
+    service, source ownership, and infrastructure role before treating the activity as malicious.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "High-Cardinality External Low-Packet TCP Fan-In"
+note = """## Triage and analysis
+
+### Investigating High-Cardinality External Low-Packet TCP Fan-In
+
+Distributed probing and some early resource-exhaustion activity can produce many low-packet TCP flows from distinct
+external addresses toward one service. This rule detects that target-side fan-in shape. It does not inspect TCP flags,
+connection outcomes, response ratios, or service impact and therefore does not independently prove SYN flooding or
+denial of service.
+
+The rule is limited to private RFC1918 and IPv6 unique-local destinations. Sensors that preserve a public virtual IP as
+`destination.ip` are outside its scope unless those addresses are normalized to the protected private service.
+
+### Possible investigation steps
+
+- Review `destination.ip`, `destination.port`, `Esql.source_ip_count_distinct`, `Esql.completed_flow_count`,
+  `Esql.completed_flow_packet_total`, and `Esql.completed_flow_byte_total`.
+- Confirm that the destination is an organization-owned service and determine whether the activity represents probing,
+  expected client traffic, failed connections, or resource pressure.
+- Review `Esql.source_ip_values` for known scanners, approved monitoring systems, or distributed hosting infrastructure.
+- Pivot to raw flow, firewall, load-balancer, and packet telemetry for the same destination and time window. Determine
+  whether flows were accepted, rejected, reset, or incomplete.
+- Check TCP flags and application or service logs when available before classifying the activity as a flood.
+- Confirm that source and destination addresses have not been reversed or translated by NAT, proxies, load balancers, or
+  sensor placement.
+
+### False positive analysis
+
+- Public web, DNS, VPN, and other exposed services can legitimately receive low-packet connections from many clients.
+- Distributed uptime monitoring and load-testing platforms can create the same cardinality pattern.
+- Internet-wide scanners may cross the threshold without attempting denial of service.
+
+### Response and remediation
+
+- Restrict unnecessary exposure and rate-limit or block confirmed distributed probing when operationally appropriate.
+- Engage the network or DDoS response process only when packet or service telemetry confirms impact.
+- Preserve flow, packet, firewall, load-balancer, and application telemetry before short-retention evidence expires.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1595/",
+    "https://www.elastic.co/docs/reference/integrations/network_traffic",
+]
+risk_score = 47
+rule_id = "530e82e6-11bc-4c9b-9e33-a2eeebbefe8d"
+setup = """## Setup
+
+This rule requires final flow events from the Elastic Network Packet Capture integration in
+`logs-network_traffic.flow-*`. Enable `map_to_ecs` so the integration emits `network_traffic.flow.final` and the ECS
+address, port, transport, packet, and byte fields used by the query.
+
+Confirm that `source.ip` and `destination.ip` retain the original client and protected service addresses after NAT,
+proxying, or load balancing. The rule requires non-null `agent.id` with `event.agent_id_status:verified` and evaluates
+each Elastic Agent separately. Events with missing or unverified agent identity are excluded. This prevents different
+agents that share an observer display name from merging, but it does not deduplicate repeated ingestion within one
+agent or prevent independent alerts when multiple agents observe the same traffic.
+
+This rule requires cumulative lifetime flow counters. Network Packet Capture package 1.34.3 does not expose delta
+flow reporting in its Fleet policy template and uses cumulative reports by default. Verify the deployed package and
+agent version; delta flow reporting is unsupported. The rule only includes private RFC1918 and IPv6 unique-local
+destinations; public virtual IPs are excluded. Packet and byte values are cumulative lifetime totals for flows
+completing in the bucket, not traffic rates. The thresholds are independently authored and require production or
+controlled-test validation.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Reconnaissance",
+    "Data Source: Network Traffic",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.flow-*
+| where
+    data_stream.dataset == "network_traffic.flow"
+    and event.action == "network_flow"
+    and network_traffic.flow.final == true
+    and network.transport == "tcp"
+    and network.packets <= 2
+    and event.agent_id_status == "verified"
+    and agent.id is not null
+    and source.ip is not null
+    and destination.ip is not null
+    and destination.port is not null
+    and CIDR_MATCH(
+      destination.ip,
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "fc00::/7"
+    )
+    and not CIDR_MATCH(
+      source.ip,
+      "0.0.0.0/8",
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "172.16.0.0/12",
+      "192.0.0.0/24",
+      "192.0.2.0/24",
+      "192.168.0.0/16",
+      "198.18.0.0/15",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4",
+      "::/128",
+      "::1/128",
+      "2001:db8::/32",
+      "fc00::/7",
+      "fe80::/10",
+      "ff00::/8"
+    )
+| eval
+    Esql.time_window = DATE_TRUNC(5 minutes, @timestamp)
+| stats
+    Esql.completed_flow_count = COUNT(*),
+    Esql.source_ip_count_distinct = COUNT_DISTINCT(source.ip),
+    Esql.source_ip_values = MV_SLICE(VALUES(source.ip), 0, 100),
+    Esql.completed_flow_packet_total = SUM(network.packets),
+    Esql.completed_flow_byte_total = SUM(network.bytes),
+    Esql.byte_counter_record_count = COUNT(network.bytes),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  by Esql.time_window, agent.id, destination.ip, destination.port, network.transport
+| where Esql.source_ip_count_distinct >= 50 and Esql.completed_flow_count >= 500
+| eval Esql.average_packets_per_completed_flow =
+    TO_DOUBLE(Esql.completed_flow_packet_total) / Esql.completed_flow_count
+| keep
+    destination.ip,
+    destination.port,
+    network.transport,
+    agent.id,
+    Esql.time_window,
+    Esql.completed_flow_count,
+    Esql.source_ip_count_distinct,
+    Esql.source_ip_values,
+    Esql.completed_flow_packet_total,
+    Esql.completed_flow_byte_total,
+    Esql.byte_counter_record_count,
+    Esql.average_packets_per_completed_flow,
+    Esql.first_seen,
+    Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.investigation_fields]
+field_names = [
+    "destination.ip",
+    "destination.port",
+    "network.transport",
+    "agent.id",
+    "Esql.source_ip_count_distinct",
+    "Esql.source_ip_values",
+    "Esql.completed_flow_count",
+    "Esql.completed_flow_packet_total",
+    "Esql.completed_flow_byte_total",
+    "Esql.byte_counter_record_count",
+    "Esql.average_packets_per_completed_flow",
+    "Esql.time_window",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
