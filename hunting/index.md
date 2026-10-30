@@ -129,6 +129,7 @@ Here are the queries currently available:
 - [Multiple Application SSO Authentication from the Same Source](./okta/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
 - [OAuth Access Token Granted for Public Client App from Multiple Client Addresses](./okta/docs/defense_evasion_multiple_client_sources_reported_for_oauth_access_tokens_granted.md) (ES|QL)
 - [Password Only Authentication](./okta/docs/password_only_auth_without_mfa.md) (ES|QL)
+- [Password Only Authentication](./okta/docs/password_only_auth_without_mfa.md) (ES|QL)
 - [Password Spraying from Repeat Source](./okta/docs/initial_access_password_spraying_from_repeat_source.md) (ES|QL)
 - [Rapid MFA Deny Push Notifications (MFA Bombing)](./okta/docs/credential_access_mfa_bombing_push_notifications.md) (ES|QL)
 - [Rapid Reset Password Requests for Different Users](./okta/docs/credential_access_rapid_reset_password_requests_for_different_users.md) (ES|QL)
