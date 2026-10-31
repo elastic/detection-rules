@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/08/06"
+creation_date = "2026/08/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/31"
+updated_date = "2026/08/07"
 
 [rule]
 author = ["clivoa"]
@@ -22,7 +22,8 @@ false_positives = [
     `python3`. Verify the cask and its tap, then scope an exception to that cask's executable path.
     """,
     """
-    Homebrew's own nested `ruby` processes are ad-hoc signed and are excluded by path. A Homebrew release that starts
+    Homebrew's own nested `ruby` processes are ad-hoc signed and are excluded by their executable path
+    (`vendor/portable-ruby/<version>/bin/ruby`). A Homebrew release that starts
     running a different unsigned helper of its own during installs would match. Compare against a clean install on
     the same Homebrew version before excluding it.
     """,
@@ -39,9 +40,9 @@ note = """## Triage and analysis
 This rule flags a process spawned by Homebrew's bundled Ruby interpreter
 (`.../Homebrew/vendor/portable-ruby/.../bin/ruby`) during `brew install`, `reinstall` or `upgrade` that matches a list
 of tools and behaviours a malicious cask hook would plausibly use. A match most often means a cask's `preflight` or
-`postflight` Ruby block executed a command. The list does not cover `uninstall` hooks, hooks that run a script file
-instead of an inline `-c` command, or exfiltration with tools outside the list such as `ditto`, `zip`, `scp` or
-`rsync`.
+`postflight` Ruby block executed a command. Shells match when they run an inline command, including combined option
+forms such as `-xc` or `-lc`. The list does not cover `uninstall` hooks, hooks that run a script file instead of an
+inline command, or exfiltration with tools outside the list such as `ditto`, `zip`, `scp` or `rsync`.
 
 ### Possible investigation steps
 
@@ -64,8 +65,12 @@ instead of an inline `-c` command, or exfiltration with tools outside the list s
 
 - Determine the cask and its tap. Treat a hook that spawned a shell, an interpreter, or a network client as
   execution under the installing user and move to containment while you confirm intent.
-- Capture the full process tree and command lines before the Caskroom is modified further, then remove the cask
-  with `brew uninstall --cask` and remove or disable the tap it came from.
+- Capture the full process tree and command lines, and preserve the cask file from the tap and from the cask's
+  `Caskroom/<cask>/.metadata` directory for analysis.
+- Do not run `brew uninstall` or `reinstall` on the suspect cask. Homebrew evaluates the cask's Ruby code
+  again for both commands and runs its uninstall hooks, which gives the malicious code another execution. Remove the
+  installed artifacts, the cask's `Caskroom` directory and the tap directory with ordinary file system tools instead,
+  with the host isolated.
 - If the hook reached the network or wrote outside the Caskroom, treat the host as potentially compromised: hunt
   for persistence (LaunchAgents/LaunchDaemons), rotate any credentials reachable from the user's session, and
   review outbound connections from the process tree.
@@ -113,6 +118,8 @@ tags = [
     "Tactic: Initial Access",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -130,7 +137,7 @@ process where event.action == "exec" and host.os.type == "macos" and
    (process.name == "security" and
     process.args in ("find-generic-password", "find-internet-password", "dump-keychain", "export")) or
    (process.name == "dscl" and process.args == "-authonly") or
-   (process.name in ("bash", "sh", "zsh", "dash") and process.args == "-c" and
+   (process.name in ("bash", "sh", "zsh", "dash") and process.args regex "-[a-zA-Z]*c[a-zA-Z]*" and
     process.command_line like~ ("*curl *", "*wget *", "*osascript*", "*base64*", "*python -c*", "*python3 -c*",
                                 "*perl -e*", "*eval *", "*launchctl load*", "*launchctl bootstrap*", "*nohup*",
                                 "*LaunchAgents*", "*LaunchDaemons*", "*| sh*", "*|sh*", "*| bash*", "*|bash*",
@@ -138,7 +145,7 @@ process where event.action == "exec" and host.os.type == "macos" and
                                 "*sqlite3*")) or
    process.executable like~ ("/tmp/*", "/private/tmp/*", "/var/folders/*", "/private/var/folders/*", "/Users/Shared/*") or
    ((process.code_signature.trusted == false or process.code_signature.exists == false) and
-    not process.executable like~ "*/Homebrew/vendor/portable-ruby/*")
+    not process.executable like~ "*/Homebrew/vendor/portable-ruby/*/bin/ruby")
  )
 '''
 
