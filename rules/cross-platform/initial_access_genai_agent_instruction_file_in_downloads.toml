@@ -2,7 +2,7 @@
 creation_date = "2026/10/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/27"
+updated_date = "2026/10/31"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,7 @@ tags = [
     "Domain: Endpoint",
     "Domain: GenAI",
     "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0093",
     "OS: Linux",
     "OS: Windows",
     "OS: macOS",
@@ -88,7 +89,7 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.events.file-* METADATA _id, _version, _index
-| WHERE KQL(""" event.category:"file" and event.type:(creation or change)""")
+| WHERE event.type IN ("creation", "change")
   AND TO_LOWER(file.name) IN ("agents.md", "claude.md")
   AND (
     file.path LIKE "/Users/*/Downloads/*"
@@ -175,6 +176,34 @@ reference = "https://attack.mitre.org/techniques/T1204/002/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.09"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0093"
+name = "Prompt Infiltration via Public-Facing Application"
+reference = "https://atlas.mitre.org/techniques/AML.T0093/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
 
 [rule.investigation_fields]
 field_names = [
