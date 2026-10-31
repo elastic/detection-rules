@@ -1,0 +1,65 @@
+# Password Only Authentication
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** Identifies Okta applications where password-only authentication is observed through `user.authentication.verify` events without corresponding MFA (`auth_via_mfa`) or SSO events within the selected time range. Helps identify applications that may have been accessed without an additional authentication factor.
+
+- **UUID:** `df9e8b99-97c1-4632-b633-97a2615d1b65`
+- **Integration:** [okta](https://docs.elastic.co/integrations/okta)
+- **Language:** `[ES|QL]`
+- **Source File:** [Password Only Authentication](../queries/password_only_auth_without_mfa.toml)
+
+## Query
+
+```sql
+FROM logs-okta.system*
+| WHERE @timestamp > NOW() - 7 day
+| WHERE event.dataset == "okta.system" AND okta.outcome.result == "SUCCESS"
+| WHERE okta.event_type IN (
+    "user.authentication.verify",
+    "user.authentication.auth_via_mfa",
+    "user.authentication.sso"
+)
+| EVAL password_only_verify = CASE(
+    okta.event_type == "user.authentication.verify"
+    AND MV_CONTAINS(okta.target.detailEntry.methodTypeUsed, "password")
+    AND MV_COUNT(okta.target.detailEntry.methodTypeUsed) == 1,
+    1, 0
+)
+| EVAL mfa_event = CASE(
+    okta.event_type == "user.authentication.auth_via_mfa", 1, 0
+)
+| EVAL sso_event = CASE(
+    okta.event_type == "user.authentication.sso", 1, 0
+)
+// Keep only AppInstance targets so BY okta.target.id is the application, not User/etc.
+| MV_EXPAND okta.target
+| WHERE okta.target.type == "AppInstance"
+| STATS
+    password_only_events = SUM(password_only_verify),
+    mfa_events = SUM(mfa_event),
+    sso_events = SUM(sso_event)
+  BY okta.target.id
+| WHERE password_only_events > 0
+    AND mfa_events == 0
+    AND sso_events == 0
+```
+
+## Notes
+
+- `okta.actor.alternate_id` (or target user) is the account authenticating with password only.
+- Aggregation uses `okta.target.id` only where `okta.target.type` is `AppInstance` (the application).
+- Confirm whether MFA is enrolled for the user and whether sign-on policy allows password-only for that app/group.
+- Pivot on the same user for `event.action` values `user.authentication.auth_via_mfa` and `user.authentication.sso` in a wider window to rule out delayed MFA/SSO.
+- Expect false positives for service accounts, break-glass accounts, or apps intentionally excluded from MFA; tune those out before treating as malicious, or if the environment uses a different IdP for MFA.
+
+## MITRE ATT&CK Techniques
+
+- [T1078.004](https://attack.mitre.org/techniques/T1078/004)
+
+## License
+
+- `Elastic License v2`
