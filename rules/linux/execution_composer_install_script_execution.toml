@@ -2,7 +2,7 @@
 creation_date = "2026/08/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/19"
+updated_date = "2026/10/31"
 
 [rule]
 author = ["clivoa"]
@@ -12,14 +12,16 @@ This rule detects a child process spawned by Composer (the PHP package manager) 
 at install time, which can run arbitrary shell commands. Adversaries may abuse a malicious or compromised Composer
 package (from Packagist or a private/typosquatted registry) to execute code during dependency installation, mirroring
 the same install-time-hook abuse pattern seen in npm supply-chain attacks (e.g. Shai-Hulud). An ordinary `composer
-install`/`update` with no lifecycle scripts defined does not spawn any child process, making a spawned child process
-during a Composer operation a meaningful discriminator.
+install`/`update` with no lifecycle scripts defined only spawns the environment probes Composer runs on every
+invocation, which the rule excludes, so any other child process during a Composer operation is a meaningful
+discriminator.
 """
 false_positives = [
     """
     Composer probes the environment on every run and spawns shell wrappers for `git`, `svn`, `hg`,
     `fossil`, `stty` and `sudo -K` regardless of whether a project defines any script hook. Those are
-    excluded by name. A Composer version that shells out to a utility not on that list will match.
+    excluded by name, and the `sh`/`bash` wrappers around them by their command line. A Composer version that
+    shells out to a probe not on that list will match.
     """,
     """
     Projects that legitimately use lifecycle scripts, such as a framework clearing its cache in
@@ -37,18 +39,16 @@ note = """## Triage and analysis
 ### Investigating Composer Install Script Execution
 
 This rule detects a child process spawned by Composer (the PHP package manager) during an `install`, `require`,
-`update`, or `run-script` operation. An ordinary Composer operation with no lifecycle scripts defined does not
-spawn any child process, so a spawned child is a meaningful discriminator -- but Composer's lifecycle-script feature
-is also a common, legitimate part of many real-world PHP projects (see `false_positives`).
+`update`, or `run-script` operation, after excluding the environment probes Composer runs on every invocation.
+Composer's lifecycle-script feature is also a common, legitimate part of many PHP projects (see `false_positives`).
 
 ### Possible investigation steps
 
 - Identify the spawned child process's full command line and compare it against the project's known,
   version-controlled `composer.json` `scripts` section (`post-install-cmd`, `post-update-cmd`, etc.).
-- Check whether the Composer package that triggered this is a plugin (`type: composer-plugin`) using
-  `PluginInterface::activate()` rather than a plain dependency -- this project's own testing found plain-dependency
-  `post-install-cmd` scripts do **not** auto-execute by Composer's own security default, so a spawned child from a
-  plain dependency is a stronger signal than one from an intentional, first-party or plugin package.
+- Check whether the command came from the root project's `scripts` or from a plugin (`type: composer-plugin`)
+  running code in `PluginInterface::activate()`. Composer only runs `scripts` defined in the root package, so a
+  dependency that executes code at install time is doing it as a plugin, which deserves closer review.
 - Review the package's origin (Packagist vs. a private/typosquatted registry) and recent version history for signs
   of a supply-chain compromise.
 - Correlate with any subsequent network connections or file writes from the spawned child process.
@@ -56,7 +56,7 @@ is also a common, legitimate part of many real-world PHP projects (see `false_po
 ### False positive analysis
 
 - Common, legitimate pattern: Laravel and similar frameworks routinely run `php artisan` cache/config-clearing
-  commands via `post-install-cmd` -- expect this to fire on completely benign `composer install`/`update` runs in
+  commands via `post-install-cmd`. Expect this to fire on completely benign `composer install`/`update` runs in
   any Laravel-based (or similarly script-using) project. Investigate the specific command executed and whether it
   matches the project's own known `composer.json` before treating as suspicious.
 - A `composer run-script` invocation of an intentional build step is equally expected to trigger this rule.
@@ -87,7 +87,6 @@ severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
-    "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Execution",
@@ -99,11 +98,11 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
-  [process where host.os.type in ("linux", "macos") and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and
      process.name like~ ("php", "php?", "php?.?", "php-cli", "composer") and
      process.args like~ "*/composer" and
      process.args in ("install", "require", "update", "run-script")] by process.entity_id
-  [process where host.os.type in ("linux", "macos") and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and
      not process.name in ("git", "svn", "hg", "fossil", "stty", "tput", "sudo", "grep", "sed", "awk", "uname") and
      not (
        process.name in ("sh", "bash") and
