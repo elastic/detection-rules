@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2026/08/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/31"
+
+[rule]
+author = ["clivoa"]
+description = """
+Detects a suspicious child process spawned by Homebrew's bundled Ruby interpreter (`vendor/portable-ruby`) during a
+`brew install`, `reinstall` or `upgrade`. Cask `preflight` and `postflight` blocks run arbitrary Ruby at install time,
+including shelling out through `system_command`, so a malicious cask from a third-party tap, or a compromised or
+typosquatted one, can use them to execute code with the installing user's privileges. The rule looks for what such a
+hook would plausibly run: network and scripting tools, `osascript` prompts or shell-outs, `launchctl` persistence,
+keychain and directory-service credential access, shells running download, decode or persistence commands, binaries
+executed from temporary or shared directories, and untrusted or unsigned binaries.
+"""
+false_positives = [
+    """
+    A cask whose own install step legitimately runs one of the listed tools will match, for example a vendor helper
+    that is unsigned or ad-hoc signed, a `launchctl load` of the vendor's agent, or a vendor script run through
+    `python3`. Verify the cask and its tap, then scope an exception to that cask's executable path.
+    """,
+    """
+    Homebrew's own nested `ruby` processes are ad-hoc signed and are excluded by path. A Homebrew release that starts
+    running a different unsigned helper of its own during installs would match. Compare against a clean install on
+    the same Homebrew version before excluding it.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Child Process of Homebrew's Bundled Ruby Interpreter"
+note = """## Triage and analysis
+
+### Investigating Suspicious Child Process of Homebrew's Bundled Ruby Interpreter
+
+This rule flags a process spawned by Homebrew's bundled Ruby interpreter
+(`.../Homebrew/vendor/portable-ruby/.../bin/ruby`) during `brew install`, `reinstall` or `upgrade` that matches a list
+of tools and behaviours a malicious cask hook would plausibly use. A match most often means a cask's `preflight` or
+`postflight` Ruby block executed a command. The list does not cover `uninstall` hooks, hooks that run a script file
+instead of an inline `-c` command, or exfiltration with tools outside the list such as `ditto`, `zip`, `scp` or
+`rsync`.
+
+### Possible investigation steps
+
+- Identify which cask was being installed from the parent's command line (`brew.rb install --cask <tap>/<cask>`) and
+  whether it is a known first-party cask or comes from a third-party or community tap.
+- Review the spawned child's full command line for network activity (`curl`, `wget`, `nc`), a scripting interpreter
+  invocation (`bash -c`, `python3 -c`, `osascript`), or anything writing outside the cask's own Caskroom directory.
+- If the cask is from a third-party tap, check the tap's Git history/commit author for the cask file for recent,
+  suspicious changes.
+- Correlate with any subsequent network connections, persistence (LaunchAgent/LaunchDaemon creation), or credential
+  file access from the same process tree.
+
+### False positive analysis
+
+- A vendor helper run by a legitimate cask's install step can match when it is unsigned or ad-hoc signed, or when
+  the cask runs `launchctl`, `osascript` or an interpreter as part of its setup. Confirm the cask, its tap and the
+  helper's origin, then exclude that cask's executable path rather than the tool name.
+
+### Response and remediation
+
+- Determine the cask and its tap. Treat a hook that spawned a shell, an interpreter, or a network client as
+  execution under the installing user and move to containment while you confirm intent.
+- Capture the full process tree and command lines before the Caskroom is modified further, then remove the cask
+  with `brew uninstall --cask` and remove or disable the tap it came from.
+- If the hook reached the network or wrote outside the Caskroom, treat the host as potentially compromised: hunt
+  for persistence (LaunchAgents/LaunchDaemons), rotate any credentials reachable from the user's session, and
+  review outbound connections from the process tree.
+- Report a malicious first-party cask to Homebrew, and for a third-party tap warn other users of that tap.
+"""
+references = [
+    "https://docs.brew.sh/Cask-Cookbook#stanza-preflight",
+    "https://docs.brew.sh/Cask-Cookbook#stanza-postflight",
+    "https://www.securityweek.com/homebrew-macos-users-targeted-with-information-stealer-malware/",
+    "https://hunt.io/blog/macos-odyssey-amos-malware-campaign",
+]
+risk_score = 47
+rule_id = "5e07cb07-acdb-49e5-958c-53841e79a1ae"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.action == "exec" and host.os.type == "macos" and
+ process.parent.executable like~ "*/Homebrew/vendor/portable-ruby/*" and
+ process.parent.args in ("install", "reinstall", "upgrade") and
+ (
+   process.name in ("nc", "ncat", "perl", "node", "sqlite3") or
+   process.name like~ "python*" or
+   (process.name == "osascript" and
+    process.command_line like~ ("*do shell script*", "*display dialog*", "*hidden answer*")) or
+   (process.name == "launchctl" and process.args in ("load", "bootstrap", "submit", "enable")) or
+   (process.name == "security" and
+    process.args in ("find-generic-password", "find-internet-password", "dump-keychain", "export")) or
+   (process.name == "dscl" and process.args == "-authonly") or
+   (process.name in ("bash", "sh", "zsh", "dash") and process.args == "-c" and
+    process.command_line like~ ("*curl *", "*wget *", "*osascript*", "*base64*", "*python -c*", "*python3 -c*",
+                                "*perl -e*", "*eval *", "*launchctl load*", "*launchctl bootstrap*", "*nohup*",
+                                "*LaunchAgents*", "*LaunchDaemons*", "*| sh*", "*|sh*", "*| bash*", "*|bash*",
+                                "*| zsh*", "*chmod +x*", "*com.apple.quarantine*", "*dscl*", "*security find-*",
+                                "*sqlite3*")) or
+   process.executable like~ ("/tmp/*", "/private/tmp/*", "/var/folders/*", "/private/var/folders/*", "/Users/Shared/*") or
+   ((process.code_signature.trusted == false or process.code_signature.exists == false) and
+    not process.executable like~ "*/Homebrew/vendor/portable-ruby/*")
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
