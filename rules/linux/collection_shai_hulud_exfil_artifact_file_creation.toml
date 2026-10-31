@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/08/05"
+creation_date = "2026/10/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/31"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["clivoa"]
@@ -14,11 +14,10 @@ runtimes are in scope.
 """
 false_positives = [
     """
-    A JavaScript project that legitimately writes a file with one of these names through Node.js or
-    Bun will match. `contents.json` and `environment.json` in particular are common names outside
-    this worm's tooling, which is why the rule requires the creating process to be a JavaScript
-    runtime rather than matching the filename alone. Verify the writing project and add a path
-    exception where the file belongs to a known application.
+    A JavaScript project or tool that legitimately writes `cloud.json`, `truffleSecrets.json` or
+    `actionsSecrets.json` through Node.js or Bun will match, for example an application that stores its
+    own cloud configuration as `cloud.json`. Verify the writing project and, once the workflow is
+    confirmed benign, add an exception scoped to that file path and process executable.
     """,
 ]
 from = "now-9m"
@@ -50,13 +49,12 @@ chain, by covering the *artifact* side.
 
 ### False positive analysis
 
-- These exact filenames are worm-version-specific IOCs, not a behavioral signal on their own -- a future Shai-Hulud
-  variant using different filenames would not match. The `node`/`bun` process-origin condition is the more durable
-  part of this rule.
-- The `node`/`bun` process-name requirement was added specifically because these filenames collide broadly outside
-  that scope (see `false_positives`: `contents.json` alone appears in 6M+ public GitHub files, mostly Xcode asset
-  catalogs) -- scoping further beyond process name (e.g. to a specific working directory pattern) was not found
-  necessary in this project's own testing but may be worth tightening further if still noisy in a given environment.
+- A Node.js or Bun application that writes a file named `cloud.json`, `truffleSecrets.json` or
+  `actionsSecrets.json` as part of its normal operation will match. `cloud.json` is the most generic of the three.
+  Confirm the file path belongs to a known project and that its contents are not harvested credentials, then add an
+  exception scoped to that path and process executable.
+- These filenames are specific to known Shai-Hulud versions. A later variant that uses different filenames will not
+  match this rule.
 
 ### Response and remediation
 
@@ -69,7 +67,7 @@ chain, by covering the *artifact* side.
 references = [
     "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
     "https://www.elastic.co/blog/shai-hulud-worm-2-0-updated-response",
-    "https://attack.mitre.org/techniques/T1195/002/",
+    "https://attack.mitre.org/techniques/T1195/001/",
 ]
 risk_score = 47
 rule_id = "cf1edc6a-5a3e-45a5-b3dd-be54f2cd4358"
@@ -85,8 +83,11 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Collection",
+    "Tactic: Initial Access",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -104,6 +105,15 @@ framework = "MITRE ATT&CK"
 id = "T1005"
 name = "Data from Local System"
 reference = "https://attack.mitre.org/techniques/T1005/"
+
+[[rule.threat.technique]]
+id = "T1074"
+name = "Data Staged"
+reference = "https://attack.mitre.org/techniques/T1074/"
+[[rule.threat.technique.subtechnique]]
+id = "T1074.001"
+name = "Local Data Staging"
+reference = "https://attack.mitre.org/techniques/T1074/001/"
 
 
 [rule.threat.tactic]
