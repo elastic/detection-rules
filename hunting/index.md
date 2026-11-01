@@ -109,7 +109,7 @@ Here are the queries currently available:
 - [Self-Deleted Python Script Outbound Network Connection](./macos/docs/defense_evasion_self_deleted_python_script_outbound_network_connection.md) (EQL)
 - [Self-Deleting Python Script](./macos/docs/defense_evasion_self_deleting_python_script.md) (ES|QL)
 - [Sensitive File Access via Docker](./macos/docs/execution_suspicious_file_access_via_docker.md) (ES|QL)
-- [Suspcious Executable File Creation via Python](./macos/docs/command_and_control_suspicious_executable_file_creation_via_python.md) (ES|QL)
+- [Suspicious Executable File Creation via Python](./macos/docs/command_and_control_suspicious_executable_file_creation_via_python.md) (EQL)
 - [Suspicious Executable File Modification via Docker](./macos/docs/execution_suspicious_executable_file_modification_via_docker.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
 - [Suspicious Python App Execution via Streamlit](./macos/docs/execution_suspicious_python_app_execution_via_streamlit.md) (ES|QL)

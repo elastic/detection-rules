@@ -25,7 +25,7 @@ FROM logs-okta.system*
         "user.authentication.sso"
     )
 
-// Identify verification events where password is the only recorded method
+// Identify verification events where PASSWORD is the only recorded method
 | EVAL password_only_verify = CASE(
     okta.event_type == "user.authentication.verify"
     AND MV_CONTAINS(okta.target.detailEntry.methodTypeUsed, "PASSWORD")
@@ -41,7 +41,7 @@ FROM logs-okta.system*
     okta.event_type == "user.authentication.sso", 1, 0
 )
 
-// Aggregate authentication events by application ID , here app id is a scalar field populated during ingestion with the Okta AppInstance ID.
+// Aggregate authentication events by application ID; here app_id is a scalar field populated during ingestion with the Okta AppInstance ID.
 | STATS
     password_only_events = SUM(password_only_verify),
     mfa_events = SUM(mfa_event),

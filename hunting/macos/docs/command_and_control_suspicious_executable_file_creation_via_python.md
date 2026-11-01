@@ -1,4 +1,4 @@
-# Suspcious Executable File Creation via Python
+# Suspicious Executable File Creation via Python
 
 ---
 
@@ -13,7 +13,7 @@ to confirm executables are written to disk.
 - **UUID:** `22841f27-062f-4380-92a0-e3f640d2675f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[EQL]`
-- **Source File:** [Suspcious Executable File Creation via Python](../queries/command_and_control_suspicious_executable_file_creation_via_python.toml)
+- **Source File:** [Suspicious Executable File Creation via Python](../queries/command_and_control_suspicious_executable_file_creation_via_python.toml)
 
 ## Query
 
