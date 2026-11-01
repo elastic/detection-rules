@@ -10,7 +10,7 @@ on macOS systems. These locations, such as /Users/Shared, /tmp, or /private/tmp,
 and post-exploitation frameworks to stage or drop payloads. The detection leverages the ELF or Mach-O magic bytes 
 to confirm executables are written to disk.
 
-- **UUID:** `9aaf1113-cf7a-4fd7-b796-f6456fdaffb5`
+- **UUID:** `22841f27-062f-4380-92a0-e3f640d2675f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[EQL]`
 - **Source File:** [Suspcious Executable File Creation via Python](../queries/command_and_control_suspicious_executable_file_creation_via_python.toml)
