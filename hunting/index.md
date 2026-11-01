@@ -106,7 +106,7 @@ Here are the queries currently available:
 - [Python Library Load and Delete](./macos/docs/defense_evasion_python_library_load_and_delete.md) (ES|QL)
 - [Python Script Drop and Execute](./macos/docs/execution_python_script_drop_and_execute.md) (ES|QL)
 - [Self-Deleted Python Script Accessing Sensitive Files](./macos/docs/defense_evasion_self_deleted_python_script_accessing_sensitive_files.md) (ES|QL)
-- [Self-Deleted Python Script Outbound Network Connection](./macos/docs/defense_evasion_self_deleted_python_script_outbound_network_connection.md) (ES|QL)
+- [Self-Deleted Python Script Outbound Network Connection](./macos/docs/defense_evasion_self_deleted_python_script_outbound_network_connection.md) (EQL)
 - [Self-Deleting Python Script](./macos/docs/defense_evasion_self_deleting_python_script.md) (ES|QL)
 - [Sensitive File Access via Docker](./macos/docs/execution_suspicious_file_access_via_docker.md) (ES|QL)
 - [Suspcious Executable File Creation via Python](./macos/docs/command_and_control_suspicious_executable_file_creation_via_python.md) (ES|QL)
