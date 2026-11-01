@@ -28,7 +28,7 @@ FROM logs-okta.system*
 // Identify verification events where password is the only recorded method
 | EVAL password_only_verify = CASE(
     okta.event_type == "user.authentication.verify"
-    AND MV_CONTAINS(okta.target.detailEntry.methodTypeUsed, "password")
+    AND MV_CONTAINS(okta.target.detailEntry.methodTypeUsed, "PASSWORD")
     AND MV_COUNT(okta.target.detailEntry.methodTypeUsed) == 1,
     1, 0
 )
