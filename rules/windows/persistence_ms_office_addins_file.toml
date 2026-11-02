@@ -2,7 +2,7 @@
 creation_date = "2020/10/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,7 @@ file where host.os.type == "windows" and event.type != "deletion" and
     "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\*",
     "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*"
  ) and
- not (file.name : "~$*" and process.name : "excel.exe" and ?file.size in (0, 165))
+ not (file.name : "~$*" and process.name : "excel.exe" and (?file.size in (0, 165) and ?file.size != null))
 '''
 
 note = """## Triage and analysis

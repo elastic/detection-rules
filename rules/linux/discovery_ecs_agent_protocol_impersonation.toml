@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a process other than the Amazon ECS agent performing a DNS lookup for an ECS Agent Communication Service
+(ACS) or Telemetry Service (TACS) hostname on a Linux host. The ECScape technique abuses the undocumented ACS
+protocol: a compromised container that can reach the instance metadata service steals the EC2 instance role credentials, 
+then impersonates the ECS agent over ACS to receive the task role credentials of every other task scheduled on the same
+host. No container escape is required, and the credential theft crosses task boundaries that operators assume are isolated. 
+Only the ECS agent should be speaking this protocol.
+"""
+false_positives = [
+    """
+    Custom ECS agent implementations or ECS-agent-compatible schedulers may legitimately contact ACS. Add their executable paths 
+    to the exclusion list. Allowlist known sidecar executable paths if alert volume from those containers is high.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Unusual Process Resolving AWS ECS Agent Communication Service Endpoint"
+references = [
+    "https://www.sweet.security/blog/ecscape-understanding-iam-privilege-boundaries-in-amazon-ecs",
+    "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint-v4.html",
+]
+note = """## Triage and analysis
+
+### Investigating Unusual Process Resolving AWS ECS Agent Communication Service Endpoint
+
+ACS (`ecs-a-*.<region>.amazonaws.com`) and TACS (`ecs-t-*.<region>.amazonaws.com`) are the private control and telemetry channels between the ECS agent and the ECS service. No workload process has a legitimate reason to resolve them. A non-agent process doing so is consistent with ECScape, where a compromised task uses stolen instance-role credentials to impersonate the agent over ACS and receive the task role credentials of every other task on the host.
+
+### Possible investigation steps
+
+- Pivot on `process.entity_id` to the process start event for `process.command_line`, `process.parent.name`, and `process.parent.executable`; network events only carry `process.parent.entity_id`.
+- Confirm the process is not the ECS agent itself. On ECS-optimized AMIs the agent runs as the `ecs-agent` container with executable `/agent`; on Bottlerocket and package installs it is `/usr/bin/amazon-ecs-agent`.
+- Look for a preceding connection from the same host to `169.254.169.254` or `169.254.170.2` by a non-agent process, which would be the credential theft step.
+- Review CloudTrail for `DiscoverPollEndpoint` calls made with the instance role from an unexpected source, and for API calls made with other tasks' role credentials shortly after.
+- Check whether the process subsequently spawned children or wrote AWS credentials files.
+- Look for lateral movement indicators: unusual parent processes, shell scripts, or memory-resident execution that would explain why an unexpected binary is contacting the ECS control plane (ACS/TACS).
+
+### False positive analysis
+
+- Custom ECS-compatible agents, schedulers, or health checks that speak to ACS/TACS directly may trigger this rule.
+- If the alert fires on a known tool, add its executable path or process name to the rule's exclusion list.
+
+### Response and remediation
+
+- Isolate the host if credential theft is suspected and rotate any AWS credentials that may have been exposed.
+- Review CloudTrail for API calls made with the task's IAM role shortly after the event timestamp.
+- Investigate how the suspicious process was introduced and remediate the root cause (e.g., compromised container image, code execution vulnerability).
+"""
+risk_score = 47
+rule_id = "eec07086-37c7-4285-bfa2-a4ce03c7648c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "OS: Linux",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.network-* METADATA _id, _index, _version
+| WHERE host.os.type == "linux"
+    AND event.action IN ("lookup_requested", "lookup_result")
+    AND process.executable IS NOT NULL
+    AND (
+      TO_LOWER(dns.question.name) LIKE "ecs-a-*.amazonaws.com*" OR
+      TO_LOWER(dns.question.name) LIKE "ecs-t-*.amazonaws.com*"
+    )
+    AND NOT process.name IN ("amazon-ecs-agent", "ecs-agent", "amazon-ssm-agent", "aws-vpc-cni")
+    AND NOT (
+      process.executable == "/agent" OR
+      process.executable == "/usr/bin/amazon-ecs-agent" OR
+      process.executable LIKE "/managed-agents/*" OR
+      process.executable LIKE "/usr/libexec/amazon-ecs-*" OR
+      process.executable LIKE "/var/lib/ecs/*" OR
+      process.executable LIKE "/opt/Elastic/Agent/*"
+    )
+| KEEP _id, _index, _version, @timestamp, data_stream.namespace, host.id, host.name, user.id, user.name,
+    process.entity_id, process.parent.entity_id, process.pid, process.name, process.executable, dns.question.name
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "process.executable"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1

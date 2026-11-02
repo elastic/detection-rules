@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/09/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the Parallels Desktop root dispatcher (prl_disp_service) spawning tar/bsdtar with more arguments than its fixed extract command uses. 
+The dispatcher always runs a 5-token command (tar -xf <archive> -C <dir>), so any additional arguments indicate an attacker-controlled folder name injecting extra tar flags. 
+On macOS these flags let tar read or write attacker-chosen paths or execute an external program as root, resulting in local privilege escalation (CVE-2026-90894, Parallels Desktop < 27.0.0).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Privilege Escalation via Parallels Appliance Extract Argument Injection"
+note = """## Triage and analysis
+
+### Investigating Privilege Escalation via Parallels Appliance Extract Argument Injection
+
+Parallels Desktop runs prl_disp_service as root and exposes a world-writable socket that any local account can
+reach without admin rights. On builds before 27.0.0 the appliance-install path re-tokenizes a tar command
+string, letting an attacker-controlled folder name inject additional tar flags. A --use-compress-program value
+pointing at an attacker-writable path (commonly /tmp) is executed as root.
+
+- Review process.args for the injected flag and the program it points to; a path under /tmp, /var/tmp, or a
+user-writable location is a strong signal of exploitation.
+- Inspect the child process the injected program spawned (parent tar/bsdtar, running as root) and any files it
+created or modified.
+- Confirm the host's Parallels version; builds on the 26.x line remain affected.
+
+### Response and remediation
+
+- Isolate the host and terminate the injected program and any root children it spawned.
+- Upgrade Parallels Desktop to 27.0.0 or later; on hosts still on 26.x, restrict local login as an interim
+control since any local account can reach the dispatcher socket.
+"""
+references = [
+    "https://research.jfrog.com/vulnerabilities/parallels-desktop-is-vulnerable-to-a-local-privilege-escalation-via-appliance-extract-argument-injection-cve-2026-90894/",
+    "https://www.cve.org/CVERecord?id=CVE-2026-90894",
+]
+risk_score = 73
+rule_id = "448dbe05-07b1-46bb-b3e3-ac9790387948"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Platform: macOS",
+    "OS: macOS",
+    "Rule Type: ESQL",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Vuln: CVE-2026-90894",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-* METADATA _id, _index, _version
+| WHERE host.os.type == "macos"
+    AND process.parent.name == "prl_disp_service"
+    AND process.name IN ("tar", "bsdtar")
+    AND process.args_count > 5
+    AND KQL("""process.args : "-xf" AND event.type : "start" """)
+| EVAL process_args_joined = MV_CONCAT(process.args, " ")
+| KEEP _id, _index, _version, @timestamp, data_stream.namespace, host.id, host.name, user.id, user.name,
+    process.entity_id, process.parent.name, process.parent.entity_id, process.name, process.executable,
+    process.args_count, process_args_joined
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

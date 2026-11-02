@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first ChatGPT Enterprise Codex MCP tool name used by a given user email within an organization in the
+rule history window. Codex MCP tools can query external systems and pull organizational data into an agent session.
+Alerting on first-seen organization, user, and tool triples highlights new or unexpected connector usage rather than
+every routine approved tool call.
+"""
+false_positives = [
+    """
+    Engineers enable approved Codex MCP connectors for GitHub, Slack, ticketing, and internal tools during normal
+    development. Validate the tool name, connector, and whether the integration matches an approved workflow.
+    """,
+]
+from = "now-9m"
+index = ["logs-openai_chatgpt_enterprise.codex_log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Unusual Codex MCP Tool Call"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Unusual Codex MCP Tool Call
+
+First-seen Codex MCP tool name for this `organization.id` and `user.email` within the rule history window. MCP tools can move organizational
+data into external systems through Codex.
+
+Escalate when the tool or connector is not on the approved inventory, the actor is unexpected, or the same session also
+shows credential exposure, broad file access, or unusual shares. Close as a false positive when the tool is approved
+for that user or team.
+
+#### Possible investigation steps
+
+- Record `gen_ai.tool.name`, connector or resource identifiers, and the user (`user.email` / `user.id`).
+- Confirm whether the MCP connector is approved in your ChatGPT Enterprise workspace inventory.
+- Review nearby Codex events for the same session for additional tool calls, prompts containing secrets, or
+  access-token creation.
+- Search for the same tool used by other users to distinguish a new org-wide rollout from a single anomalous account.
+
+### False positive analysis
+
+- Approved engineering automation commonly introduces first-seen tool names during connector rollouts and pilot work.
+
+### Response and remediation
+
+- Disable unauthorized connectors, revoke related credentials, and review data returned into the Codex session.
+- If sensitive data was retrieved, treat the session as a potential exposure and follow your data-incident process.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "2b284f6d-5307-4f42-968a-0769005c740e"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "openai_chatgpt_enterprise.codex_log" and
+    event.action: "app_mcp_call" and
+    organization.id: * and
+    user.email: * and
+    gen_ai.tool.name: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "organization.id",
+    "user.id",
+    "user.email",
+    "gen_ai.tool.name",
+    "openai_chatgpt_enterprise.codex_log.event_details.tool_meta.connector_id",
+    "openai_chatgpt_enterprise.codex_log.event_details.tool_meta.resource_id",
+    "openai_chatgpt_enterprise.codex_log.client_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["organization.id", "user.email", "gen_ai.tool.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
