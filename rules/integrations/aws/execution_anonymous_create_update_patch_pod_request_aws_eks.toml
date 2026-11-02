@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts to create, update, or patch pods by an anonymous user. An anonymous user is a user that is
+not authenticated or authorized to access the Kubernetes API server. Creating, updating, or patching pods is a common
+activity for attackers to gain access to the cluster and execute commands.
+"""
+from = "now-6m"
+index = ["logs-aws.eks_audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS EKS Anonymous User Create/Update/Patch Pods Request"
+note = """## Triage and analysis
+
+### Investigating AWS EKS Anonymous User Create/Update/Patch Pods Request
+
+This rule fires when the EKS API server records a `create`, `update`, or `patch` request against the `pods` resource
+from the anonymous identity (`system:anonymous` or the `system:unauthenticated` group), directly or through
+impersonation. Anonymous access to the Kubernetes API is disabled by default on EKS, and the anonymous identity should
+never be able to write workloads. A matching event indicates either a misconfigured RoleBinding or ClusterRoleBinding
+that grants pod write access to anonymous callers, or an attacker exploiting such a binding to run a container in the
+cluster.
+
+### Possible investigation steps
+
+- Review `aws.eks.audit.annotations.authorization_k8s_io/decision` and `aws.eks.audit.responseStatus.code` to
+  determine whether the request was allowed or forbidden. An allowed request is a confirmed exposure.
+- Inspect `aws.eks.audit.requestObject.spec` for the pod definition: image, command, privileged settings, host
+  namespaces, hostPath volumes, and the service account the pod would run as.
+- Identify the client from `source.ip`, `aws.eks.audit.sourceIPs`, and `user_agent.original`, and check whether the
+  address is inside the VPC or external.
+- Search the audit log for other anonymous activity from the same source around the alert, such as discovery requests,
+  secret reads, or exec into the created pod.
+- Review RoleBindings and ClusterRoleBindings that reference `system:anonymous` or `system:unauthenticated` to find
+  the binding that permitted the request, and check the cluster endpoint access configuration.
+
+### False positive analysis
+
+- Security scanners or penetration tests that probe anonymous access may generate forbidden requests. Confirm the
+  source and schedule, and scope the rule or an exception to the testing window and source addresses.
+
+### Response and remediation
+
+- If the request was allowed, treat the cluster as compromised: delete or quarantine the created or modified pod,
+  capture its image and spec for analysis, and review what it accessed.
+- Remove any binding that grants write permissions to `system:anonymous` or `system:unauthenticated`, and restrict the
+  cluster endpoint to private access or an allowlist of CIDR ranges.
+- Rotate secrets and service account tokens reachable from the affected namespace, and review node and IAM activity
+  for follow-on access.
+"""
+risk_score = 47
+rule_id = "f45ce149-3f1f-5788-b07a-926a8d82dd15"
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "aws.eks_audit" and (
+    aws.eks.audit.user.username in ("system:anonymous", "system:unauthenticated") or
+    aws.eks.audit.impersonatedUser.username in ("system:anonymous", "system:unauthenticated") or
+    aws.eks.audit.user.username == null or
+    aws.eks.audit.user.username == ""
+  ) and aws.eks.audit.level in ("RequestResponse", "ResponseComplete", "Request") and aws.eks.audit.verb in ("create", "update", "patch") and
+aws.eks.audit.objectRef.resource == "pods"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
