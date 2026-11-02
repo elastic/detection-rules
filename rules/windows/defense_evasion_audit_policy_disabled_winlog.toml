@@ -4,13 +4,13 @@ integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0, MV_CONTAINS is in preview since 9.2."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to disable auditing for some security sensitive audit policy sub-categories. This is often done by
-attackers in an attempt to evade detection and forensics on a system.
+Identifies when a security-sensitive audit policy subcategory is disabled and left disabled. Attackers do this to evade
+detection and impair forensics.
 """
 from = "now-11m"
 language = "esql"
@@ -78,7 +78,11 @@ type = "esql"
 query = '''
 from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _index
 | where host.os.type == "windows" and event.code == "4719" and
-  winlog.event_data.AuditPolicyChangesDescription in ("Success removed", "Success Added") and
+  // The description field is multi-valued when success and failure change together
+  (
+    MV_CONTAINS(winlog.event_data.AuditPolicyChangesDescription, "Success removed") or
+    MV_CONTAINS(winlog.event_data.AuditPolicyChangesDescription, "Success Added")
+  ) and
   winlog.event_data.SubCategory in (
     "Logon",
     "Audit Policy Change",
@@ -87,17 +91,21 @@ from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _ind
     "Security Group Management",
     "User Account Management"
   )
-| eval Esql.time_window = DATE_TRUNC(5m, @timestamp)
 
-// Aggregate policy changes within each 5m window per host and sub-category,
-// then keep only removals that were not re-enabled in the same window
+// Latest "Success Added" for this computer and subcategory in the lookback.
+| eval Esql.is_restore = MV_CONTAINS(winlog.event_data.AuditPolicyChangesDescription, "Success Added")
 | inline stats
-    Esql.winlog_AuditPolicyChangesDescription_values = VALUES(winlog.event_data.AuditPolicyChangesDescription)
-  by host.id, winlog.event_data.SubCategory, Esql.time_window
-| where winlog.event_data.AuditPolicyChangesDescription == "Success removed" and not MV_CONTAINS(Esql.winlog_AuditPolicyChangesDescription_values, "Success Added")
+    Esql.restore_at = MAX(@timestamp) where Esql.is_restore
+  by winlog.computer_name, winlog.event_data.SubCategory
 
-// Wait 5m for a potential "Success Added" to arrive before alerting
-| where @timestamp < NOW() - 5m
+// Keep a removal that was ingested at least 5 minutes ago and has no later restore.
+// The same timestamp counts as restored.
+| where MV_CONTAINS(winlog.event_data.AuditPolicyChangesDescription, "Success removed") and
+  event.ingested < NOW() - 5m and
+  (
+    Esql.restore_at is null or
+    Esql.restore_at < @timestamp
+  )
 | keep *
 '''
 

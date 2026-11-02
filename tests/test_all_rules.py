@@ -44,6 +44,8 @@ from detection_rules.version_lock import loaded_version_lock
 from .base import BaseRuleTest
 
 PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
+# Diff against the PR's target branch so PRs into release branches only see their own changes
+DIFF_BASE_REF = f"origin/{os.getenv('GITHUB_BASE_REF') or 'main'}"
 
 
 class TestValidRules(BaseRuleTest):
@@ -967,7 +969,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+        result = detection_rules_git("diff", "--diff-filter=M", DIFF_BASE_REF, "--name-only", rules_path)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result:
@@ -987,7 +989,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         detection_rules_git = make_git()
         result = detection_rules_git(
-            "diff", "--diff-filter=M", "origin/main", "--name-only", rules_path, rules_bbr_path
+            "diff", "--diff-filter=M", DIFF_BASE_REF, "--name-only", rules_path, rules_bbr_path
         )
 
         # If the output is not empty, then file(s) have changed in the directory(s)
@@ -996,7 +998,7 @@ class TestRuleMetadata(BaseRuleTest):
             failed_rules = []
             today_utc = datetime.now(UTC).date()
             for modified_rule_path in modified_rules:
-                diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
+                diff_output = detection_rules_git("diff", DIFF_BASE_REF, modified_rule_path)
                 if re.search(r"^\+\s*updated_date\s*=", diff_output, re.MULTILINE):
                     # updated_date has been modified in this PR
                     continue
