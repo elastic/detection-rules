@@ -111,8 +111,10 @@ from logs-aws.cloudtrail-*
       "AT&T Enterprises, LLC"
     )
   )
+| grok aws.cloudtrail.request_parameters """instanceId=(?<Esql.instance_id>[^,}\]]+)"""
+| where Esql.instance_id is not null
 | stats
-    Esql.count_distinct_instance_id = count_distinct(aws.cloudtrail.request_parameters),
+    Esql.count_distinct_instance_id = count_distinct(Esql.instance_id),
     Esql.aws_request_parameters_values = values(aws.cloudtrail.request_parameters),
     Esql.user_agent_values = values(user_agent.original)
   by
