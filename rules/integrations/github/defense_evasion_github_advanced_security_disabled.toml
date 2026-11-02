@@ -1,14 +1,15 @@
 [metadata]
-creation_date = "2026/09/22"
+creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects GitHub Advanced Security being disabled for an enterprise or for all/new repositories in an organization.
-Disabling GHAS removes secret scanning, code scanning, and related controls.
+Detects GitHub Advanced Security being disabled for an enterprise, for all or new repositories in an organization, for
+existing or new user-namespace repositories, or for selected members via enterprise policy. Disabling GHAS removes
+secret scanning, code scanning, and related controls.
 """
 false_positives = [
     """
@@ -24,7 +25,7 @@ note = """## Triage and analysis
 
 ### Investigating GitHub Advanced Security Disabled
 
-Enterprise `business_advanced_security.disabled*` and org `org.advanced_security_disabled*` actions strip scanning coverage. This is separate from a single-repo `repository_secret_scanning.disable`.
+Enterprise `business_advanced_security.*` disable actions (for the business, new repositories, and existing or new user-namespace repositories) and org-level `org.advanced_security_*` disable actions (all repos, new repos, and selected-member policy) strip scanning coverage. This is separate from a single-repo `repository_secret_scanning.disable`.
 
 ### Possible investigation steps
 
@@ -49,6 +50,7 @@ tags = [
     "Platform: GitHub",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Rule Type: ESQL",
     "Resources: Investigation Guide",
@@ -64,8 +66,10 @@ from logs-github.audit-* metadata _id, _index, _version
       "business_advanced_security.disabled",
       "business_advanced_security.disabled_for_new_repos",
       "business_advanced_security.disabled_for_new_user_namespace_repos",
+      "business_advanced_security.user_namespace_repos_disabled",
       "org.advanced_security_disabled_on_all_repos",
-      "org.advanced_security_disabled_for_new_repos"
+      "org.advanced_security_disabled_for_new_repos",
+      "org.advanced_security_policy_selected_member_disabled"
     )
 | keep
     _id,
