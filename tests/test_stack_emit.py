@@ -26,19 +26,23 @@ from detection_rules.version_lock import VersionLockFile
 class TestStackEmitHelpers(unittest.TestCase):
     """Unit tests for emit epoch helpers."""
 
-    def test_epoch_shared_across_minors_without_new_transforms(self) -> None:
-        """9.6 reuses the 9.5 v19 epoch; ATLAS is gated without a new lock epoch."""
+    def test_epoch_follows_newest_applicable_transform(self) -> None:
+        """9.5 is the v19 epoch; 9.6 is a new epoch once mitre_atlas is registered."""
         self.assertEqual(emit_epoch_key(Version(9, 5, 0)), "9.5")
-        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.5")
+        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.6")
         self.assertIsNone(emit_epoch_key(Version(9, 4, 0)))
 
     def test_transforms_empty_below_min_stack(self) -> None:
         """No transforms apply below 9.5."""
         self.assertEqual(transforms_for_stack(Version(9, 4, 0)), [])
         self.assertGreater(len(transforms_for_stack(Version(9, 5, 0))), 0)
+        ids_9_5 = {t.id for t in transforms_for_stack(Version(9, 5, 0))}
+        ids_9_6 = {t.id for t in transforms_for_stack(Version(9, 6, 0))}
+        self.assertNotIn("mitre_atlas", ids_9_5)
+        self.assertIn("mitre_atlas", ids_9_6)
 
     def test_resolve_inherits_highest_applicable_epoch(self) -> None:
-        """Package 9.6 reuses the 9.5 emit entry when no 9.6 epoch exists."""
+        """Package 9.6 reuses 9.5 until a 9.6 epoch is locked; then prefers 9.6."""
         stack_emit = {
             "9.5": {"sha256": "a" * 64, "version": 13, "transforms": ["mitre_attack_v19"]},
         }
@@ -46,6 +50,18 @@ class TestStackEmitHelpers(unittest.TestCase):
         assert entry is not None
         self.assertEqual(entry["version"], 13)
         self.assertIsNone(resolve_stack_emit_entry(stack_emit, Version(9, 4, 0)))
+
+        stack_emit["9.6"] = {
+            "sha256": "b" * 64,
+            "version": 14,
+            "transforms": ["mitre_attack_v19", "related_integrations_gte", "mitre_atlas"],
+        }
+        entry_96 = resolve_stack_emit_entry(stack_emit, Version(9, 6, 0))
+        assert entry_96 is not None
+        self.assertEqual(entry_96["version"], 14)
+        entry_95 = resolve_stack_emit_entry(stack_emit, Version(9, 5, 0))
+        assert entry_95 is not None
+        self.assertEqual(entry_95["version"], 13)
 
     def test_rewrite_tactic_tags_swaps_defense_evasion(self) -> None:
         """Obsolete baseline tactic tags are dropped; emitted tactic tags are added."""

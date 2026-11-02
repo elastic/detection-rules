@@ -38,7 +38,7 @@ from your submission, but they are here to help bring them to your attention.
 
 - [ ] Added a label for the type of pr: `bug`, `enhancement`, `schema`, `maintenance`, `Rule: New`, `Rule: Deprecation`, `Rule: Tuning`, `Hunt: New`, or `Hunt: Tuning` so guidelines can be generated
 - [ ] Added the `meta:rapid-merge` label if planning to merge within 24 hours
-- [ ] Secret and sensitive material has been managed correctly (no credentials; exclusions use generic non-identifying vendor/install paths — not usernames, hostnames, org names, cluster/agent IDs, IP addresses, or internal workspace/repo trees)
+- [ ] Secret and sensitive material has been managed correctly (no credentials or tokens; exclusions use generic non-identifying vendor/install paths — not usernames, hostnames, org names, cluster/agent IDs, IP addresses, or internal workspace/repo trees; cloud/SaaS rules only hard-code vendor first-party or marketplace-listed app/client IDs — never tenant, subscription, account, or project IDs; sample JSON is redacted)
 - [ ] Automated testing was updated or added to match the most common scenarios
 - [ ] Documentation and comments were added for features that require explanation
 
