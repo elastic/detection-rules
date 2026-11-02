@@ -1,15 +1,16 @@
 [metadata]
-creation_date = "2026/09/22"
+creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/22"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a burst of failed GitHub API requests (HTTP 4xx/5xx) recorded as api.request. Attackers probing private
-repositories, secrets, or admin routes generate clusters of 403/404 responses. Requires API Request Events on audit log
-streaming.
+Detects a burst of failed GitHub API requests (HTTP 4xx/5xx) recorded as api.request, where a single non-bot actor and
+source IP generate a high volume of failures spread across many distinct API routes within a short window. Attackers
+probing private repositories, secrets, or admin routes generate clusters of 403/404 responses across many endpoints,
+whereas broken automation usually hammers a small number of routes. Requires API Request Events on audit log streaming.
 """
 false_positives = [
     """
@@ -17,8 +18,8 @@ false_positives = [
     the token is expected.
     """,
 ]
-from = "now-9m"
-interval = "8m"
+from = "now-11m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "GitHub API Failed Access Burst"
@@ -26,20 +27,26 @@ note = """## Triage and analysis
 
 ### Investigating GitHub API Failed Access Burst
 
-Failed `api.request` status codes often precede successful enumeration after the attacker finds a valid path or token.
+Failed `api.request` status codes often precede successful enumeration after the attacker finds a valid path or token. This rule groups failed requests by `user.name` and `github.actor_ip` and fires when a single actor/IP produces at least 15 failures spread across 10 or more distinct API routes in the window, which distinguishes broad enumeration from a single broken integration hammering one endpoint.
 
 ### Possible investigation steps
 
-- Review `github.route`, `github.status_code`, `github.hashed_token`, and `github.actor_ip`.
-- Look for a later run of 200s on secrets, trees, or contents from the same actor.
+- Review the alerting `user.name` and `github.actor_ip`, and inspect `Esql.distinct_route_count` and `Esql.github_route_values` to see which routes were probed.
+- Review `Esql.github_status_code_values` to confirm the mix of 401/403/404 responses typical of access probing.
+- Pivot on `Esql_priv.github_token_id_values` and `Esql.github_programmatic_access_type_values` to identify the token and access method used.
+- Check `Esql.distinct_repo_count` and `Esql.github_org_values` to gauge how broadly the actor is probing across repositories and organizations.
+- Look for a later run of 200s on secrets, trees, or contents from the same actor or token, which indicates successful enumeration.
 
 ### False positive analysis
 
-- CI using a token that lacks repo scope against private repositories.
+- CI or inventory tooling using a token that lacks repo scope against private repositories. These typically hit a small number of routes, so review `Esql.distinct_route_count` and the route values before dismissing.
+- Expired or rotated tokens causing widespread 401s from a known automation IP.
 
 ### Response and remediation
 
 - Revoke the token if the actor is not a known automation identity. Tighten org PAT policies.
+- Block or monitor the source IP if the activity is clearly reconnaissance.
+- Review whether any probed route later returned a success for the same actor.
 """
 references = [
     "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
@@ -58,8 +65,9 @@ tags = [
     "Platform: GitHub",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -69,8 +77,11 @@ query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
   data_stream.dataset == "github.audit" and event.action == "api.request" and github.status_code >= 400
+    and (github.actor_is_bot == false or github.actor_is_bot is null)
 | stats
   Esql.event_count = COUNT(*),
+  Esql.distinct_route_count = COUNT_DISTINCT(github.route),
+  Esql.distinct_repo_count = COUNT_DISTINCT(github.repo),
   Esql.github_route_values = values(github.route),
   Esql.github_status_code_values = values(github.status_code),
   Esql.github_org_values = values(github.org),
@@ -81,9 +92,9 @@ from logs-github.audit-* metadata _id, _index, _version
   Esql.data_stream_namespace_values = values(data_stream.namespace),
   Esql_priv.github_token_id_values = values(github.token_id),
   Esql_priv.user_name_values = values(user.name)
-  by user.name
-| keep user.name, Esql.*, Esql_priv.*
-| where Esql.event_count >= 15
+  by user.name, github.actor_ip
+| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
+| where Esql.event_count >= 15 and Esql.distinct_route_count >= 10
 '''
 
 
@@ -103,7 +114,10 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.investigation_fields]
 field_names = [
     "user.name",
+    "github.actor_ip",
     "Esql.event_count",
+    "Esql.distinct_route_count",
+    "Esql.distinct_repo_count",
     "Esql.github_route_values",
     "Esql.github_status_code_values",
     "Esql.github_org_values",
