@@ -2,7 +2,7 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -106,9 +106,9 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "process_start
   (process.name == "pkaction" and process.args == "--version")
 ) and
 not (
-  ?process.working_directory in ("/opt/msp-agent", "/opt/CyberCNSAgent") or
-  ?process.parent.executable like ("/usr/local/cpanel/3rdparty/perl/*/bin/perl", "/usr/share/vicarius/topiad") or
-  ?process.entry_leader.executable in ("/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent", "/sf/edr/agent/bin/edr_monitor") or
+  (?process.working_directory in ("/opt/msp-agent", "/opt/CyberCNSAgent") and ?process.working_directory != null) or
+  (?process.parent.executable like ("/usr/local/cpanel/3rdparty/perl/*/bin/perl", "/usr/share/vicarius/topiad") and ?process.parent.executable != null) or
+  (?process.entry_leader.executable in ("/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent", "/sf/edr/agent/bin/edr_monitor") and ?process.entry_leader.executable != null) or
   (
     ?process.parent.args == "/usr/lib/venv-salt-minion/bin/python.original" and
     ?process.parent.args == "/usr/lib/venv-salt-minion/bin/salt-minion"
