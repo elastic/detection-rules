@@ -40,17 +40,19 @@ originated from that physical device or that WAM/WinRT generated it.
 
 ### Possible investigation steps
 
-- Review `Esql.token_id`, `Esql.signin_ids`, and `Esql.graph_operation_ids` to pivot to the original events.
-- Compare `Esql.signin_user_agents` with `Esql.graph_user_agents`. A client sign-in followed by PowerShell, Python,
+- Review `Esql.token_id`, `Esql.azure_signinlogs_properties_id_values`, and
+  `Esql.azure_graphactivitylogs_properties_operation_id_values` to pivot to the original events.
+- Compare `Esql.user_agent_original_client_signin_values` with
+  `Esql.user_agent_original_scripted_enum_values`. A client sign-in followed by PowerShell, Python,
   AzureHound, a generic HTTP library, or another scripted Graph client using the same token can indicate unauthorized
   access-token use.
 - A browser-like Graph user agent does not clear the activity. GraphRunner and Graphpython can forge browser strings;
   this rule intentionally avoids matching broad Mozilla, Chrome, Edge, or Safari values because they are too noisy.
-- Review `Esql.graph_urls` and `Esql.graph_paths` to determine what identities, groups, applications, service
-  principals, roles, or tenant metadata were enumerated. `Esql.distinct_graph_paths` must be at least three; query
-  parameters and pagination do not increase this count.
-- Validate `Esql.app_id`, `Esql.user_id`, `Esql.session_id`, source addresses, and the device associated with the
-  sign-in.
+- Review `Esql.url_original_values` and `Esql.url_path_values` to determine what identities, groups, applications,
+  service principals, roles, or tenant metadata were enumerated. `Esql.url_path_lower_count_distinct` must be at least
+  three. The count uses the lowercased path, so casing variants of the same path count once. Query parameters and
+  pagination are not part of `url.path` and do not increase this count.
+- Validate `Esql.app_id`, `Esql.user_id`, `Esql.session_id`, `Esql.device_id`, and source addresses.
 - Review adjacent Endpoint telemetry for unusual access to
   `Microsoft\\TokenBroker\\Cache\\*.tbres`, WAM-related call stacks, or untrusted processes loading `vaultcli.dll`.
 - Do not require `azure.graphactivitylogs.properties.token_issued_at` to equal the sign-in time. Access-token issue
@@ -109,7 +111,10 @@ FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _vers
 
 // normalize the token, user, app, device and session ids
 | EVAL
-    Esql.token_id = COALESCE(azure.signinlogs.properties.unique_token_identifier, token.id),
+    Esql.token_id = COALESCE(
+        azure.signinlogs.properties.unique_token_identifier,
+        token.id
+    ),
     Esql.session_id = COALESCE(
         azure.signinlogs.properties.session_id,
         azure.graphactivitylogs.properties.c_sid
@@ -126,8 +131,8 @@ FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _vers
         azure.signinlogs.properties.device_detail.device_id,
         azure.graphactivitylogs.properties.c_device_id
     ),
-    Esql.user_agent_lower = TO_LOWER(user_agent.original),
-    Esql.graph_path_lower = TO_LOWER(url.path)
+    Esql.user_agent_original_lower = TO_LOWER(user_agent.original),
+    Esql.url_path_lower = TO_LOWER(url.path)
 
 // filter for Entra ID client sign-in and token acquisition context
 | WHERE
@@ -137,7 +142,7 @@ FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _vers
     Esql.app_id IS NOT NULL AND
     Esql.device_id IS NOT NULL AND
     Esql.device_id != ""
-| EVAL Esql.is_client_signin =
+| EVAL Esql.azure_signinlogs_is_client_signin =
     event.dataset == "azure.signinlogs" AND
     azure.signinlogs.properties.status.error_code == 0 AND
     azure.signinlogs.properties.device_detail.trust_type == "Azure AD joined" AND
@@ -152,41 +157,41 @@ FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _vers
 
 // filter for scripted Graph enumeration for a user identity
 // based on red teaming tooling and in-the-wild observations
-| EVAL Esql.is_scripted_graph_enum =
+| EVAL Esql.azure_graphactivitylogs_is_scripted_enum =
     event.dataset == "azure.graphactivitylogs" AND
     azure.graphactivitylogs.properties.c_idtyp == "user" AND
     azure.graphactivitylogs.properties.client_auth_method == 0 AND
     http.request.method == "GET" AND
     (
-        Esql.user_agent_lower LIKE "*powershell*" OR
-        Esql.user_agent_lower LIKE "*python-requests/*" OR
-        Esql.user_agent_lower LIKE "*python-httpx/*" OR
-        Esql.user_agent_lower LIKE "*curl/*" OR
-        Esql.user_agent_lower LIKE "*aiohttp/*" OR
-        Esql.user_agent_lower LIKE "*fasthttp*" OR
-        Esql.user_agent_lower LIKE "*go-http-client/*" OR
-        Esql.user_agent_lower LIKE "*go-resty/*" OR
-        Esql.user_agent_lower LIKE "*okhttp/*" OR
-        Esql.user_agent_lower LIKE "*restsharp/*" OR
-        Esql.user_agent_lower LIKE "*postmanruntime/*" OR
-        Esql.user_agent_lower LIKE "*axios/*" OR
-        Esql.user_agent_lower == "node" OR
-        Esql.user_agent_lower LIKE "*node-fetch/*" OR
-        Esql.user_agent_lower LIKE "*undici*" OR
-        Esql.user_agent_lower LIKE "*azurehound/*" OR
-        Esql.user_agent_lower LIKE "*sharphound/*" OR
-        Esql.user_agent_lower LIKE "*bloodhound/*" OR
-        Esql.user_agent_lower LIKE "*aadinternals*" OR
-        Esql.user_agent_lower LIKE "*bav2ropc*" OR
-        Esql.user_agent_lower LIKE "*roadtools*" OR
-        Esql.user_agent_lower LIKE "*roadrecon*" OR
-        Esql.user_agent_lower LIKE "*roadtx*" OR
-        Esql.user_agent_lower LIKE "*graphpython*" OR
-        Esql.user_agent_lower LIKE "*msgraphx*"
+        Esql.user_agent_original_lower LIKE "*powershell*" OR
+        Esql.user_agent_original_lower LIKE "*python-requests/*" OR
+        Esql.user_agent_original_lower LIKE "*python-httpx/*" OR
+        Esql.user_agent_original_lower LIKE "*curl/*" OR
+        Esql.user_agent_original_lower LIKE "*aiohttp/*" OR
+        Esql.user_agent_original_lower LIKE "*fasthttp*" OR
+        Esql.user_agent_original_lower LIKE "*go-http-client/*" OR
+        Esql.user_agent_original_lower LIKE "*go-resty/*" OR
+        Esql.user_agent_original_lower LIKE "*okhttp/*" OR
+        Esql.user_agent_original_lower LIKE "*restsharp/*" OR
+        Esql.user_agent_original_lower LIKE "*postmanruntime/*" OR
+        Esql.user_agent_original_lower LIKE "*axios/*" OR
+        Esql.user_agent_original_lower == "node" OR
+        Esql.user_agent_original_lower LIKE "*node-fetch/*" OR
+        Esql.user_agent_original_lower LIKE "*undici*" OR
+        Esql.user_agent_original_lower LIKE "*azurehound/*" OR
+        Esql.user_agent_original_lower LIKE "*sharphound/*" OR
+        Esql.user_agent_original_lower LIKE "*bloodhound/*" OR
+        Esql.user_agent_original_lower LIKE "*aadinternals*" OR
+        Esql.user_agent_original_lower LIKE "*bav2ropc*" OR
+        Esql.user_agent_original_lower LIKE "*roadtools*" OR
+        Esql.user_agent_original_lower LIKE "*roadrecon*" OR
+        Esql.user_agent_original_lower LIKE "*roadtx*" OR
+        Esql.user_agent_original_lower LIKE "*graphpython*" OR
+        Esql.user_agent_original_lower LIKE "*msgraphx*"
     ) AND
     (
         // Documented collection reads. Query parameters are not part of url.path.
-        Esql.graph_path_lower IN (
+        Esql.url_path_lower IN (
             "/v1.0/users",
             "/beta/users",
             "/v1.0/groups",
@@ -213,43 +218,63 @@ FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _vers
             "/beta/rolemanagement/directory/roleeligibilityscheduleinstances"
         )
     )
-| WHERE Esql.is_client_signin OR Esql.is_scripted_graph_enum
+| WHERE Esql.azure_signinlogs_is_client_signin OR Esql.azure_graphactivitylogs_is_scripted_enum
 
 // aggregate the events for the rule by session, user, app, device, token and tenant
 | STATS
-    Esql.client_signin_events = COUNT_DISTINCT(azure.signinlogs.properties.id) WHERE Esql.is_client_signin,
-    Esql.scripted_graph_enum_events = COUNT_DISTINCT(
+    Esql.azure_signinlogs_properties_id_count_distinct = COUNT_DISTINCT(
+        azure.signinlogs.properties.id
+    ) WHERE Esql.azure_signinlogs_is_client_signin,
+    Esql.azure_graphactivitylogs_properties_operation_id_count_distinct = COUNT_DISTINCT(
         azure.graphactivitylogs.properties.operation_id
-    ) WHERE Esql.is_scripted_graph_enum,
-    Esql.distinct_graph_paths = COUNT_DISTINCT(url.path) WHERE Esql.is_scripted_graph_enum,
-    Esql.signin_time_min = MIN(CASE(Esql.is_client_signin, @timestamp, NULL)),
-    Esql.graph_time_min = MIN(CASE(Esql.is_scripted_graph_enum, @timestamp, NULL)),
-    Esql.signin_user_agents = VALUES(user_agent.original) WHERE Esql.is_client_signin,
-    Esql.graph_user_agents = VALUES(user_agent.original) WHERE Esql.is_scripted_graph_enum,
-    Esql.graph_paths = VALUES(url.path) WHERE Esql.is_scripted_graph_enum,
-    Esql.graph_urls = VALUES(url.original) WHERE Esql.is_scripted_graph_enum,
-    Esql.source_ips = VALUES(source.ip),
-    Esql.signin_ids = VALUES(azure.signinlogs.properties.id) WHERE Esql.is_client_signin,
-    Esql.graph_operation_ids = VALUES(
+    ) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.url_path_lower_count_distinct = COUNT_DISTINCT(
+        Esql.url_path_lower
+    ) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.timestamp_client_signin_min = MIN(
+        CASE(Esql.azure_signinlogs_is_client_signin, @timestamp, NULL)
+    ),
+    Esql.timestamp_scripted_enum_min = MIN(
+        CASE(Esql.azure_graphactivitylogs_is_scripted_enum, @timestamp, NULL)
+    ),
+    Esql.user_agent_original_client_signin_values = VALUES(
+        user_agent.original
+    ) WHERE Esql.azure_signinlogs_is_client_signin,
+    Esql.user_agent_original_scripted_enum_values = VALUES(
+        user_agent.original
+    ) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.url_path_values = VALUES(url.path) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.url_original_values = VALUES(url.original) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.azure_signinlogs_properties_id_values = VALUES(
+        azure.signinlogs.properties.id
+    ) WHERE Esql.azure_signinlogs_is_client_signin,
+    Esql.azure_graphactivitylogs_properties_operation_id_values = VALUES(
         azure.graphactivitylogs.properties.operation_id
-    ) WHERE Esql.is_scripted_graph_enum,
-    Esql.app_display_names = VALUES(
+    ) WHERE Esql.azure_graphactivitylogs_is_scripted_enum,
+    Esql.azure_signinlogs_properties_app_display_name_values = VALUES(
         azure.signinlogs.properties.app_display_name
-    ) WHERE Esql.is_client_signin,
-    Esql.user_principal_names = VALUES(
+    ) WHERE Esql.azure_signinlogs_is_client_signin,
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values = VALUES(
         azure.signinlogs.properties.user_principal_name
-    ) WHERE Esql.is_client_signin
-  BY Esql.token_id, Esql.session_id, Esql.user_id, Esql.app_id, Esql.device_id, azure.tenant_id
+    ) WHERE Esql.azure_signinlogs_is_client_signin
+  BY
+    Esql.token_id,
+    Esql.session_id,
+    Esql.user_id,
+    Esql.app_id,
+    Esql.device_id,
+    azure.tenant_id
 
 // filter by client sign-in and scripted Graph enumeration events
 | WHERE
-    Esql.client_signin_events > 0 AND
-    Esql.scripted_graph_enum_events > 0 AND
-    Esql.distinct_graph_paths >= 3 AND
-    Esql.signin_time_min IS NOT NULL AND
-    Esql.graph_time_min IS NOT NULL AND
-    Esql.graph_time_min >= Esql.signin_time_min
-| KEEP Esql.*, azure.tenant_id
+    Esql.azure_signinlogs_properties_id_count_distinct > 0 AND
+    Esql.azure_graphactivitylogs_properties_operation_id_count_distinct > 0 AND
+    Esql.url_path_lower_count_distinct >= 3 AND
+    Esql.timestamp_client_signin_min IS NOT NULL AND
+    Esql.timestamp_scripted_enum_min IS NOT NULL AND
+    Esql.timestamp_scripted_enum_min >= Esql.timestamp_client_signin_min
+| KEEP Esql.*, Esql_priv.*, azure.tenant_id
 '''
 
 [rule.alert_suppression]
@@ -306,12 +331,14 @@ field_names = [
     "Esql.token_id",
     "Esql.session_id",
     "Esql.user_id",
-    "Esql.user_principal_names",
+    "Esql_priv.azure_signinlogs_properties_user_principal_name_values",
     "Esql.app_id",
-    "Esql.app_display_names",
-    "Esql.signin_user_agents",
-    "Esql.graph_user_agents",
-    "Esql.graph_urls",
-    "Esql.source_ips",
+    "Esql.azure_signinlogs_properties_app_display_name_values",
+    "Esql.user_agent_original_client_signin_values",
+    "Esql.user_agent_original_scripted_enum_values",
+    "Esql.url_original_values",
+    "Esql.url_path_values",
+    "Esql.url_path_lower_count_distinct",
+    "Esql.source_ip_values",
     "Esql.device_id",
 ]
