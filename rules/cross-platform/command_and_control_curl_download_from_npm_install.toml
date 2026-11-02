@@ -1,0 +1,189 @@
+[metadata]
+creation_date = "2026/09/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects curl downloading over HTTP(S) with a short argument list, writing output to a file or launched via a shell,
+when the process ancestry includes a Node.js npm package execution (`npx-cli.js` or an npx cache path). Malicious npm
+packages and supply-chain compromises commonly fetch a second stage from install or postinstall scripts.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Curl Download Activity from npm Package Install"
+note = """## Triage and analysis
+
+### Investigating Curl Download Activity from npm Package Install
+
+curl retrieved a remote HTTP(S) resource with a short command line (output file `-o`, or a shell parent) in a process
+tree that includes Node.js executing an npm package via `npx-cli.js` or the npx cache. That pattern is common in
+malicious npm packages and compromised dependencies.
+
+### Possible investigation steps
+
+- Review `all_pkg_cmdline` for the `npx-cli.js` or npx-cache invocation and identify the package name, scope, and version.
+- Inspect `process.command_line` for the URL, `-o`/`-O` output path, and whether the download is piped to a shell.
+- Correlate the same `host.id` and `user.name` for newly written files, outbound connections, and additional children
+  from the Node.js or curl tree.
+- Check recent npm installs, `package.json` lifecycle scripts, and lockfile changes on the host for the package in
+  `all_pkg_cmdline`.
+
+### False positive analysis
+
+- Some legitimate packages download helpers or build tools with curl during install. Confirm the package, publisher,
+  and destination URL before excluding.
+- Scope exceptions to a known package command line, host, or user. Do not broadly exclude `npx` or `curl`.
+
+### Response and remediation
+
+- If malicious, isolate the host, stop the Node.js and curl process tree, and remove the package and any dropped files.
+- Rotate credentials and tokens available to that user or build environment, including npm tokens and cloud keys.
+- Block the package and related domains, and hunt for the same `all_pkg_cmdline` and curl command line on other hosts.
+"""
+references = ["https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise"]
+risk_score = 47
+rule_id = "7a3c9e21-5d84-4b16-9f02-1e8c6a4d0b73"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Use Case: Threat Detection",
+	"Tactic: Command and Control",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Threat: Supply Chain",
+    "Threat: Download Tool Abuse",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+
+| WHERE KQL(""" host.os.type:("linux" or "macos") AND event.action:exec """)
+
+| EVAL is_pkg_install = CASE(
+    // npm
+    process.parent.name == "node" AND (
+      process.parent.command_line LIKE "*npx-cli.js*" OR
+      process.parent.command_line LIKE "*npm-cli.js*" OR
+      process.parent.command_line LIKE "*/.npm/_npx/*" OR
+      process.parent.command_line LIKE "*/npm-cache/*"
+    ), true,
+    false
+  )
+
+| EVAL cmdline_lower = TO_LOWER(process.command_line)
+| EVAL parent_cmdline_lower = TO_LOWER(process.parent.command_line)
+
+| EVAL is_curl_download = CASE(
+    process.name == "curl" AND
+    cmdline_lower LIKE "*http*" AND
+    process.args_count <= 5 AND
+    (
+      cmdline_lower LIKE "* -o*" OR 
+	  cmdline_lower LIKE "* --output*" OR 
+      parent_cmdline_lower LIKE "*zsh" OR
+      parent_cmdline_lower LIKE "*sh" OR
+      parent_cmdline_lower LIKE "*bash" OR
+      parent_cmdline_lower LIKE "*dash"
+    ) AND
+    NOT (
+      cmdline_lower LIKE "*169.254.169.254*" OR
+      cmdline_lower LIKE "*localhost*" OR
+      cmdline_lower LIKE "*127.0.0.1*"
+    ),
+    true, false
+  )
+
+| WHERE process.Ext.ancestry IS NOT NULL AND (is_curl_download OR is_pkg_install)
+
+// Capture entity_ids for package install parent processes
+| EVAL all_entity_id = CASE(is_pkg_install, process.parent.entity_id, "null")
+
+// Collect all package install entity_ids globally
+| INLINE STATS all_pkg_entity_ids = VALUES(all_entity_id), all_pkg_cmdline = VALUES(process.parent.command_line) WHERE all_entity_id != "null" by host.id
+
+// Find which package install entity_ids appear in this process's ancestry
+| EVAL Esql.pkg_ancestor_ids = MV_INTERSECTION(all_pkg_entity_ids, process.Ext.ancestry)
+
+// curl download descended from an npm package install process
+| WHERE Esql.pkg_ancestor_ids IS NOT NULL AND is_curl_download
+
+| KEEP _id, _version, _index, data_stream.namespace, host.id, host.name, user.name, process.entity_id, process.executable, process.command_line, process.parent.executable, process.parent.command_line, all_pkg_cmdline
+'''
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "user.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.001"
+name = "Compromise Software Dependencies and Development Tools"
+reference = "https://attack.mitre.org/techniques/T1195/001/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

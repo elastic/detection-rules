@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Vertex AI GenerateContent responses whose candidate finish_reason is SAFETY. That value is emitted when Gemini
+safety filters stop generation. Unlike textual refusals (finish_reason STOP), SAFETY means the provider blocked or
+truncated the completion.
+"""
+false_positives = [
+    """
+    Aggressive safetySettings (for example BLOCK_LOW_AND_ABOVE) on red-team or content-moderation workloads can produce
+    frequent SAFETY finishes. Exclude those projects or models, or require concurrent HIGH/MEDIUM ratings.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Response Blocked by Safety Filters"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Response Blocked by Safety Filters
+
+A GenerateContent candidate ended with `finish_reason` SAFETY — Gemini safety filters blocked or
+truncated the completion. Unlike textual refusals (STOP with "I cannot…"), SAFETY is a provider-side
+block and often co-occurs with elevated harm-category ratings.
+
+#### Possible investigation steps
+
+- Read the rejected prompt in
+  `gcp.vertexai.prompt_response_logs.full_request.contents.parts.text`.
+- Check `safety_ratings.category`, `probability`, and `severity` on the same document. HIGH or
+  MEDIUM increases confidence the prompt was harmful rather than a strict-threshold FP.
+- Note `safety_settings.threshold` / `category` on the request. Nearby `BLOCK_NONE` from the same
+  project can indicate an attempt to weaken filters after blocks.
+- Pivot to `logs-gcp_vertexai.auditlogs-*` GenerateContent for `source.ip` and `client.user.email`.
+- Check for bursts: many SAFETY finishes from one principal often means automated probing.
+
+### False positive analysis
+
+- Authorized policy-test or content-moderation harnesses that intentionally probe filters,
+  especially with aggressive thresholds such as BLOCK_LOW_AND_ABOVE. Exclude those projects.
+
+### Response and remediation
+
+- Confirm the caller is approved for safety testing; otherwise revoke Vertex credentials and review
+  IAM.
+- If probing is confirmed, hunt for successful completions (STOP) after threshold changes and for
+  related jailbreak / BLOCK_NONE alerts.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-filters",
+]
+risk_score = 47
+rule_id = "59ebf5b6-942a-441e-9d18-9ba71d134c63"
+setup = """## Setup
+
+Requires GCP Vertex AI prompt_response_logs with full_response.candidates.finish_reason from BigQuery
+request/response logging.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Policy Violation",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason, "SAFETY")
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    cloud.project.id,
+    gcp.vertexai.prompt_response_logs.model,
+    gcp.vertexai.prompt_response_logs.api_method,
+    gcp.vertexai.prompt_response_logs.full_request.contents.parts.text,
+    gcp.vertexai.prompt_response_logs.full_request.safety_settings.category,
+    gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.severity
+'''
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "cloud.project.id",
+    "gcp.vertexai.prompt_response_logs.model",
+    "gcp.vertexai.prompt_response_logs.api_method",
+    "gcp.vertexai.prompt_response_logs.full_request.contents.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_request.safety_settings.category",
+    "gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.severity",
+]
+

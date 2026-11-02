@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects three or more Vertex AI GenerateContent replies in 60 minutes whose assistant text indicates a refusal (cannot
+fulfill/assist/help/answer, unable to assist, decline the request, against my guidelines, and similar), aggregated by
+project and model. Prompt-response logs lack a stable caller identity, so this is a project-wide refusal burst signal —
+pivot to auditlogs for principal/IP attribution.
+"""
+false_positives = [
+    """
+    Approved red-team suites that intentionally elicit refusals. Exclude those models or raise the threshold.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Repeated Assistant Refusals"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Repeated Assistant Refusals
+
+One project/model pair produced three or more refusal-style completions in the lookback window
+(assistant text such as "I cannot fulfill…", "I cannot provide…", "unable to assist…", or
+"against my guidelines…", typically with `finish_reason` STOP). Aggregation is project-wide
+because prompt_response_logs do not carry caller email/IP; use auditlogs to attribute the burst.
+
+#### Possible investigation steps
+
+- Review `Esql.event_count`, `Esql.prompt_values`, and `Esql.response_values` on the alert. Skim
+  prompts for jailbreak attempts, malware requests, or credential harvesting.
+- Remember this rule keys on textual refusals with STOP — not provider `SAFETY` blocks. Use the
+  safety-filter / elevated-rating rules for those.
+- Pivot to `logs-gcp_vertexai.auditlogs-*` with `event.action like "*GenerateContent*"` in the same
+  window for `source.ip` and `client.user.email`.
+- Correlate with jailbreak-heuristic, elevated-safety, and BLOCK_NONE alerts for the same
+  project/model.
+
+### False positive analysis
+
+- Quoted refusal examples and non-security limitations can also match these text heuristics. Read
+  the original prompts and responses before treating a match as a policy refusal.
+- Approved content-safety evaluation or red-team suites that intentionally elicit refusals. Exclude
+  those models/principals or raise the count threshold.
+
+### Response and remediation
+
+- Identify the calling workload via auditlogs; if unauthorized, restrict or rotate credentials and
+  review application allowlists.
+- If prompts show a clear attack theme, expand the hunt across other models and projects for the
+  same principal/IP.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+]
+risk_score = 73
+rule_id = "949912f8-6736-439e-a2fb-d28dcf866017"
+setup = """## Setup
+
+Requires GCP Vertex AI `prompt_response_logs` with response text populated in BigQuery export.
+"""
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Policy Violation",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-*
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason, "STOP")
+| eval response_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text, " "), ""))
+| where
+    response_text like "*cannot fulfill*" or
+    response_text like "*cannot assist*" or
+    response_text like "*can't assist*" or
+    response_text like "*can't help*" or
+    response_text like "*cannot help*" or
+    response_text like "*i cannot provide*" or
+    response_text like "*i can't provide*" or
+    response_text like "*i will not provide*" or
+    response_text like "*i cannot answer*" or
+    response_text like "*i can't answer*" or
+    response_text like "*unable to provide*" or
+    response_text like "*unable to assist*" or
+    response_text like "*unable to fulfill*" or
+    response_text like "*not able to help*" or
+    response_text like "*not able to provide*" or
+    response_text like "*must decline*" or
+    response_text like "*respectfully decline*" or
+    response_text like "*decline this request*" or
+    response_text like "*decline that request*" or
+    response_text like "*cannot disclose*" or
+    response_text like "*can't disclose*" or
+    response_text like "*against my guidelines*" or
+    response_text like "*that violates my guidelines*"
+| stats
+    Esql.event_count = count(*),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.prompt_values = values(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text),
+    Esql.response_values = values(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text)
+  by
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id
+| where Esql.event_count >= 3
+| keep
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id,
+    Esql.event_count,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen,
+    Esql.prompt_values,
+    Esql.response_values
+'''
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.alert_suppression]
+group_by = ["gcp.vertexai.prompt_response_logs.model", "cloud.project.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "gcp.vertexai.prompt_response_logs.model",
+    "cloud.project.id",
+    "Esql.event_count",
+    "Esql.prompt_values",
+    "Esql.response_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
