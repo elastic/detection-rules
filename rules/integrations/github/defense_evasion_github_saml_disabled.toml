@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/09/22"
+creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,9 @@ access control and is a common persistence step after an owner account is compro
 """
 false_positives = [
     """
-    Planned IdP migration. Keep a second owner session and re-enable SSO as soon as the new provider is ready.
+    Planned identity provider (IdP) migration or SAML reconfiguration performed during an approved change window.
+    Confirm the change against a ticket, keep a second owner session active, and re-enable SSO as soon as the new
+    provider is ready.
     """,
 ]
 from = "now-9m"
@@ -23,20 +25,26 @@ note = """## Triage and analysis
 
 ### Investigating GitHub SAML SSO Disabled
 
-`business.disable_saml` and `org.disable_saml` apply to enterprises/orgs that use SAML. They will not fire on a personal-account GHEC trial without SSO.
+`business.disable_saml` and `org.disable_saml` record the disabling of SAML single sign-on at the enterprise or organization level. SAML SSO delegates authentication to an external identity provider (IdP) and lets administrators enforce IdP-side controls such as MFA, conditional access, and centralized deprovisioning. Disabling it removes those controls and allows members to authenticate with GitHub credentials alone, which is a common persistence and defense-evasion step after an owner account is compromised. These events only apply to enterprises/orgs that have SAML configured and will not fire on a personal-account GHEC trial without SSO.
 
 ### Possible investigation steps
 
-- Identify `user.name` and `github.actor_ip`. Confirm whether SSO was supposed to be on.
-- Review owner membership, recovery-code events, and PAT grants in the same window.
+- Review `user.name`, `github.actor_ip`, and `github.user_agent` to confirm whether an authorized enterprise/org owner made the change, and from an expected location and client.
+- Determine whether the change aligns with a documented IdP migration or SAML reconfiguration ticket.
+- Check for correlated account-takeover indicators in the same window: recovery-code usage, new owner additions, PAT grants, OAuth app authorizations, and sign-ins from unusual IPs or ASNs.
+- Review membership and access changes made while SSO was disabled, since members could authenticate without IdP enforcement during that period.
+- Pivot on `github.hashed_token` / `github.programmatic_access_type` to determine whether the action was performed via the UI or a token.
 
 ### False positive analysis
 
-- IdP cutover with an approved change window.
+- Planned IdP cutover or SAML provider reconfiguration performed within an approved change window. Confirm against a change ticket and scope exceptions by actor when expected.
 
 ### Response and remediation
 
-- Re-enable SAML and require SSO. Invalidate sessions and review members added while SSO was off.
+- If the change is unauthorized, re-enable SAML SSO and require SSO for all members.
+- Invalidate active sessions and force re-authentication through the IdP.
+- Review and reverse any membership, access, or credential changes made while SSO was disabled.
+- Confirm the acting owner account is not compromised, rotate its credentials, and review its other recent administrative actions.
 """
 references = [
     "https://docs.github.com/en/enterprise-cloud@latest/admin/identity-and-access-management/using-saml-for-enterprise-iam/configuring-saml-single-sign-on-for-your-enterprise",
@@ -51,6 +59,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Credential Access",
     "Tactic: Defense Evasion",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Rule Type: ESQL",
     "Resources: Investigation Guide",
@@ -98,6 +107,10 @@ framework = "MITRE ATT&CK"
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
 
 
 [rule.threat.tactic]
