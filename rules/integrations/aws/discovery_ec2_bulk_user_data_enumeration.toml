@@ -100,7 +100,7 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-*
-| where KQL("""event.provider: "ec2.amazonaws.com" and event.action: "DescribeInstanceAttribute" and event.outcome: "success" and aws.cloudtrail.flattened.request_parameters.attribute: "userData" and source.ip: * and source.as.organization.name: * and not user.name: (*CrowdStrikeCSPMReader* or *OrcaSecurityRole* or *AikidoSecurityRole* or *streamsec-* or *AWSReservedSSO_Poweruser*) and not aws.cloudtrail.user_identity.invoked_by: ("AWS Internal" or "cloudformation.amazonaws.com" or "aidevops.amazonaws.com" or "elasticmapreduce.amazonaws.com" or "aiops.amazonaws.com")""")
+| where KQL("""event.provider: "ec2.amazonaws.com" and event.action: "DescribeInstanceAttribute" and event.outcome: "success" and aws.cloudtrail.flattened.request_parameters.attribute: "userData" and source.ip: * and source.as.organization.name: * and not user.name: (*CrowdStrikeCSPMReader* or *OrcaSecurityRole* or *AikidoSecurityRole* or *streamsec-*) and not aws.cloudtrail.user_identity.invoked_by: ("AWS Internal" or "cloudformation.amazonaws.com" or "aidevops.amazonaws.com" or "elasticmapreduce.amazonaws.com" or "aiops.amazonaws.com")""")
   and not (
     user_agent.original like "*Terraform*"
     and source.as.organization.name in (
