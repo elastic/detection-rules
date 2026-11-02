@@ -1,15 +1,16 @@
 [metadata]
-creation_date = "2026/09/21"
+creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects GitHub organization IP allow list entry create/delete or enable/disable of allow-list enforcement. Adversaries
-with org-owner access may add their own address, then enable enforcement, or remove legitimate entries to lock out
-administrators.
+Detects changes to a GitHub organization IP allow list: creating, updating, or deleting allow-list entries, or
+enabling/disabling allow-list enforcement (including enforcement for installed GitHub Apps, the IdP-provided web allow
+list, and user-level enforcement). Adversaries with org-owner access may add or modify their own address, then enable
+enforcement, or weaken enforcement and remove legitimate entries to lock out administrators.
 """
 false_positives = [
     """
@@ -58,6 +59,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Tactic: Persistence",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Rule Type: ESQL",
     "Resources: Investigation Guide",
@@ -71,9 +73,16 @@ from logs-github.audit-* metadata _id, _index, _version
   event.module == "github" and data_stream.dataset == "github.audit"
     and event.action in (
       "ip_allow_list_entry.create",
+      "ip_allow_list_entry.update",
       "ip_allow_list_entry.destroy",
       "ip_allow_list.enable",
-      "ip_allow_list.disable"
+      "ip_allow_list.disable",
+      "ip_allow_list.enable_for_installed_apps",
+      "ip_allow_list.disable_for_installed_apps",
+      "ip_allow_list.enable_idp_ip_allowlist_for_web",
+      "ip_allow_list.disable_idp_ip_allowlist_for_web",
+      "ip_allow_list.enable_user_level_enforcement",
+      "ip_allow_list.disable_user_level_enforcement"
     )
 | keep
     _id,
