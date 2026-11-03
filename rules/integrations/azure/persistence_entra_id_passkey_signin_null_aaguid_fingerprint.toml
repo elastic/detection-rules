@@ -31,7 +31,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID
 
-A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`). Legitimate platform and hardware authenticators always report a real vendor AAGUID, so an all-zero value is the default fingerprint of offensive WebAuthn software authenticators such as ROADtools roadtx `registerpasskey` and DSInternals.Passkeys. Adversaries register these software passkeys after account takeover to establish phishing-resistant persistence that survives password resets and session revocation.
+A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`) or not a well-formed UUID. Vendor authenticators report a registered AAGUID, so this value points to a software authenticator. Offensive tooling (ROADtools roadtx `registerpasskey`, DSInternals.Passkeys) defaults to or can be set to a legitimate vendor AAGUID, so absence of this alert is not evidence of a genuine authenticator; presence indicates an unconfigured software authenticator or a custom WebAuthn client and warrants validation of how the passkey was registered.
 
 ### Possible investigation steps
 
