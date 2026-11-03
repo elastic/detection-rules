@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/25"
+updated_date = "2026/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -91,22 +91,28 @@ process where event.type == "start" and
 
   // GenAI parent process
   (
-    process.parent.name in (
-      "ollama.exe", "ollama", "Ollama",
+    process.parent.name in~ (
+      "ollama.exe", "ollama",
       "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
       "lmstudio.exe", "lmstudio", "LM Studio",
-      "claude.exe", "claude", "Claude",
-      "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
-      "copilot.exe", "copilot", "Copilot",
+      "claude.exe", "claude",
+      "cursor.exe", "cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+      "copilot.exe", "copilot",
       "codex.exe", "codex",
-      "Jan", "jan.exe", "jan", "Jan Helper",
-      "gpt4all.exe", "gpt4all", "GPT4All",
+      "jan.exe", "jan", "Jan Helper",
+      "gpt4all.exe", "gpt4all",
       "gemini-cli.exe", "gemini-cli",
       "genaiscript.exe", "genaiscript",
       "grok.exe", "grok",
       "qwen.exe", "qwen",
-      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
-      "llama-server", "llama-cli"
+      "koboldcpp.exe", "koboldcpp",
+      "llama-server", "llama-cli",
+      "DeepSeek Harness.exe", "Antigravity.exe", "Antigravity IDE.exe", "agy.exe"
+    ) or
+
+    process.parent.executable like~ (
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Antigravity*\\*\\language_server*",
+      "?:\\Antigravity\\resources\\*\\language_server*"
     ) or
     
     // Node/Deno with GenAI frameworks
