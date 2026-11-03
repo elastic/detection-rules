@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/11/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects SSH or autossh on macOS establishing a reverse (-R) or dynamic SOCKS (-D) tunnel. Attackers use SSH tunneling
+from compromised macOS hosts to expose local services to attacker infrastructure, proxy command and control traffic or
+pivot into internal networks through outbound connections. Reverse and dynamic tunnels are uncommon on most macOS
+endpoints, so alerts are suppressed per host and user to surface each new tunnel owner for review.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SSH Reverse or Dynamic Tunnel on macOS"
+note = """## Triage and analysis
+
+### Investigating SSH Reverse or Dynamic Tunnel on macOS
+
+SSH reverse (`-R`) and dynamic (`-D`) forwarding let a host expose local services to a remote server, or proxy traffic
+through it. Attackers abuse these options to keep remote access to a compromised Mac, for example by forwarding the
+local SSH port to attacker infrastructure, often from a persistence loop or LaunchAgent. This rule matches the
+forwarding flag only when it is directly followed by a forwarding specification, so flags passed to a remote command
+(for example `rsync --server -D` or `chown -R`) do not trigger it. Alerts are suppressed per host and user for 24 hours.
+
+### Possible investigation steps
+
+- Review `process.command_line` for the forwarding specification. Reverse forwards of remote access ports such as 22
+  (SSH), 5900 (Screen Sharing), 3283 (Apple Remote Desktop) or 3389 (RDP), and reverse SOCKS proxies (`-R <port>`
+  without a target), are higher risk than forwards of application or development ports.
+- Check for options that indicate unattended use, such as `StrictHostKeyChecking=no`, `UserKnownHostsFile=/dev/null`,
+  `BatchMode=yes`, `ExitOnForwardFailure=yes` or `-N`.
+- Check the private key passed with `-i`. Keys stored in hidden files or temporary directories such as `/var/folders`,
+  `/tmp` or `/Users/Shared` are suspicious.
+- Examine the parent process and `process.Ext.effective_parent`. Shell loops (`while true; do ... ssh ...; done`),
+  LaunchAgents, LaunchDaemons or unsigned binaries starting SSH are suspicious.
+- Investigate the destination host or IP address and its reputation, and whether the connection is expected for the user.
+  Public destinations are more suspicious than hosts on the local network.
+- Look for related persistence (LaunchAgents, shell profile modifications) and changes to `~/.ssh/authorized_keys`
+  around the same time.
+
+### False positive analysis
+
+- Developers and administrators may use reverse (`-R`) or dynamic (`-D`) forwarding to share local development
+  servers, reach lab machines or run SOCKS proxies. These commonly forward application ports to hosts on the local
+  network using keys stored in `~/.ssh`. Validate the activity with the user, and add exceptions for known destination
+  hosts or parent processes.
+- Remote development and container tooling may start SSH tunnels on behalf of the user. Exclude known tooling by
+  parent executable once validated.
+
+### Response and remediation
+
+- If the tunnel is unauthorized, terminate the SSH process and any parent loop or script that restarts it.
+- Remove associated persistence such as LaunchAgents, LaunchDaemons or shell profile entries, and delete the private key
+  used for the tunnel.
+- Block the remote host or IP address at the network perimeter.
+- Review `~/.ssh/authorized_keys` and rotate credentials that may have been exposed through the tunnel.
+"""
+references = [
+    "https://man.openbsd.org/ssh",
+    "https://attack.mitre.org/techniques/T1572/",
+]
+risk_score = 21
+rule_id = "85339249-73ac-485a-aaa3-218cca00c1df"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Performance: Normal",
+    "Threat: Protocol Tunneling",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name in ("ssh", "autossh") and
+  (
+    process.command_line regex """.* -[A-NP-Za-np-z]*R ?([^ ]+:)?[0-9]{1,5}:(([^ :]+|\[[^ ]+\]):[0-9]{1,5}|/[^ ]+)( .*)?""" or
+    process.command_line regex """.* -[A-NP-Za-np-z]*R ?[0-9]{1,5} (.* )?[^ ]+\@[^ ]+( .*)?""" or
+    process.command_line regex """.* -[A-NP-Za-np-z]*D ?([^ ]+:)?[0-9]{1,5}( .*)?""" or
+    process.command_line : ("*RemoteForward*", "*DynamicForward*")
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "user.name"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
