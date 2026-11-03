@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or modification of the sudo front-end configuration file and shared objects in common
+sudo plugin directories. Adversaries may register a malicious policy, I/O, audit, or approval plugin in sudo.conf, or
+replace an existing plugin, to execute code in sudo's trusted context for persistence or privilege escalation.
+"""
+false_positives = ["Legitimate sudo package installation, upgrades, and approved configuration-management activity."]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Sudo Configuration or Plugin Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Sudo Configuration or Plugin Activity
+
+The `/etc/sudo.conf` file configures the sudo front end, including dynamically loaded policy, I/O, audit, and approval
+plugins. A `Plugin` directive can reference a shared object by absolute path or relative to sudo's configured plugin
+directory. Unauthorized changes to this file or to a plugin loaded by sudo can provide code execution whenever sudo is
+invoked.
+
+### Possible investigation steps
+
+- Review the file event, including the affected path, operation, process executable, parent process, user, and timestamp.
+- If `/etc/sudo.conf` changed, inspect `Plugin` and `Path plugin_dir` directives and resolve every referenced shared object.
+- Compare the configuration and plugin hashes, ownership, permissions, and package provenance with a known-good host or
+  trusted package repository.
+- Determine whether the responsible process belongs to an approved package, patching, or configuration-management
+  workflow. Review the full process ancestry and associated administrative session.
+- Identify sudo executions after the change and inspect their process trees, effective user transitions, file activity,
+  and network connections for evidence that an unauthorized plugin was loaded.
+- Review related alerts and recent changes to sudoers, PAM, authentication files, systemd units, cron jobs, local
+  accounts, and SSH keys on the host.
+
+### False positive analysis
+
+- Sudo package installation and upgrades legitimately write shared objects in plugin directories and may update
+  `/etc/sudo.conf`.
+- Approved configuration-management and system-imaging tools may enforce sudo configuration or deploy third-party
+  plugins. Confirm the change against an authorized deployment record before creating an exception.
+- Third-party security, auditing, and session-recording products may install legitimate sudo plugins. Validate the
+  publisher, package provenance, plugin registration, and expected rollout scope.
+
+### Response and remediation
+
+- Isolate the host if the plugin or configuration change is unauthorized or if a suspicious sudo execution followed it.
+- Preserve the modified configuration and shared objects for forensic analysis, then restore sudo from trusted packages
+  and a known-good configuration.
+- Remove unauthorized plugin registrations and binaries, and verify that `/etc/sudo.conf` and loaded plugins are owned
+  by root and are not writable by unprivileged users.
+- Scope the same plugin hash, path, configuration entry, and responsible process across the environment.
+- Rotate credentials used on the affected host and rebuild it from a known-good image if root-level compromise cannot be
+  confidently excluded.
+"""
+references = [
+    "https://www.sudo.ws/docs/man/sudo.conf.man/",
+    "https://www.sudo.ws/docs/man/sudo_plugin.man/",
+]
+risk_score = 21
+rule_id = "6b335790-afc7-4279-9a2c-c6369a0be1c5"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/sudo.conf",
+    "/usr/libexec/sudo/*",
+    "/usr/lib/sudo/*",
+    "/usr/lib64/sudo/*",
+    "/usr/local/libexec/sudo/*",
+    "/usr/local/lib/sudo/*",
+    "/usr/local/lib64/sudo/*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
