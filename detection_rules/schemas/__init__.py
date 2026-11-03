@@ -354,6 +354,7 @@ def migrate_to_9_5(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     """Default migration for 9.5."""
     return strip_additional_properties(version, api_contents)
 
+
 @migrate("9.6")
 def migrate_to_9_6(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
     """Default migration for 9.6."""
