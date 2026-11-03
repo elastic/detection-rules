@@ -2,7 +2,7 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/22"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,13 +25,13 @@ note = """## Triage and analysis
 
 ### Investigating GitHub Exfiltration via High Number of Repository ZIP Downloads
 
-`repo.download_zip` is the audit action for archive/zipball downloads. Mass ZIP collection is a clone alternative that existing git.clone threshold rules miss.
+`repo.download_zip` is the audit action for archive/zipball downloads. Mass ZIP collection is a clone alternative that existing git.clone threshold rules miss. The rule groups by `user.name` and `github.actor_ip` in a 10-minute window and excludes automated actors (`github.actor_is_bot: true`) and requests without an actor IP.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `github.hashed_token`, `github.programmatic_access_type`, and `github.actor_ip`.
-- List distinct `github.repo` values and whether they are private.
-- Correlate with `git.clone`, collaborator changes, and `api.request` enumeration from the same token.
+- Identify `user.name`, `github.actor_ip`, `github.programmatic_access_type`, and the token (`Esql_priv.github_token_id_values`).
+- Review the distinct repositories downloaded (`Esql.github_repo_values`, `Esql.github_repo_unique_count`) and whether they are private or sensitive.
+- Correlate with `git.clone`, collaborator changes, and `api.request` enumeration from the same token or actor IP.
 
 ### False positive analysis
 
@@ -57,6 +57,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Collection",
     "Tactic: Exfiltration",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Rule Type: ESQL",
     "Resources: Investigation Guide",
@@ -67,20 +68,21 @@ type = "esql"
 query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
-  data_stream.dataset == "github.audit" and event.action == "repo.download_zip"
+  data_stream.dataset == "github.audit" and event.action == "repo.download_zip" and
+  github.actor_ip is not null and github.actor_is_bot == false
 | stats
   Esql.event_count = COUNT(*),
-  Esql.github_org_values = values(github.org),
-  Esql.github_repo_values = values(github.repo),
-  Esql.github_programmatic_access_type_values = values(github.programmatic_access_type),
-  Esql.github_user_agent_values = values(github.user_agent),
-  Esql.agent_id_values = values(agent.id),
-  Esql.data_stream_dataset_values = values(data_stream.dataset),
-  Esql.data_stream_namespace_values = values(data_stream.namespace),
-  Esql_priv.github_token_id_values = values(github.token_id),
-  Esql_priv.user_name_values = values(user.name)
-  by user.name
-| keep user.name, Esql.*, Esql_priv.*
+  Esql.github_repo_unique_count = COUNT_DISTINCT(github.repo),
+  Esql.github_org_values = VALUES(github.org),
+  Esql.github_repo_values = VALUES(github.repo),
+  Esql.github_programmatic_access_type_values = VALUES(github.programmatic_access_type),
+  Esql.github_user_agent_values = VALUES(github.user_agent),
+  Esql.agent_id_values = VALUES(agent.id),
+  Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
+  Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
+  Esql_priv.github_token_id_values = VALUES(github.token_id)
+  by user.name, github.actor_ip, Esql.time_window = DATE_TRUNC(10 minutes, @timestamp)
+| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
 | where Esql.event_count >= 8
 '''
 
@@ -88,9 +90,17 @@ from logs-github.audit-* metadata _id, _index, _version
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1020"
+name = "Automated Exfiltration"
+reference = "https://attack.mitre.org/techniques/T1020/"
+[[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
 
 
 [rule.threat.tactic]
@@ -118,12 +128,14 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.investigation_fields]
 field_names = [
     "user.name",
+    "github.actor_ip",
+    "Esql.time_window",
     "Esql.event_count",
+    "Esql.github_repo_unique_count",
     "Esql.github_org_values",
     "Esql.github_repo_values",
     "Esql.github_programmatic_access_type_values",
     "Esql.github_user_agent_values",
     "Esql_priv.github_token_id_values",
-    "Esql_priv.user_name_values",
 ]
 
