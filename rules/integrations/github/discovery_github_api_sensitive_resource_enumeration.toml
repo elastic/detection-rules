@@ -2,7 +2,7 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/22"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -26,12 +26,12 @@ note = """## Triage and analysis
 
 ### Investigating GitHub API Sensitive Resource Enumeration
 
-`api.request` is streaming-only. Sensitive routes include Actions/Dependabot/environment secrets, public-keys, git trees, contents, zipball, org repo lists, members, hooks, installations, and PATs.
+`api.request` is streaming-only. Sensitive routes include Actions/Dependabot/environment secrets, public-keys, git trees, contents, zipball, org repo lists, members, hooks, installations, and PATs. The rule groups by `user.name` and `github.actor_ip` in a 10-minute window and fires on >= 15 requests spanning >= 3 distinct sensitive routes, which distinguishes broad enumeration from a single high-volume route. Automated actors (`github.actor_is_bot: true`) and requests without an actor IP are excluded.
 
 ### Possible investigation steps
 
-- Review distinct `github.route` values, `github.status_code`, `github.programmatic_access_type`, and `github.user_agent`.
-- Correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same `github.hashed_token`.
+- Review the distinct `github.route` values (`Esql.github_route_values`), `github.programmatic_access_type`, and `github.user_agent` for the actor.
+- Pivot on `github.actor_ip` and `user.name`; correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same `Esql_priv.github_token_id_values`.
 - Treat user agents containing trufflehog or nord-stream as credential-stealer tooling.
 
 ### False positive analysis
@@ -60,6 +60,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Tactic: Credential Access",
+    "Tactic: Collection",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Rule Type: ESQL",
     "Resources: Investigation Guide",
@@ -71,6 +73,7 @@ query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
   data_stream.dataset == "github.audit" and event.action == "api.request" and
+  github.actor_ip is not null and github.actor_is_bot == false and
   (
     github.route like "*secrets*" or
     github.route like "*public-key*" or
@@ -86,18 +89,19 @@ from logs-github.audit-* metadata _id, _index, _version
   )
 | stats
   Esql.event_count = COUNT(*),
-  Esql.github_route_values = values(github.route),
-  Esql.github_org_values = values(github.org),
-  Esql.github_programmatic_access_type_values = values(github.programmatic_access_type),
-  Esql.github_user_agent_values = values(github.user_agent),
-  Esql.agent_id_values = values(agent.id),
-  Esql.data_stream_dataset_values = values(data_stream.dataset),
-  Esql.data_stream_namespace_values = values(data_stream.namespace),
-  Esql_priv.github_token_id_values = values(github.token_id),
-  Esql_priv.user_name_values = values(user.name)
-  by user.name
-| keep user.name, Esql.*, Esql_priv.*
-| where Esql.event_count >= 15
+  Esql.github_route_unique_count = COUNT_DISTINCT(github.route),
+  Esql.github_repo_unique_count = COUNT_DISTINCT(github.repo),
+  Esql.github_route_values = VALUES(github.route),
+  Esql.github_org_values = VALUES(github.org),
+  Esql.github_programmatic_access_type_values = VALUES(github.programmatic_access_type),
+  Esql.github_user_agent_values = VALUES(github.user_agent),
+  Esql.agent_id_values = VALUES(agent.id),
+  Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
+  Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
+  Esql_priv.github_token_id_values = VALUES(github.token_id)
+  by user.name, github.actor_ip, Esql.time_window = DATE_TRUNC(10 minutes, @timestamp)
+| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
+| where Esql.event_count >= 15 and Esql.github_route_unique_count >= 3
 '''
 
 
@@ -119,27 +123,41 @@ framework = "MITRE ATT&CK"
 id = "T1552"
 name = "Unsecured Credentials"
 reference = "https://attack.mitre.org/techniques/T1552/"
-[[rule.threat.technique.subtechnique]]
-id = "T1552.001"
-name = "Credentials In Files"
-reference = "https://attack.mitre.org/techniques/T1552/001/"
-
 
 
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.investigation_fields]
 field_names = [
     "user.name",
+    "github.actor_ip",
+    "Esql.time_window",
     "Esql.event_count",
+    "Esql.github_route_unique_count",
+    "Esql.github_repo_unique_count",
     "Esql.github_route_values",
     "Esql.github_org_values",
     "Esql.github_programmatic_access_type_values",
     "Esql.github_user_agent_values",
     "Esql_priv.github_token_id_values",
-    "Esql_priv.user_name_values",
 ]
 
