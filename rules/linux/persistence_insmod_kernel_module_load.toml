@@ -4,8 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "Module loading detection for Linux was introduced in 9.3.0"
-updated_date = "2026/08/25"
-
+updated_date = "2026/11/03"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve all Kernel Modules"
@@ -157,6 +156,12 @@ tags = [
     "Threat: Rootkit",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Resources: Osquery",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -169,30 +174,33 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name == "modprobe" and not process.args in ("-r", "--remove"))
 ) and
 not (
-  process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*", "/opt/McAfee/*") or
+  process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*") or
   process.working_directory in ("/opt/vinchin/agent", "/var/opt/ds_agent/am", "/opt/ds_agent", "/var/opt/TrendMicro/vls_agent/am") or
   process.parent.executable in (
     "/usr/lib/uptrack/ksplice-apply", "/opt/commvault/commvault/Base/linux_drv", "/opt/cisco/amp/bin/cisco-amp-helper",
     "/usr/bin/kcarectl", "/usr/share/ksplice/ksplice-apply", "/opt/commvault/Base/linux_drv", "/usr/sbin/veeamsnap-loader",
-    "/bin/falcoctl", "/usr/sbin/veeamworker", "/usr/bin/podman", "/usr/sbin/dockerd", "/usr/bin/dockerd",
-    "/usr/bin/nvidia-modprobe", "/usr/sbin/lynis", "/usr/lib/gparted/gpartedbin"
+    "/bin/falcoctl", "/usr/sbin/veeamworker", "/usr/bin/cilium-agent", "/usr/bin/podman", "/usr/bin/dockerd",
+    "/usr/sbin/dockerd", "/usr/local/bin/rke2", "/usr/bin/nvidia-modprobe", "/usr/bin/nvidia-smi", "/usr/bin/bpftune"
   ) or
   process.parent.executable like (
     "/sbin/iptables-multi*", "/var/ossec/bin/wazuh-modulesd", "/usr/sbin/mkinitramfs",
     "/usr/share/initramfs-tools/hooks/lvm2", "/usr/lpp/mmfs/bin/*", "/opt/forticlient/*",
     "/opt/traps/bin/*", "/snap/lxd/*/sbin/lxd", "/usr/sbin/xtables*",
-    "/snap/snapd/*/usr/lib/snapd/snapd", "/var/lib/rancher/k3s/data/*/bin/k3s",
-    "/opt/rke2/bin/*"
+    "/var/lib/rancher/k3s/*/bin/k3s", "/usr/lib/os-probes/*"
   ) or
   (process.parent.name like ("python*", "platform-python*") and process.parent.args in ("--smart-update", "--auto-update")) or
+  (process.parent.executable == "/usr/bin/perl" and process.args like~ "ksplice-*") or
   process.args in ("--showconfig", "--dump-modversions") or
+  (process.name == "insmod" and process.args like ("/var/lib/kpatch/*", "/bin/emc/scaleio/*")) or
   (
-    process.name == "modprobe" and process.args == "-q" and process.args == "--" and
-    (process.args in ("net-pf-10", "binfmt-464c", "cpuid") or process.args like ("netdev-*", "block-major-*"))
+    process.name in ("modprobe", "kmod") and process.args == "-q" and process.args == "cpuid"
   ) or
   (
-    process.name == "kmod" and process.args == "modprobe" and process.args == "-q" and
-    process.args in ("cpuid")
+    process.name in ("modprobe", "kmod") and process.args == "--all" and process.args like "--set-version*"
+  ) or
+  (
+    process.name == "modprobe" and process.args == "-q" and process.args == "--" and
+    (process.args in ("net-pf-10", "binfmt-464c") or process.args like ("netdev-*", "block-major-*"))
   ) or
   (
     process.name == "modprobe" and process.args == "-n" and process.args == "-v" and
