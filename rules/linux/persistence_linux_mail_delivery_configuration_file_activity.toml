@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Linux mail delivery configuration, including system aliases, Postfix
+configuration, forwarding files, and Procmail recipes. Adversaries may alter these files to redirect or copy messages,
+weaken mail controls, or execute commands when mail is received.
+"""
+false_positives = [
+    "Legitimate mail-server administration, alias maintenance, user forwarding, package installation, and configuration management.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Mail Delivery Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Mail Delivery Configuration File Activity
+
+Linux mail delivery can consult privileged MTA configuration, system aliases, and per-user forwarding or filtering files.
+Several of these mechanisms support command destinations or external delivery programs. Unauthorized changes can copy or
+redirect messages, alter mail service execution, or establish command execution triggered when a matching message is
+delivered.
+
+### Possible investigation steps
+
+- Review the affected file, operation, responsible process, parent process, user, timestamp, and process command line.
+- Determine whether the change belongs to approved mail-server administration, package installation, alias maintenance,
+  configuration management, or a user-requested forwarding change.
+- In alias files, inspect new or changed recipients for pipe destinations, unexpected aliases, remote addresses, and
+  include directives. Identify the configured alias maps and the identity used for command delivery.
+- In Postfix `main.cf`, review `always_bcc`, `recipient_bcc_maps`, `sender_bcc_maps`, `mailbox_command`,
+  `mailbox_transport`, content filters, alias maps, forwarding policy, and command-delivery restrictions.
+- In Postfix `master.cf`, inspect new or changed services, executables, privileges, chroot settings, arguments, and
+  overrides.
+- In `.forward` files, inspect pipe destinations, file destinations, remote recipients, includes, and self-references.
+- In Procmail recipes, inspect pipe actions, carbon-copy flags, delivery order, sourced files, logging changes, and
+  commands executed for matching messages.
+- Correlate the change with `newaliases` or `postalias`, MTA reloads, local mail delivery, unusual MTA child processes,
+  and outbound connections created during delivery.
+- Compare the configuration with package metadata, source-controlled policy, change records, and known-good hosts.
+
+### False positive analysis
+
+- Administrators and deployment systems commonly maintain Postfix configuration and system aliases.
+- Users may legitimately configure mail forwarding or filtering. Confirm that the writer, destination, and command
+  behavior are expected before introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed configuration, mail logs, queue records, and related process telemetry.
+- Remove unauthorized pipe destinations, forwarding addresses, filters, delivery commands, or Postfix service changes.
+- Rebuild alias databases when necessary, validate the effective configuration, and reload the MTA using approved
+  procedures.
+- Review messages processed while the configuration was active and investigate commands or connections launched by mail
+  delivery components.
+- Scope matching aliases, destinations, directives, recipes, writers, and affected mailboxes across the environment.
+"""
+references = [
+    "https://www.postfix.org/aliases.5.html",
+    "https://www.postfix.org/local.8.html",
+    "https://www.postfix.org/postconf.5.html",
+    "https://manpages.debian.org/bookworm/procmail/procmailrc.5.en.html",
+]
+risk_score = 21
+rule_id = "af6794bf-9f5f-4f19-8396-af99c1544aba"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/aliases",
+    "/etc/mail/aliases",
+    "/etc/postfix/main.cf",
+    "/etc/postfix/master.cf",
+    "/etc/procmailrc",
+    "/home/*/.forward",
+    "/root/.forward",
+    "/home/*/.procmailrc",
+    "/root/.procmailrc"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
