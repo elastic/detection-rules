@@ -2,13 +2,16 @@
 creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/11/02"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects disabling of the GitHub two-factor authentication requirement at the enterprise or organization. Turning off
-required 2FA allows password-only access and is a high-impact identity control change.
+Detects when the two-factor authentication (2FA) requirement is disabled for a GitHub organization or enterprise.
+Removing the requirement downgrades every member in scope to password-only authentication and allows new members to be
+added without 2FA. Following an account takeover, an adversary may disable the requirement to preserve password-based
+access, reduce friction for enrolling attacker-controlled accounts, and lower the organization's overall
+account-takeover resistance, making this a high-impact identity-control change.
 """
 false_positives = [
     "Emergency access during an IdP outage. This should be rare, ticketed, and re-enabled immediately.",
@@ -19,23 +22,34 @@ license = "Elastic License v2"
 name = "GitHub MFA Requirement Disabled"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub MFA Requirement Disabled
 
-`business.disable_two_factor_requirement` and `org.disable_two_factor_requirement` weaken account takeover resistance for every member in scope.
+This rule triggers on `business.disable_two_factor_requirement` and `org.disable_two_factor_requirement`, which turn off the enforced two-factor authentication (2FA) requirement for an entire GitHub enterprise or organization. Removing the requirement downgrades every member in scope to password-only authentication and permits new members to be invited without 2FA. An adversary who has taken over an owner or enterprise-admin account may disable the requirement to preserve password-based access, reduce friction for adding attacker-controlled accounts, and lower the organization's account-takeover resistance before pursuing persistence, privilege escalation, or data theft.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `event.action`, and `github.actor_ip`.
-- Check for concurrent owner adds, PAT grants, and SSO changes.
-- Re-enable the 2FA requirement before investigating further if the change is unauthorized.
+- Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold organization owner or enterprise admin privileges.
+- Determine the scope of the change from `event.action` (`org.disable_two_factor_requirement` vs `business.disable_two_factor_requirement`) and the affected `github.org`/`github.business`, and verify whether it was approved in change-management records.
+- Review authentication context for the actor around the event time for signs of takeover, such as sign-ins from new `github.actor_ip` addresses, unfamiliar user agents, or token-based access (`github.programmatic_access_type`) in place of normal interactive activity.
+- Correlate for other high-impact identity changes near the same timestamp, including owner or member additions, PAT or OAuth app grants, SSH/GPG key additions, SSO/SAML changes, and IP allow-list modifications.
+- If the change is unauthorized, re-enable the 2FA requirement before continuing the investigation to limit exposure.
 
 ### False positive analysis
 
-- Documented break-glass during authentication outages.
+- A documented break-glass procedure during an identity-provider or 2FA outage may require temporarily disabling the requirement; this should be rare, ticketed, time-bounded, and followed by immediate re-enablement.
+- A planned governance or migration change (for example, consolidating organizations or adjusting enrollment policy) performed by a known administrator can generate this event as expected activity.
 
 ### Response and remediation
 
-- Re-enable required 2FA. Force sign-out and review members without 2FA. Rotate tokens created after the disable.
+- Re-enable the required 2FA setting for the affected organization or enterprise as soon as the change is confirmed unauthorized.
+- Force sign-out of active sessions and audit the member list for accounts not enrolled in 2FA, requiring enrollment or suspending them.
+- Rotate credentials and tokens created or used after the requirement was disabled, including PATs, OAuth app grants, and SSH keys.
+- Review org and enterprise audit logs for other changes made by the actor after the disable event, and revert any unauthorized modifications.
+- Escalate to incident response if the actor is unknown or unauthorized, or if the disable event is accompanied by new owner additions, token grants, or sign-ins from unfamiliar infrastructure.
+- Harden by enforcing 2FA at the enterprise level, restricting who can change organization security settings, and alerting on future changes to the 2FA requirement.
 """
 references = [
     "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-two-factor-authentication-for-your-organization/requiring-two-factor-authentication-in-your-organization",
