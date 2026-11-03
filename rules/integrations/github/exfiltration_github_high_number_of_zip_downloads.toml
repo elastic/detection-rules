@@ -7,8 +7,11 @@ updated_date = "2026/11/03"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a high number of GitHub repository ZIP archive downloads by a single user. Adversaries use repo.download_zip to
-collect source without a git clone, including with classic PATs, fine-grained PATs, or OAuth tokens.
+Detects a high number of GitHub repository ZIP archive downloads by a single non-bot user from one source IP within a
+short window. The `repo.download_zip` action retrieves a full repository archive over HTTP, so adversaries use it to
+collect source code without a `git clone` (which clone-threshold rules watch), including with classic PATs,
+fine-grained PATs, or OAuth tokens. Grouping by actor and source IP and requiring a high archive-download count
+separates bulk source collection from occasional developer downloads.
 """
 false_positives = [
     """
@@ -23,24 +26,32 @@ license = "Elastic License v2"
 name = "GitHub Exfiltration via High Number of Repository ZIP Downloads"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub Exfiltration via High Number of Repository ZIP Downloads
 
-`repo.download_zip` is the audit action for archive/zipball downloads. Mass ZIP collection is a clone alternative that existing git.clone threshold rules miss. The rule groups by `user.name` and `github.actor_ip` in a 10-minute window and excludes automated actors (`github.actor_is_bot: true`) and requests without an actor IP.
+`repo.download_zip` is the audit action for repository archive/zipball downloads. Mass ZIP collection is a clone alternative that `git.clone` threshold rules do not catch, so it is a useful source-collection path for an adversary with a stolen token. The rule groups downloads by `user.name` and `github.actor_ip` in a 10-minute window, requires a high archive-download count, and excludes automated actors (`github.actor_is_bot: true`) and requests without an actor IP.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `github.actor_ip`, `github.programmatic_access_type`, and the token (`Esql_priv.github_token_id_values`).
-- Review the distinct repositories downloaded (`Esql.github_repo_values`, `Esql.github_repo_unique_count`) and whether they are private or sensitive.
-- Correlate with `git.clone`, collaborator changes, and `api.request` enumeration from the same token or actor IP.
+- Identify `user.name`, `github.actor_ip`, `github.programmatic_access_type`, and the token (`Esql.github_token_id_values`), and confirm whether the token belongs to a known developer or automation identity.
+- Review the distinct repositories downloaded (`Esql.github_repo_values`, `Esql.github_repo_unique_count`) and the organizations (`Esql.github_org_values`), and whether those repositories are private or sensitive.
+- Review the client from `Esql.github_user_agent_values`; tooling or scripted user agents on a high download count are a stronger signal than a browser.
+- Correlate with `git.clone`, `api.request` enumeration, collaborator changes, and secret-scanning alerts from the same token or actor IP to establish whether this is part of a broader collection campaign.
+- Check the authentication context for the actor around the window for signs of a stolen token, such as a new `github.actor_ip` or unfamiliar user agent for that token.
 
 ### False positive analysis
 
-- Approved bulk archive export or disaster-recovery tooling.
+- Approved bulk archive export, backup, or disaster-recovery tooling, and CI that fetches zipballs. Confirm the actor and token type and, if expected, scope exceptions by actor, token, or user agent.
+- A developer legitimately downloading several archives for offline review over a short period.
 
 ### Response and remediation
 
-- Revoke the token if unauthorized and review repository access for the actor.
-- Hunt for subsequent off-platform transfer from the same host or IP.
+- Revoke the token if the actor is not a known automation identity, and review repository access and PAT/OAuth grants for the actor.
+- Review the downloaded repositories for sensitive content and rotate any secrets they contain.
+- Hunt for subsequent off-platform transfer of the archives from the same host or IP.
+- Escalate to incident response if private or sensitive repositories were downloaded, or if the downloads coincide with other collection or credential-access activity by the same actor.
 """
 references = [
     "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
@@ -80,9 +91,9 @@ from logs-github.audit-* metadata _id, _index, _version
   Esql.agent_id_values = VALUES(agent.id),
   Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
   Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
-  Esql_priv.github_token_id_values = VALUES(github.token_id)
+  Esql.github_token_id_values = VALUES(github.token_id)
   by user.name, github.actor_ip, Esql.time_window = DATE_TRUNC(10 minutes, @timestamp)
-| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
+| keep user.name, github.actor_ip, Esql.*
 | where Esql.event_count >= 8
 '''
 
@@ -136,6 +147,6 @@ field_names = [
     "Esql.github_repo_values",
     "Esql.github_programmatic_access_type_values",
     "Esql.github_user_agent_values",
-    "Esql_priv.github_token_id_values",
+    "Esql.github_token_id_values",
 ]
 
