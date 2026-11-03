@@ -7,9 +7,12 @@ updated_date = "2026/11/03"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a burst of GitHub api.request events against secret, git tree/contents, zipball, membership, hook, installation,
-or private repository listing routes. This pattern is used for credential discovery and source collection after token
-theft. Requires enterprise audit log streaming with API Request Events enabled.
+Detects a burst of GitHub `api.request` events from a single non-bot actor and source IP against sensitive routes such
+as Actions/Dependabot/environment secrets, public keys, git trees and contents, zipball archives, organization
+repository and member lists, webhooks, installations, and personal access tokens. Grouping by actor and source IP and
+requiring a high request count spread across several distinct sensitive routes separates broad enumeration from a
+single high-volume endpoint. This pattern is commonly used for credential discovery and source collection after token
+theft. Requires GitHub Enterprise audit log streaming with API Request Events enabled.
 """
 false_positives = [
     """
@@ -24,23 +27,32 @@ license = "Elastic License v2"
 name = "GitHub API Sensitive Resource Enumeration"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub API Sensitive Resource Enumeration
 
-`api.request` is streaming-only. Sensitive routes include Actions/Dependabot/environment secrets, public-keys, git trees, contents, zipball, org repo lists, members, hooks, installations, and PATs. The rule groups by `user.name` and `github.actor_ip` in a 10-minute window and fires on >= 15 requests spanning >= 3 distinct sensitive routes, which distinguishes broad enumeration from a single high-volume route. Automated actors (`github.actor_is_bot: true`) and requests without an actor IP are excluded.
+`api.request` is a streaming-only audit action (available with GitHub Enterprise audit log streaming and API Request Events enabled). Sensitive routes include Actions/Dependabot/environment secrets, public keys, git trees, contents, zipball archives, organization repository lists, members, webhooks, installations, and personal access tokens. The rule groups requests by `user.name` and `github.actor_ip` in a 10-minute window and fires on >= 15 requests spanning >= 3 distinct sensitive routes, which distinguishes broad enumeration from a single high-volume route. Automated actors (`github.actor_is_bot: true`) and requests without an actor IP are excluded. An adversary who has stolen a token commonly enumerates these routes to locate secrets and source code before pulling them, so this activity frequently precedes successful credential access or source collection.
 
 ### Possible investigation steps
 
-- Review the distinct `github.route` values (`Esql.github_route_values`), `github.programmatic_access_type`, and `github.user_agent` for the actor.
-- Pivot on `github.actor_ip` and `user.name`; correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same `Esql_priv.github_token_id_values`.
-- Treat user agents containing trufflehog or nord-stream as credential-stealer tooling.
+- Review the distinct routes probed (`Esql.github_route_values`, `Esql.github_route_unique_count`) and the breadth across repositories and organizations (`Esql.github_repo_unique_count`, `Esql.github_org_values`) to gauge how targeted or broad the enumeration is.
+- Identify the token and access method from `Esql.github_token_id_values` and `Esql.github_programmatic_access_type_values`, and confirm whether the token belongs to known automation.
+- Review `Esql.github_user_agent_values` for the client; treat user agents containing tooling signatures such as `trufflehog` or `nord-stream` as credential-stealer tooling.
+- Pivot on `github.actor_ip` and `user.name` and correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same actor or token, which indicate the enumeration led to collection.
+- Check for a later run of successful (2xx) requests on secrets, trees, or contents from the same actor or token, which indicates successful enumeration rather than failed probing.
 
 ### False positive analysis
 
-- Internal inventory or GitHub App servers enumerating installations and repos.
+- Internal inventory, backup, or secret-rotation automation and GitHub App servers that enumerate installations, repositories, and secrets. These typically use a known token and user agent; confirm and scope exceptions by actor, token, or user agent when expected.
+- Security tooling that legitimately scans repositories for exposed secrets from a known source.
 
 ### Response and remediation
 
-- Revoke the token, rotate listed secrets, and review PAT/OAuth grants for the actor.
+- Revoke the token if the actor is not a known automation identity, and rotate any secrets exposed on the enumerated routes.
+- Review PAT and OAuth grants for the actor, and tighten organization PAT access and approval policies.
+- Block or monitor the source IP if the activity is clearly reconnaissance, and review whether any probed route later returned a success for the same actor.
+- Escalate to incident response if the enumeration is followed by secret access, repository cloning, or ZIP downloads from the same actor or token.
 """
 references = [
     "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
@@ -98,9 +110,9 @@ from logs-github.audit-* metadata _id, _index, _version
   Esql.agent_id_values = VALUES(agent.id),
   Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
   Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
-  Esql_priv.github_token_id_values = VALUES(github.token_id)
+  Esql.github_token_id_values = VALUES(github.token_id)
   by user.name, github.actor_ip, Esql.time_window = DATE_TRUNC(10 minutes, @timestamp)
-| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
+| keep user.name, github.actor_ip, Esql.*
 | where Esql.event_count >= 15 and Esql.github_route_unique_count >= 3
 '''
 
@@ -158,6 +170,6 @@ field_names = [
     "Esql.github_org_values",
     "Esql.github_programmatic_access_type_values",
     "Esql.github_user_agent_values",
-    "Esql_priv.github_token_id_values",
+    "Esql.github_token_id_values",
 ]
 
