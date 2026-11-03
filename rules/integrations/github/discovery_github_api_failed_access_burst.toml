@@ -7,10 +7,12 @@ updated_date = "2026/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a burst of failed GitHub API requests (HTTP 4xx/5xx) recorded as api.request, where a single non-bot actor and
-source IP generate a high volume of failures spread across many distinct API routes within a short window. Attackers
-probing private repositories, secrets, or admin routes generate clusters of 403/404 responses across many endpoints,
-whereas broken automation usually hammers a small number of routes. Requires API Request Events on audit log streaming.
+Detects a burst of failed GitHub API requests (HTTP 4xx/5xx) recorded as `api.request`, where a single non-bot actor
+and source IP generate a high volume of failures spread across many distinct API routes within a short window. An
+adversary probing private repositories, secrets, or admin routes produces clusters of 401/403/404 responses across many
+endpoints, whereas broken automation usually hammers a small number of routes. Grouping by actor and source IP and
+requiring both a high failure count and a high number of distinct routes separates broad enumeration from a single
+misconfigured integration. Requires API Request Events on GitHub audit log streaming.
 """
 false_positives = [
     """
@@ -25,6 +27,9 @@ license = "Elastic License v2"
 name = "GitHub API Failed Access Burst"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub API Failed Access Burst
 
 Failed `api.request` status codes often precede successful enumeration after the attacker finds a valid path or token. This rule groups failed requests by `user.name` and `github.actor_ip` and fires when a single actor/IP produces at least 15 failures spread across 10 or more distinct API routes in the window, which distinguishes broad enumeration from a single broken integration hammering one endpoint.
@@ -33,7 +38,7 @@ Failed `api.request` status codes often precede successful enumeration after the
 
 - Review the alerting `user.name` and `github.actor_ip`, and inspect `Esql.distinct_route_count` and `Esql.github_route_values` to see which routes were probed.
 - Review `Esql.github_status_code_values` to confirm the mix of 401/403/404 responses typical of access probing.
-- Pivot on `Esql_priv.github_token_id_values` and `Esql.github_programmatic_access_type_values` to identify the token and access method used.
+- Pivot on `Esql.github_token_id_values` and `Esql.github_programmatic_access_type_values` to identify the token and access method used.
 - Check `Esql.distinct_repo_count` and `Esql.github_org_values` to gauge how broadly the actor is probing across repositories and organizations.
 - Look for a later run of 200s on secrets, trees, or contents from the same actor or token, which indicates successful enumeration.
 
@@ -90,10 +95,9 @@ from logs-github.audit-* metadata _id, _index, _version
   Esql.agent_id_values = values(agent.id),
   Esql.data_stream_dataset_values = values(data_stream.dataset),
   Esql.data_stream_namespace_values = values(data_stream.namespace),
-  Esql_priv.github_token_id_values = values(github.token_id),
-  Esql_priv.user_name_values = values(user.name)
+  Esql.github_token_id_values = values(github.token_id)
   by user.name, github.actor_ip
-| keep user.name, github.actor_ip, Esql.*, Esql_priv.*
+| keep user.name, github.actor_ip, Esql.*
 | where Esql.event_count >= 15 and Esql.distinct_route_count >= 10
 '''
 
@@ -123,7 +127,6 @@ field_names = [
     "Esql.github_org_values",
     "Esql.github_programmatic_access_type_values",
     "Esql.github_user_agent_values",
-    "Esql_priv.github_token_id_values",
-    "Esql_priv.user_name_values",
+    "Esql.github_token_id_values",
 ]
 
