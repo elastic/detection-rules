@@ -1,14 +1,16 @@
 [metadata]
-creation_date = "2026/09/21"
+creation_date = "2026/11/02"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects deletion of a GitHub Actions workflow run. Adversaries who abuse Actions for execution or secret theft often
-delete the run afterward to remove job logs that would show the malicious steps.
+Detects when an actor deletes a GitHub Actions workflow run for the first time for a given user, repository, and
+workflow within the configured time window. Adversaries who abuse Actions for execution or secret theft often delete
+the run afterward to remove job logs that would show the malicious steps. Keying on first-seen behavior reduces the
+noise from routine retention cleanup.
 """
 false_positives = [
     """
@@ -17,14 +19,15 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-language = "esql"
+index = ["logs-github.audit-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "GitHub Actions Workflow Run Deleted"
 note = """## Triage and analysis
 
 ### Investigating GitHub Actions Workflow Run Deleted
 
-`workflows.delete_workflow_run` is recorded when a run is deleted. GitHub does not always emit a separate audit event for deleting only the logs; the run deletion itself is the reliable cover-up signal.
+`workflows.delete_workflow_run` is recorded when a run is deleted. GitHub does not always emit a separate audit event for deleting only the logs; the run deletion itself is the reliable cover-up signal. This rule alerts only the first time a given `user.name` + `github.repo` + `github.data.workflow_id` combination deletes a run within the history window, which suppresses routine retention cleanup while still surfacing novel deletion behavior.
 
 ### Possible investigation steps
 
@@ -54,33 +57,18 @@ tags = [
     "Platform: GitHub",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
     "Service: GitHub Actions",
-    "Rule Type: ESQL",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "new_terms"
 
 query = '''
-from logs-github.audit-* metadata _id, _index, _version
-| where
-  event.module == "github" and data_stream.dataset == "github.audit"
-    and event.action == "workflows.delete_workflow_run"
-| keep
-    _id,
-    _index,
-    _version,
-    @timestamp,
-    event.action,
-    user.name,
-    github.org,
-    github.repo,
-    github.actor_ip,
-    github.hashed_token,
-    github.programmatic_access_type,
-    github.user_agent,
-    github.data.workflow_run_id
+data_stream.dataset: "github.audit" and
+    event.action: "workflows.delete_workflow_run"
 '''
 
 
@@ -96,6 +84,14 @@ reference = "https://attack.mitre.org/techniques/T1070/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "github.repo", "github.data.workflow_id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 [rule.investigation_fields]
 field_names = [
