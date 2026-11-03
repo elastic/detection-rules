@@ -85,21 +85,20 @@ FROM logs-github.audit-*
 | STATS Esql.event_count = COUNT(*),
         Esql.first_seen = MIN(@timestamp),
         Esql.last_seen = MAX(@timestamp),
-        Esql.ip_count = COUNT_DISTINCT(github.actor_ip),
-        Esql.ip_values = VALUES(github.actor_ip),
         Esql.repo_values = VALUES(github.repo),
         Esql.event_action_values = VALUES(event.action),
-        Esql.country_values = VALUES(geo.country_iso_code),
         Esql.programmatic_access_type_values = VALUES(github.programmatic_access_type),
         Esql.user_agent_values = VALUES(github.user_agent),
         Esql_priv.token_id_values = VALUES(github.token_id),
         Esql_priv.hashed_token_values = VALUES(github.hashed_token)
-  BY user.name, asn.asn, asn.organization_name
-// The 7-day history is the rule look-back (from = now-10085m). A user/ASN pair is new when its first
-// event falls inside the current interval; the 10m bound allows for the 5m interval plus scheduling drift.
+  BY user.name, github.actor_ip, geo.country_iso_code, asn.asn, asn.organization_name
+// The 7-day history is the rule look-back (from = now-10085m). A group is new when its first event
+// falls inside the current interval; the 10m bound allows for the 5m interval plus scheduling drift.
 | WHERE DATE_DIFF("minute", Esql.first_seen, NOW()) <= 10
-| EVAL Esql.source_as_number = asn.asn, Esql.source_as_organization_name = asn.organization_name
-| KEEP user.name, Esql.*, Esql_priv.*
+| EVAL Esql.source_as_number = asn.asn,
+       Esql.source_as_organization_name = asn.organization_name,
+       Esql.source_country = geo.country_iso_code
+| KEEP user.name, github.actor_ip, Esql.*, Esql_priv.*
 '''
 
 
@@ -173,12 +172,11 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "user.name",
+    "github.actor_ip",
+    "Esql.source_country",
     "Esql.source_as_number",
     "Esql.source_as_organization_name",
     "Esql.event_count",
-    "Esql.ip_count",
-    "Esql.ip_values",
-    "Esql.country_values",
     "Esql.repo_values",
     "Esql.event_action_values",
     "Esql.programmatic_access_type_values",
