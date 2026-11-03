@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/10/26"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -117,10 +117,11 @@ setup = """## Setup
 This rule supports connection observations from the Elastic Network Packet Capture integration, PAN-OS TRAFFIC
 session-start records, and a compatibility branch for standalone Packetbeat.
 
-For Network Packet Capture, enable ECS compatibility. The rule counts interim and final flow reports that emit
+Network Packet Capture 2.0.0 and later always applies ECS compatibility remapping. On earlier integration versions,
+enable `map_to_ecs` (the default since 1.31.1). The rule counts interim and final flow reports that emit
 `event.action:network_flow` and include `connection` in `event.type`. The standalone Packetbeat branch requires
-`agent.type:packetbeat` with the same ECS action and type values; verify that branch against the deployed Packetbeat version and
-configuration before relying on it.
+`agent.type:packetbeat` with the same ECS action and type values; verify that branch against the deployed Packetbeat
+version and configuration before relying on it.
 
 For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts.
 
