@@ -7,8 +7,12 @@ updated_date = "2026/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-Detects creation or deletion of a GitHub SSH certificate authority, or disabling the requirement that members use SSH
-certificates. Destroying a CA or dropping the requirement lets adversaries authenticate with unmanaged keys.
+Detects creation or deletion of a GitHub SSH certificate authority (CA), or disabling the requirement that members use
+SSH certificates, for an organization or enterprise. A CA lets an org issue short-lived SSH certificates and optionally
+require them in place of personal SSH keys, centralizing and time-bounding Git access. Destroying the CA or dropping
+the requirement makes ordinary unmanaged SSH keys acceptable again. Following an account takeover, an adversary may
+make these changes to authenticate with keys the organization does not manage and evade certificate-based access
+control, making this a high-impact change to Git access controls.
 """
 false_positives = [
     """
@@ -22,27 +26,35 @@ license = "Elastic License v2"
 name = "GitHub SSH Certificate Authority or Requirement Modified"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub SSH Certificate Authority or Requirement Modified
 
-A GitHub SSH certificate authority (CA) lets an organization or enterprise issue short-lived SSH certificates and optionally require that members use them instead of personal SSH keys. `ssh_certificate_authority.create` adds a CA, `ssh_certificate_authority.destroy` removes one, and `ssh_certificate_requirement.disable` drops the requirement so ordinary (unmanaged) SSH keys are accepted again. Destroying a CA or disabling the requirement weakens Git access control and can let an adversary authenticate with keys the organization does not manage.
+A GitHub SSH certificate authority (CA) lets an organization or enterprise issue short-lived SSH certificates and optionally require that members use them instead of personal SSH keys. `ssh_certificate_authority.create` adds a CA, `ssh_certificate_authority.destroy` removes one, and `ssh_certificate_requirement.disable` drops the requirement so ordinary (unmanaged) SSH keys are accepted again. Destroying a CA or disabling the requirement weakens Git access control and can let an adversary authenticate with keys the organization does not manage. After an owner account is compromised, these changes are a defense-evasion step that re-opens key-based access the organization previously centralized and time-bounded.
 
 ### Possible investigation steps
 
-- Review `user.name`, `event.action`, `github.actor_ip`, and `github.user_agent` to confirm whether an authorized owner made the change from an expected source.
-- Determine whether the change matches a documented CA rotation or policy decision; a `create` immediately followed by a `destroy` may be a legitimate rotation.
+- Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold organization or enterprise owner privileges.
+- Determine the scope and nature of the change from `event.action` and the affected `github.org`/`github.business`/`github.name` (CA name), and verify whether it matches a documented CA rotation or policy decision.
+- Distinguish rotation from tampering: a `ssh_certificate_authority.create` immediately followed by a `destroy` of the old CA can be a legitimate rotation, whereas a lone `destroy` or a `ssh_certificate_requirement.disable` with no replacement is higher risk.
 - Confirm whether a replacement CA exists and whether the certificate requirement is still enabled after the change.
-- Review `public_key.create` events after the change to spot unmanaged SSH keys added while the requirement was off.
-- Pivot on `github.hashed_token` / `github.programmatic_access_type` to determine whether the change was made via the UI or a token.
+- Review `public_key.create` events after the change to spot unmanaged SSH keys added while the requirement was off, and review subsequent Git access using those keys.
+- Pivot on `github.hashed_token` and `github.programmatic_access_type` to determine whether the change was made interactively in the UI or via a token, and check for correlated takeover indicators (new owner additions, PAT grants, 2FA/SSO changes, sign-ins from unusual IPs or ASNs) in the same window.
 
 ### False positive analysis
 
-- Controlled CA rotation performed within an approved change window. Confirm against a change ticket and scope exceptions by actor when expected.
+- A controlled CA rotation performed within an approved change window; the replacement CA should be created before the old one is deleted, and the certificate requirement should not be disabled except during a documented outage.
+- A planned governance or migration change performed by a known administrator can generate these events as expected activity.
 
 ### Response and remediation
 
-- If the change is unauthorized, restore the CA and re-enable the certificate requirement.
-- Revoke unexpected or unmanaged SSH keys added while the requirement was disabled.
-- Confirm the acting owner account is not compromised and review its other recent administrative actions.
+- If the change is unauthorized, restore the CA and re-enable the SSH certificate requirement as soon as possible.
+- Revoke unexpected or unmanaged SSH keys added while the requirement was disabled, and audit Git access performed with those keys.
+- Review org and enterprise audit logs for other changes made by the actor after the event, and revert any unauthorized modifications.
+- Rotate credentials for the acting owner account if compromise is suspected, and force re-authentication.
+- Escalate to incident response if the actor is unknown or unauthorized, or if the change is accompanied by new SSH keys, owner additions, token grants, or sign-ins from unfamiliar infrastructure.
+- Harden by requiring SSH certificates org-wide, restricting who can manage the SSH CA and certificate requirement, and alerting on future CA creation/deletion and requirement changes.
 """
 references = [
     "https://docs.github.com/en/organizations/managing-git-access-to-your-organizations-repositories/about-ssh-certificate-authorities",
