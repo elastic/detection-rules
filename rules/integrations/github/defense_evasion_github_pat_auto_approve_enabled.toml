@@ -7,8 +7,12 @@ updated_date = "2026/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-Detects enabling of GitHub fine-grained personal access token auto-approval, which lets new PATs access organization
-resources without an owner review. Adversaries use this to persist with newly minted tokens.
+Detects when automatic approval of fine-grained personal access token (PAT) requests is enabled for a GitHub
+organization. With auto-approval off, an owner must review and approve each fine-grained PAT before it can access
+organization resources; once enabled, members' PAT requests gain access without that review, removing a key control
+over programmatic access. Following an account takeover, an adversary with owner access may enable auto-approval to
+quietly provision long-lived, organization-scoped tokens for persistence and data access, making this a high-impact
+change to the organization's programmatic-access controls.
 """
 false_positives = [
     """
@@ -22,6 +26,9 @@ language = "esql"
 license = "Elastic License v2"
 name = "GitHub Fine-Grained PAT Auto-Approve Enabled"
 note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating GitHub Fine-Grained PAT Auto-Approve Enabled
 
@@ -98,6 +105,11 @@ framework = "MITRE ATT&CK"
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
 
 
 [rule.threat.tactic]
