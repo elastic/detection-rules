@@ -7,9 +7,12 @@ updated_date = "2026/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-Detects disabling of GitHub organization restrictions that block personal access tokens from accessing organization
-resources. Turning that control off lets classic or fine-grained PATs reach private repositories again without the
-restriction that owners previously enforced.
+Detects when the organization control that restricts personal access token (PAT) access to GitHub organization
+resources is disabled. With the restriction enabled, classic and fine-grained PATs cannot reach organization-owned
+resources; once disabled, any member's PAT can access private repositories again without owner enforcement. Following an
+account takeover, an adversary may disable this restriction so that a leaked or attacker-created PAT regains access to
+organization data, establishing token-based persistence and a data-exfiltration path, making this a high-impact change
+to the organization's programmatic-access controls.
 """
 false_positives = [
     """
@@ -23,26 +26,38 @@ license = "Elastic License v2"
 name = "GitHub PAT Access Restriction Disabled"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub PAT Access Restriction Disabled
 
-`personal_access_token.access_restriction_disabled` is the audit action when an owner stops restricting PAT access to organization resources. Enabling the restriction (`personal_access_token.access_restriction_enabled`) is hardening and is not alerted.
+This rule triggers on `personal_access_token.access_restriction_disabled`, the audit action emitted when an organization owner stops restricting personal access token (PAT) access to organization-owned resources. With the restriction enabled, classic and fine-grained PATs cannot reach organization resources; once disabled, any member's PAT can access private repositories again. An adversary who has taken over an owner account may disable this control so a leaked or attacker-created PAT regains organization access, establishing token-based persistence and a data-exfiltration path that survives password and session resets.
 
-This is a different control from fine-grained PAT *approval*. Auto-approve of fine-grained PAT requests (`auto_approve_personal_access_token_requests.enable`) is a separate setting covered by its own dedicated rule. Do not treat "require approval" being turned on as suspicious.
+GitHub emits this single audit action for both classic and fine-grained personal access tokens; there is no separate per-type action. Use the organization audit log or the actor context to determine whether the classic or fine-grained restriction (or both) was relaxed. Enabling the restriction (`personal_access_token.access_restriction_enabled`) is hardening and is not alerted.
+
+This is a different control from fine-grained PAT *approval*. Auto-approve (`auto_approve_personal_access_token_requests.enable`) is covered by the GitHub Fine-Grained PAT Auto-Approve Enabled rule; turning approval *on* is hardening and is not suspicious here.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `github.org`, and `github.actor_ip`.
-- Determine whether classic PATs, fine-grained PATs, or both were unrestricted.
-- List `personal_access_token.access_granted` and private `git.clone` activity after the change.
+- Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold organization owner privileges.
+- Determine whether the change was expected by checking change-management records and the affected `github.org`, and whether classic PATs, fine-grained PATs, or both were unrestricted.
+- Review PAT grants and usage after the change, such as `personal_access_token.access_granted` events and subsequent private `git.clone`, `git.push`, or `repo.download_zip` activity by the affected tokens (`github.hashed_token`, `github.token_scopes`).
+- Review authentication context for the actor around the event time for signs of takeover, such as sign-ins from new `github.actor_ip` addresses, unfamiliar user agents, or token-based access (`github.programmatic_access_type`) instead of normal interactive activity.
+- Correlate for other high-impact identity or policy changes near the same timestamp, including owner or member additions, OAuth App restriction changes, SSO/SAML changes, 2FA requirement changes, and IP allow-list modifications.
 
 ### False positive analysis
 
-- A ticketed cutover that needs classic PATs for a short window.
+- A ticketed migration or cutover (for example, moving automation off GitHub Apps) may require temporarily allowing classic PATs; this should be time-bounded, approved by organization owners, and followed by re-enabling the restriction.
+- A planned governance change performed by a known administrator can generate this event as expected activity.
 
 ### Response and remediation
 
-- Re-enable PAT access restrictions if policy requires them.
-- Review and revoke PATs created or used while the restriction was off.
+- Re-enable the PAT access restriction for the organization as soon as the change is confirmed unauthorized, and prefer restricting classic PATs while requiring approval for fine-grained PATs.
+- Review and revoke PATs created or used while the restriction was off, prioritizing tokens with broad scopes (`github.token_scopes`) or no business justification.
+- Rotate credentials and secrets potentially exposed through those tokens, and audit recent private repository clones, pushes, and ZIP downloads for data access.
+- Review org audit logs for other changes made by the actor after the disable event, and revert any unauthorized modifications.
+- Escalate to incident response if the actor is unknown or unauthorized, or if the disable event is followed by new PAT grants, owner additions, or sign-ins from unfamiliar infrastructure.
+- Harden by enforcing PAT access restrictions org-wide, disabling classic PATs, requiring approval and expiry for fine-grained PATs, and alerting on future changes to the PAT access policy.
 """
 references = [
     "https://github.blog/security/application-security/introducing-fine-grained-personal-access-tokens-for-github/",
@@ -100,6 +115,10 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
 
 
 [rule.threat.tactic]
