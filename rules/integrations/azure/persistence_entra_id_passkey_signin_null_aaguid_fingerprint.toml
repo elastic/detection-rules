@@ -16,9 +16,11 @@ corroborating signal alongside non-portal passkey registration.
 """
 false_positives = [
     """
-    Rare non-malicious WebAuthn implementations or test authenticators can present an all-zero AAGUID. Confirm the user
-    legitimately registered the passkey and that the registration and sign-in context (source, device, timing) is
-    expected before escalating. Legitimate platform and hardware authenticators do not use an all-zero AAGUID.
+    WebAuthn clients may replace the AAGUID with zeros when attestation conveyance is "none", and test or custom
+    WebAuthn implementations can present zero or malformed AAGUIDs. Confirm the user registered the passkey, review the
+    registration audit event for the initiating application, and verify the sign-in context (source, device, timing)
+    before escalating. Enforcing FIDO2 attestation and AAGUID key restrictions prevents such credentials from being
+    registered at all.
     """,
 ]
 from = "now-9m"
