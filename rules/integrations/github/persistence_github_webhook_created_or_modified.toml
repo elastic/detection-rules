@@ -2,13 +2,13 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects creation or configuration change of a GitHub webhook. Attackers add a hook to copy push, pull request, and
-workflow payloads — including secrets that land in those events — to an external URL.
+workflow payloads (including secrets that land in those events) to an external URL.
 """
 false_positives = [
     """
@@ -25,8 +25,6 @@ note = """## Triage and analysis
 ### Investigating GitHub Webhook Created or Configuration Changed
 
 `hook.create` adds a webhook. `hook.config_changed` updates the payload URL or other hook settings. Either action can send repository events to an attacker-controlled endpoint.
-
-Lab telemetry: `hook.create` and `hook.config_changed` on `gh-lab-org/lab-app-1` from `bry4nsec` (inactive dummy URL on example.com).
 
 ### Possible investigation steps
 
@@ -58,9 +56,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Collection",
     "Tactic: Exfiltration",
-    "Tactic: Persistence",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -94,18 +92,6 @@ from logs-github.audit-* metadata _id, _index, _version
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
-
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
 id = "T1213"
 name = "Data from Information Repositories"
 reference = "https://attack.mitre.org/techniques/T1213/"
@@ -126,6 +112,10 @@ framework = "MITRE ATT&CK"
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567.004"
+name = "Exfiltration Over Webhook"
+reference = "https://attack.mitre.org/techniques/T1567/004/"
 
 
 [rule.threat.tactic]
