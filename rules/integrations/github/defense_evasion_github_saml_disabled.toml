@@ -7,8 +7,12 @@ updated_date = "2026/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-Detects disabling of SAML single sign-on for a GitHub enterprise or organization. Dropping SSO removes IdP-enforced
-access control and is a common persistence step after an owner account is compromised.
+Detects when SAML single sign-on (SSO) is disabled for a GitHub enterprise or organization. SAML SSO delegates
+authentication to an external identity provider (IdP) and lets administrators enforce IdP-side controls such as MFA,
+conditional access, and centralized deprovisioning. Disabling it removes those controls and allows members to
+authenticate with GitHub credentials alone. Following an account takeover, an adversary may disable SSO to evade
+IdP-enforced access policies and maintain access that survives IdP-side session revocation and deprovisioning, making
+this a high-impact identity-control change.
 """
 false_positives = [
     """
@@ -23,28 +27,35 @@ license = "Elastic License v2"
 name = "GitHub SAML SSO Disabled"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub SAML SSO Disabled
 
-`business.disable_saml` and `org.disable_saml` record the disabling of SAML single sign-on at the enterprise or organization level. SAML SSO delegates authentication to an external identity provider (IdP) and lets administrators enforce IdP-side controls such as MFA, conditional access, and centralized deprovisioning. Disabling it removes those controls and allows members to authenticate with GitHub credentials alone, which is a common persistence and defense-evasion step after an owner account is compromised. These events only apply to enterprises/orgs that have SAML configured and will not fire on a personal-account GHEC trial without SSO.
+This rule triggers on `business.disable_saml` and `org.disable_saml`, which record the disabling of SAML single sign-on at the enterprise or organization level. SAML SSO delegates authentication to an external identity provider (IdP) and lets administrators enforce IdP-side controls such as MFA, conditional access, and centralized deprovisioning. Disabling it removes those controls and allows members to authenticate with GitHub credentials alone, which is a common defense-evasion and persistence step after an owner account is compromised: it severs IdP-enforced policy and keeps access alive even if the IdP later revokes sessions or deprovisions the user. These events only apply to enterprises/orgs that have SAML configured and will not fire on a personal-account GHEC trial without SSO.
 
 ### Possible investigation steps
 
-- Review `user.name`, `github.actor_ip`, and `github.user_agent` to confirm whether an authorized enterprise/org owner made the change, and from an expected location and client.
-- Determine whether the change aligns with a documented IdP migration or SAML reconfiguration ticket.
-- Check for correlated account-takeover indicators in the same window: recovery-code usage, new owner additions, PAT grants, OAuth app authorizations, and sign-ins from unusual IPs or ASNs.
-- Review membership and access changes made while SSO was disabled, since members could authenticate without IdP enforcement during that period.
-- Pivot on `github.hashed_token` / `github.programmatic_access_type` to determine whether the action was performed via the UI or a token.
+- Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold enterprise or organization owner privileges.
+- Determine the scope from `event.action` (`org.disable_saml` vs `business.disable_saml`) and the affected `github.org`/`github.business`, and verify whether the change was approved in an IdP-migration or SAML-reconfiguration change ticket.
+- Pivot on `github.hashed_token` and `github.programmatic_access_type` to determine whether the change was made interactively in the UI or via a token, and treat token-driven changes as a stronger compromise signal.
+- Check for correlated account-takeover indicators in the same window: recovery-code usage, new owner or member additions, PAT grants, OAuth App authorizations, 2FA requirement changes, and sign-ins from unusual IPs or ASNs.
+- Review membership, access, and credential changes made while SSO was disabled, since members could authenticate without IdP enforcement during that period.
+- If the change is unauthorized, re-enable SAML SSO before continuing the investigation to restore IdP-enforced access control.
 
 ### False positive analysis
 
-- Planned IdP cutover or SAML provider reconfiguration performed within an approved change window. Confirm against a change ticket and scope exceptions by actor when expected.
+- A planned IdP cutover or SAML provider reconfiguration performed within an approved change window; this should be ticketed, keep a second owner session active, and re-enable SSO as soon as the new provider is ready.
+- A governance or migration change (for example, consolidating organizations under an enterprise) performed by a known administrator can generate this event as expected activity.
 
 ### Response and remediation
 
-- If the change is unauthorized, re-enable SAML SSO and require SSO for all members.
-- Invalidate active sessions and force re-authentication through the IdP.
-- Review and reverse any membership, access, or credential changes made while SSO was disabled.
-- Confirm the acting owner account is not compromised, rotate its credentials, and review its other recent administrative actions.
+- Re-enable SAML SSO and require SSO for all members as soon as the change is confirmed unauthorized.
+- Invalidate active sessions and force re-authentication through the IdP so that access is re-gated by IdP-enforced controls.
+- Review and reverse any membership, access, or credential changes made while SSO was disabled, and revoke tokens created during that period.
+- Review org and enterprise audit logs for other changes made by the actor after the disable event, and revert any unauthorized modifications.
+- Escalate to incident response if the actor is unknown or unauthorized, or if the disable event is accompanied by new owner additions, token grants, recovery-code usage, or sign-ins from unfamiliar infrastructure.
+- Harden by requiring SSO for all members, restricting who can change enterprise/organization authentication settings, and alerting on future changes to the SAML configuration.
 """
 references = [
     "https://docs.github.com/en/enterprise-cloud@latest/admin/identity-and-access-management/using-saml-for-enterprise-iam/configuring-saml-single-sign-on-for-your-enterprise",
