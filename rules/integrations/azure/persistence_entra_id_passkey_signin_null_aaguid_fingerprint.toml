@@ -7,11 +7,12 @@ updated_date = "2026/10/22"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID reporting an all-zero Authenticator Attestation
-GUID (AAGUID). Legitimate platform and hardware authenticators report a vendor AAGUID, while an all-zero value is the
-default of the offensive WebAuthn software authenticators in ROADtools roadtx and DSInternals.Passkeys, which
-adversaries use to register shadow passkeys for phishing-resistant persistence. An operator can override the AAGUID, so
-enforce FIDO2 attestation and key restrictions to close that gap.
+Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID whose Authenticator Attestation GUID (AAGUID) is
+all zeros or is not a well-formed UUID. Platform and hardware authenticators report a vendor AAGUID registered in the
+FIDO Metadata Service, so a zero or malformed value indicates a software authenticator or a custom WebAuthn
+implementation. Offensive tooling such as ROADtools roadtx and DSInternals.Passkeys can register shadow passkeys with
+any AAGUID, including legitimate vendor values, so this rule catches only the unconfigured or careless case. Treat it as a
+corroborating signal alongside non-portal passkey registration.
 """
 false_positives = [
     """
