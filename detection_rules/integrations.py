@@ -206,13 +206,7 @@ def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, An
 
 
 def parse_version_routing_rules(zip_ref: zipfile.ZipFile, package: str) -> dict[str, list[str]]:
-    """Parse the routing rules of an EPR package zip into source data stream -> rerouted data streams.
-
-    A data stream with a routing_rules.yml (e.g. azure.events) reroutes each document to the data stream of its
-    category, so the policy template of the source data stream also fills the target data streams. Only literal
-    targets in the same package are kept: a templated target (``{{...}}``) is resolved per document, and a data
-    stream of another package is filled through that package's own policy templates.
-    """
+    """Parse the routing rules of an EPR package zip into source data stream -> rerouted data streams."""
     prefix = f"{package}."
     routing: dict[str, list[str]] = {}
     for file in zip_ref.namelist():
@@ -228,6 +222,8 @@ def parse_version_routing_rules(zip_ref: zipfile.ZipFile, package: str) -> dict[
                 if isinstance(target_datasets, str):
                     target_datasets = [target_datasets]
                 for target in target_datasets or []:
+                    # A templated target ({{...}}) is resolved per document, and a data stream of another package is
+                    # filled through that package's own policy templates, so keep only literal same-package targets.
                     if isinstance(target, str) and target.startswith(prefix) and "{{" not in target:
                         targets.add(target.removeprefix(prefix))
         targets.discard(source)

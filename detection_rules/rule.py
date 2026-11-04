@@ -1723,17 +1723,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def _get_rerouting_policy_templates(
         package: str, data_stream: str | None, manifest_versions: Iterable[str], packages_manifest: dict[str, Any]
     ) -> list[str]:
-        """Return the policy templates whose data streams reroute documents to the data stream.
-
-        The routing rules come from the routing_rules.yml of the package versions (e.g. azure.events reroutes each
-        log category to its own data stream), so the policy template of the source data stream also fills it.
-        """
+        """Return the policy templates whose data streams reroute documents to the data stream."""
         if not data_stream:
             return []
         version_manifests = packages_manifest.get(package, {})
         version_routing_rules = load_integrations_routing_rules().get(package, {})
         rerouting_templates: list[str] = []
         for manifest_version in manifest_versions:
+            # e.g. azure.events reroutes each log category to its own data stream (routing_rules.yml)
             for source, targets in version_routing_rules.get(manifest_version, {}).items():
                 if data_stream not in targets:
                     continue
