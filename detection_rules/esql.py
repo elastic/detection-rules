@@ -84,6 +84,39 @@ def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = Non
     return event_datasets
 
 
+def get_esql_query_index_datasets(
+    query: str, integration_schemas: dict[str, Any], tree: Any | None = None
+) -> list[EventDataset]:
+    """Extract the data streams that the FROM/TS index patterns of an ES|QL query read.
+
+    ``FROM logs-azure.activitylogs-*`` reads the azure.activitylogs data stream as surely as
+    ``WHERE event.dataset == "azure.activitylogs"`` does. An index pattern names a data stream when it matches
+    exactly one data stream of its package in ``integration_schemas`` (package -> version -> data stream). A broad
+    pattern (logs-azure.*) or a pattern that matches no data stream of the package (logs-apache_tomcat.error-*)
+    names none.
+    """
+    event_datasets: list[EventDataset] = []
+    for index in get_esql_query_indices(query, tree=tree):
+        for package in infer_packages_from_indices([index]):
+            version_schemas: dict[str, Any] = integration_schemas.get(package, {})
+            data_streams = {
+                data_stream
+                for version_schema in version_schemas.values()
+                for data_stream, stream_fields in version_schema.items()
+                if data_stream != "jobs" and isinstance(stream_fields, dict)
+            }
+            matching = [
+                data_stream
+                for data_stream in sorted(data_streams)
+                if stream_matches_indices(package, data_stream, [index])
+            ]
+            if len(matching) == 1:
+                item = EventDataset(package=package, integration=matching[0])
+                if item not in event_datasets:
+                    event_datasets.append(item)
+    return event_datasets
+
+
 def local_esql_index(source: str) -> str:
     """Drop a ``cluster:`` or ``cluster::`` prefix from an index pattern."""
     cleaned = source.strip().strip("`")

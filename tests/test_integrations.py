@@ -728,6 +728,52 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
         self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
 
+    def test_index_datasets_from_from_sources(self):
+        from detection_rules.esql import get_esql_query_index_datasets
+
+        schemas = {
+            "azure": {"1.0.0": {"activitylogs": {}, "signinlogs": {}}},
+            "endpoint": {"9.0.0": {"process": {}, "network": {}}},
+            "aws": {"8.0.0": {"cloudtrail": {}, "cloudtrail_otel": {}}, "8.9.0": {"eks_audit": {}}},
+            "apache_tomcat": {"1.0.0": {"catalina": {}}},
+            "system": {"1.0.0": {"security": {}, "auth": {}}},
+        }
+        query = (
+            "FROM logs-azure.activitylogs-*, logs-endpoint.events.process-*, remote:logs-aws.eks_audit-*, "
+            # several data streams, or none, match these patterns, so they name no single data stream
+            "logs-azure.*, logs-aws.cloudtrail*, logs-apache_tomcat.error-*, logs-*, metrics-* "
+            "METADATA _id, _version, _index | KEEP _id"
+        )
+        self.assertEqual(
+            [str(dataset) for dataset in get_esql_query_index_datasets(query, schemas)],
+            ["azure.activitylogs", "endpoint.process", "aws.eks_audit"],
+        )
+
+    def _related_integrations(self, path: str) -> list[dict]:
+        from pathlib import Path
+
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(Path(path))
+        rows = rule.contents.to_api_format()["related_integrations"]
+        return sorted(rows, key=lambda row: (row["package"], row.get("integration", "")))
+
+    def test_from_data_stream_resolves_policy_template(self):
+        # the query compares no dataset; FROM logs-azure.activitylogs-* names the data stream
+        rows = self._related_integrations(
+            "rules/cross-platform/execution_azure_vm_run_command_powershell_unrestricted_script.toml"
+        )
+        self.assertEqual(
+            [(row["package"], row.get("integration")) for row in rows],
+            [("azure", "activitylogs"), ("azure", "events"), ("endpoint", None)],
+        )
+
+    def test_from_unknown_data_stream_keeps_package_row(self):
+        rows = self._related_integrations(
+            "rules/cross-platform/reconnaissance_web_server_unusual_spike_in_error_logs.toml"
+        )
+        self.assertIn("apache_tomcat", [row["package"] for row in rows])
+
 
 class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
     """Integration validation checks a query against the package field schema only, never the full ECS schema."""

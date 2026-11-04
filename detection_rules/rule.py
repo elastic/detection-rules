@@ -30,7 +30,11 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
-from .esql import get_esql_query_event_dataset_integrations, normalize_dataset_package
+from .esql import (
+    get_esql_query_event_dataset_integrations,
+    get_esql_query_index_datasets,
+    normalize_dataset_package,
+)
 from .esql_errors import EsqlSemanticError, public_esql_error
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
@@ -40,6 +44,7 @@ from .integrations import (
     get_policy_template_for_data_stream,
     load_integrations_manifests,
     load_integrations_routing_rules,
+    load_integrations_schemas,
     resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -1842,6 +1847,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(data, ESQLRuleData):
             dataset_objs = get_esql_query_event_dataset_integrations(data.query, tree=data.ast)
             datasets.update(str(obj) for obj in dataset_objs)
+            # FROM logs-<package>.<dataset>-* reads a data stream just like an event.dataset comparison does
+            index_dataset_objs = get_esql_query_index_datasets(data.query, load_integrations_schemas(), tree=data.ast)
+            datasets.update(str(obj) for obj in index_dataset_objs)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
