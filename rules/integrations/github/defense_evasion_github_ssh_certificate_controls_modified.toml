@@ -36,7 +36,7 @@ A GitHub SSH certificate authority (CA) lets an organization or enterprise issue
 ### Possible investigation steps
 
 - Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold organization or enterprise owner privileges.
-- Determine the scope and nature of the change from `event.action` and the affected `github.org`/`github.business`/`github.name` (CA name), and verify whether it matches a documented CA rotation or policy decision.
+- Determine the scope and nature of the change from `event.action` and the affected `github.org`/`github.business`, and verify whether it matches a documented CA rotation or policy decision.
 - Distinguish rotation from tampering: a `ssh_certificate_authority.create` immediately followed by a `destroy` of the old CA can be a legitimate rotation, whereas a lone `destroy` or a `ssh_certificate_requirement.disable` with no replacement is higher risk.
 - Confirm whether a replacement CA exists and whether the certificate requirement is still enabled after the change.
 - Review `public_key.create` events after the change to spot unmanaged SSH keys added while the requirement was off, and review subsequent Git access using those keys.
@@ -93,13 +93,11 @@ from logs-github.audit-* metadata _id, _index, _version
     event.action,
     user.name,
     github.org,
-    github.repo,
     github.actor_ip,
     github.hashed_token,
     github.programmatic_access_type,
     github.user_agent,
-    github.business,
-    github.name
+    github.business
 '''
 
 
@@ -127,12 +125,10 @@ field_names = [
     "event.action",
     "user.name",
     "github.org",
-    "github.repo",
     "github.actor_ip",
     "github.hashed_token",
     "github.programmatic_access_type",
     "github.user_agent",
     "github.business",
-    "github.name",
 ]
 
