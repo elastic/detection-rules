@@ -35,6 +35,14 @@ from detection_rules.integrations import (
 from detection_rules.rule_validators import KQLValidator
 from detection_rules.utils import clear_caches
 
+PACKAGE_STACK_VERSION = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+# On 8.x stacks Azure rules resolve to azure ^1.0.0, whose lowest version predates the events policy template (1.20.0),
+# and the Azure releases with aadgraphactivitylogs (1.37.0+) need a later 8.19 patch, so no events row is listed there
+skip_before_9x_azure_routing = unittest.skipIf(
+    PACKAGE_STACK_VERSION < Version.parse("9.0.0"),
+    "Azure events policy template rows are only resolved on 9.x stacks",
+)
+
 
 def _manifest(kibana_version: str) -> dict:
     """Build a minimal manifest dict with the given conditions.kibana.version string."""
@@ -712,16 +720,19 @@ class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
         rows = rule.contents.to_api_format()["related_integrations"]
         return sorted((row for row in rows if row["package"] == "azure"), key=lambda row: row.get("integration", ""))
 
+    @skip_before_9x_azure_routing
     def test_entra_id_data_stream_maps_to_adlogs_and_events(self):
         rows = self._azure_rows("rules/cross-platform/initial_access_azure_o365_with_network_alert.toml")
         self.assertEqual([row.get("integration") for row in rows], ["adlogs", "events"])
         self.assertEqual(len({row["version"] for row in rows}), 1)
 
+    @skip_before_9x_azure_routing
     def test_activitylogs_adds_events(self):
         rows = self._azure_rows("rules/integrations/azure/credential_access_azure_storage_account_keys_accessed.toml")
         self.assertEqual([row.get("integration") for row in rows], ["activitylogs", "events"])
         self.assertEqual(rows[0]["version"], rows[1]["version"])
 
+    @skip_before_9x_azure_routing
     def test_events_takes_highest_version_of_rerouted_data_streams(self):
         rows = self._azure_rows("rules/integrations/azure/credential_access_device_code_signin_aad_graph_enum.toml")
         by_template = {row.get("integration"): row["version"] for row in rows}
@@ -782,6 +793,7 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         rows = rule.contents.to_api_format()["related_integrations"]
         return sorted(rows, key=lambda row: (row["package"], row.get("integration", "")))
 
+    @skip_before_9x_azure_routing
     def test_from_data_stream_resolves_policy_template(self):
         # the query compares no dataset; FROM logs-azure.activitylogs-* names the data stream
         rows = self._related_integrations(
