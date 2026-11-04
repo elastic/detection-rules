@@ -20,8 +20,8 @@ false_positives = [
     automation tokens and user agents.
     """,
 ]
-from = "now-9m"
-interval = "8m"
+from = "now-11m"
+interval = "10m"
 language = "esql"
 license = "Elastic License v2"
 name = "GitHub API Sensitive Resource Enumeration"
@@ -85,7 +85,7 @@ query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
   data_stream.dataset == "github.audit" and event.action == "api.request" and
-  github.actor_ip is not null and github.actor_is_bot == false and
+  github.actor_ip is not null and (github.actor_is_bot is not null and github.actor_is_bot == false) and
   (
     github.route like "*secrets*" or
     github.route like "*public-key*" or
