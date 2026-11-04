@@ -206,7 +206,7 @@ def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, An
 
 
 def parse_version_routing_rules(zip_ref: zipfile.ZipFile, package: str) -> dict[str, list[str]]:
-    """Parse the routing rules of an EPR package zip into source data stream -> rerouted data streams."""
+    """Parse the routing rules of an integrations package zip into source data stream -> rerouted data streams."""
     prefix = f"{package}."
     routing: dict[str, list[str]] = {}
     for file in zip_ref.namelist():
