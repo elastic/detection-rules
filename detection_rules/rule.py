@@ -12,6 +12,7 @@ import re
 import time
 import typing
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -29,14 +30,21 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
-from .esql import get_esql_query_event_dataset_integrations, normalize_dataset_package
+from .esql import (
+    get_esql_query_event_dataset_integrations,
+    get_esql_query_index_datasets,
+    normalize_dataset_package,
+)
 from .esql_errors import EsqlSemanticError, public_esql_error
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     IntegrationVersionNotFoundError,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
+    get_policy_template_for_data_stream,
     load_integrations_manifests,
+    load_integrations_routing_rules,
+    load_integrations_schemas,
     resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -1651,6 +1659,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     if not package_integrations:
                         return
 
+                    # (package, rerouting policy template) -> (highest manifest version, its version expression)
+                    rerouted: dict[tuple[str, str], tuple[Version, str]] = {}
                     for package in package_integrations:
                         integration = package.get("integration")
                         integration_name = (
@@ -1666,21 +1676,75 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             continue
                         package["version"] = result.expression
 
-                        # Union policy templates across manifest-backed versions only.
-                        policy_templates: set[str] = set()
-                        for manifest_version in result.manifest_versions:
-                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
-                            policy_templates.update(version_data.get("policy_templates", []))
-
-                        if package["integration"] not in policy_templates:
+                        # The query names a data stream; Kibana matches related integrations by policy template.
+                        version_manifests = [
+                            packages_manifest.get(package["package"], {}).get(manifest_version, {})
+                            for manifest_version in result.manifest_versions
+                        ]
+                        policy_template = self._get_policy_template(version_manifests, integration_name)
+                        if policy_template:
+                            package["integration"] = policy_template
+                        else:
                             del package["integration"]
                         resolved_package_integrations.append(package)
+
+                        manifest_version = max(Version.parse(v) for v in result.manifest_versions)
+                        for rerouting_template in self._get_rerouting_policy_templates(
+                            package["package"], integration_name, result.manifest_versions, packages_manifest
+                        ):
+                            # Intentionally reuse the queried data stream's version expression (the highest one) rather
+                            # than resolving the rerouting template's own range: the template only fills a data stream
+                            # from the version that has it (azure.events routes aadgraphactivitylogs from 1.37.0).
+                            key = (package["package"], rerouting_template)
+                            if key not in rerouted or manifest_version > rerouted[key][0]:
+                                rerouted[key] = (manifest_version, result.expression)
+
+                    for (package_name, rerouting_template), (_, expression) in rerouted.items():
+                        resolved_package_integrations.append(
+                            {"package": package_name, "integration": rerouting_template, "version": expression}
+                        )
 
                 # remove duplicate entries
                 package_integrations = list(
                     {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
                 )
                 obj.setdefault("related_integrations", package_integrations)
+
+    @staticmethod
+    def _get_policy_template(version_manifests: list[dict[str, Any]], data_stream: str | None) -> str | None:
+        """Return the policy template that collects the data stream in any of the package version manifests."""
+        if not data_stream:
+            return None
+        for version_manifest in version_manifests:
+            policy_template = get_policy_template_for_data_stream(version_manifest, data_stream)
+            if policy_template:
+                return policy_template
+        return None
+
+    @staticmethod
+    def _get_rerouting_policy_templates(
+        package: str, data_stream: str | None, manifest_versions: Iterable[str], packages_manifest: dict[str, Any]
+    ) -> list[str]:
+        """Return the policy templates whose data streams reroute documents to the data stream."""
+        if not data_stream:
+            return []
+        version_manifests = packages_manifest.get(package, {})
+        version_routing_rules = load_integrations_routing_rules().get(package, {})
+        rerouting_templates: list[str] = []
+        for manifest_version in manifest_versions:
+            version_manifest = version_manifests.get(manifest_version, {})
+            # Kibana matches the package row of a package with one policy template, so only list a rerouting
+            # policy template when the package has more than one
+            if len(version_manifest.get("policy_templates", [])) < 2:  # noqa: PLR2004
+                continue
+            # e.g. azure.events reroutes each log category to its own data stream (routing_rules.yml)
+            for source, targets in version_routing_rules.get(manifest_version, {}).items():
+                if data_stream not in targets:
+                    continue
+                rerouting_template = get_policy_template_for_data_stream(version_manifest, source)
+                if rerouting_template and rerouting_template not in rerouting_templates:
+                    rerouting_templates.append(rerouting_template)
+        return rerouting_templates
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -1785,6 +1849,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(data, ESQLRuleData):
             dataset_objs = get_esql_query_event_dataset_integrations(data.query, tree=data.ast)
             datasets.update(str(obj) for obj in dataset_objs)
+            # FROM logs-<package>.<dataset>-* names the data stream of a package whose datasets the query does not
+            # compare; a compared dataset is more specific and also restricts the validation schema
+            query_packages = {normalize_dataset_package(dataset.strip('"').split(".")[0]) for dataset in datasets}
+            index_dataset_objs = get_esql_query_index_datasets(data.query, load_integrations_schemas(), tree=data.ast)
+            datasets.update(str(obj) for obj in index_dataset_objs if obj.package not in query_packages)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
