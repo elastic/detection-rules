@@ -229,15 +229,13 @@ def stream_matches_indices(package: str, dataset: str, indices: list[str]) -> bo
     """Return True when a Fleet package stream could back any FROM index pattern."""
     if not indices:
         return True
+    # A data stream is <type>-<dataset>-<namespace>; matching up to the `-` keeps logs-aws.cloudtrail_otel-* from
+    # also matching the cloudtrail stream. A source such as logs-aws.cloudtrail* still matches through its own `*`.
     candidates = (
-        f"logs-{package}.{dataset}*",
         f"logs-{package}.{dataset}-*",
-        f"metrics-{package}.{dataset}*",
         f"metrics-{package}.{dataset}-*",
-        f"traces-{package}.{dataset}*",
         f"traces-{package}.{dataset}-*",
         # endpoint events use logs-endpoint.events.<dataset>-*
-        f"logs-{package}.events.{dataset}*",
         f"logs-{package}.events.{dataset}-*",
     )
     return any(index_patterns_match(index, candidate) for index in indices for candidate in candidates)

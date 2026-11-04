@@ -761,6 +761,18 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
             ["azure.activitylogs", "endpoint.process", "aws.eks_audit"],
         )
 
+    def test_index_datasets_match_up_to_the_namespace_boundary(self):
+        from detection_rules.esql import get_esql_query_index_datasets
+
+        query = "FROM logs-aws.cloudtrail_otel-* METADATA _id, _version, _index | KEEP _id"
+        # an exact source names its own data stream, not a data stream whose name is a prefix of it
+        both = {"aws": {"8.0.0": {"cloudtrail": {}, "cloudtrail_otel": {}}}}
+        self.assertEqual(
+            [str(dataset) for dataset in get_esql_query_index_datasets(query, both)], ["aws.cloudtrail_otel"]
+        )
+        prefix_only = {"aws": {"8.0.0": {"cloudtrail": {}}}}
+        self.assertEqual(get_esql_query_index_datasets(query, prefix_only), [])
+
     def _related_integrations(self, path: str) -> list[dict]:
         from pathlib import Path
 
