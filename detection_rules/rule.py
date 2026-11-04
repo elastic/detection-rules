@@ -36,6 +36,7 @@ from .integrations import (
     IntegrationVersionNotFoundError,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
+    get_policy_template_for_data_stream,
     load_integrations_manifests,
     resolve_related_integration_version,
 )
@@ -1651,6 +1652,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     if not package_integrations:
                         return
 
+                    # (package, rerouting policy template) -> (highest manifest version, its version expression)
+                    rerouted: dict[tuple[str, str], tuple[Version, str]] = {}
                     for package in package_integrations:
                         integration = package.get("integration")
                         integration_name = (
@@ -1666,21 +1669,64 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             continue
                         package["version"] = result.expression
 
-                        # Union policy templates across manifest-backed versions only.
-                        policy_templates: set[str] = set()
-                        for manifest_version in result.manifest_versions:
-                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
-                            policy_templates.update(version_data.get("policy_templates", []))
-
-                        if package["integration"] not in policy_templates:
+                        # The query names a data stream; Kibana matches related integrations by policy template.
+                        version_manifests = [
+                            packages_manifest.get(package["package"], {}).get(manifest_version, {})
+                            for manifest_version in result.manifest_versions
+                        ]
+                        policy_template = self._get_policy_template(version_manifests, integration_name)
+                        if policy_template:
+                            package["integration"] = policy_template
+                        else:
                             del package["integration"]
                         resolved_package_integrations.append(package)
+
+                        manifest_version = max(Version.parse(v) for v in result.manifest_versions)
+                        for rerouting_template in self._get_rerouting_policy_templates(
+                            package["package"], integration_name, version_manifests
+                        ):
+                            # The rerouting policy template must fill every target data stream the rule queries.
+                            key = (package["package"], rerouting_template)
+                            if key not in rerouted or manifest_version > rerouted[key][0]:
+                                rerouted[key] = (manifest_version, result.expression)
+
+                    for (package_name, rerouting_template), (_, expression) in rerouted.items():
+                        resolved_package_integrations.append(
+                            {"package": package_name, "integration": rerouting_template, "version": expression}
+                        )
 
                 # remove duplicate entries
                 package_integrations = list(
                     {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
                 )
                 obj.setdefault("related_integrations", package_integrations)
+
+    @staticmethod
+    def _get_policy_template(version_manifests: list[dict[str, Any]], data_stream: str | None) -> str | None:
+        """Return the policy template that collects the data stream in any of the package version manifests."""
+        if not data_stream:
+            return None
+        for version_manifest in version_manifests:
+            policy_template = get_policy_template_for_data_stream(version_manifest, data_stream)
+            if policy_template:
+                return policy_template
+        return None
+
+    @staticmethod
+    def _get_rerouting_policy_templates(
+        package: str, data_stream: str | None, version_manifests: list[dict[str, Any]]
+    ) -> list[str]:
+        """Return the policy templates of the package versions that reroute documents to the data stream."""
+        if not data_stream:
+            return []
+        return [
+            rerouting_template
+            for rerouting_template, target_data_streams in definitions.REROUTING_POLICY_TEMPLATES.get(
+                package, {}
+            ).items()
+            if data_stream in target_data_streams
+            and any(rerouting_template in manifest.get("policy_templates", []) for manifest in version_manifests)
+        ]
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""

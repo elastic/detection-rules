@@ -66,8 +66,26 @@ class IntegrationManifestSchema(Schema):
     @post_load
     def transform_policy_template(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
         if "policy_templates" in data:
-            data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
+            policy_templates = data["policy_templates"]
+            data["policy_templates"] = [policy["name"] for policy in policy_templates]
+            # Keep the data streams of each policy template: a data stream that is not named after its policy
+            # template (e.g. azure.signinlogs under adlogs) can only be resolved to its policy template this way.
+            data_streams = {
+                policy["name"]: policy["data_streams"] for policy in policy_templates if policy.get("data_streams")
+            }
+            if data_streams:
+                data["policy_template_data_streams"] = data_streams
         return data
+
+
+def get_policy_template_for_data_stream(manifest: dict[str, Any], data_stream: str) -> str | None:
+    """Return the policy template of a package version manifest that collects the data stream."""
+    if data_stream in manifest.get("policy_templates", []):
+        return data_stream
+    for policy_template, data_streams in manifest.get("policy_template_data_streams", {}).items():
+        if data_stream in data_streams:
+            return policy_template
+    return None
 
 
 def build_integrations_manifest(

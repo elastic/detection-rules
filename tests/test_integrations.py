@@ -590,6 +590,87 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
         )
 
 
+class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
+    """related_integrations.integration names the policy template that collects the queried data stream."""
+
+    def test_manifest_schema_keeps_policy_template_data_streams(self):
+        from marshmallow import EXCLUDE
+
+        from detection_rules.integrations import IntegrationManifestSchema
+
+        raw = {
+            "name": "azure",
+            "version": "1.0.0",
+            "release": "ga",
+            "description": "",
+            "download": "",
+            "conditions": {"kibana": {"version": "^8.0.0"}},
+            "policy_templates": [
+                {"name": "adlogs", "title": "Microsoft Entra ID", "data_streams": ["auditlogs", "signinlogs"]},
+                {"name": "activitylogs", "data_streams": ["activitylogs"]},
+                {"name": "no_streams"},
+            ],
+        }
+        loaded = IntegrationManifestSchema(unknown=EXCLUDE).load(raw)
+        self.assertEqual(loaded["policy_templates"], ["adlogs", "activitylogs", "no_streams"])
+        self.assertEqual(
+            loaded["policy_template_data_streams"],
+            {"adlogs": ["auditlogs", "signinlogs"], "activitylogs": ["activitylogs"]},
+        )
+
+    def test_get_policy_template_for_data_stream(self):
+        from detection_rules.integrations import get_policy_template_for_data_stream
+
+        manifest = {
+            "policy_templates": ["adlogs", "activitylogs"],
+            "policy_template_data_streams": {"adlogs": ["auditlogs", "signinlogs"], "activitylogs": ["activitylogs"]},
+        }
+        self.assertEqual(get_policy_template_for_data_stream(manifest, "activitylogs"), "activitylogs")
+        self.assertEqual(get_policy_template_for_data_stream(manifest, "signinlogs"), "adlogs")
+        self.assertIsNone(get_policy_template_for_data_stream(manifest, "unknown"))
+        # manifests built before data streams were kept only resolve policy template names
+        self.assertIsNone(get_policy_template_for_data_stream({"policy_templates": ["adlogs"]}, "signinlogs"))
+
+    def test_rerouting_policy_template_targets_have_a_policy_template(self):
+        from detection_rules.integrations import get_policy_template_for_data_stream, load_integrations_manifests
+        from detection_rules.schemas import definitions
+
+        manifests = load_integrations_manifests()
+        for package, rerouting in definitions.REROUTING_POLICY_TEMPLATES.items():
+            latest = max(manifests[package], key=Version.parse)
+            manifest = manifests[package][latest]
+            for rerouting_template, targets in rerouting.items():
+                self.assertIn(rerouting_template, manifest["policy_templates"])
+                for target in targets:
+                    with self.subTest(package=package, target=target):
+                        self.assertIsNotNone(get_policy_template_for_data_stream(manifest, target))
+
+    def _azure_rows(self, path: str) -> list[dict]:
+        from pathlib import Path
+
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(Path(path))
+        rows = rule.contents.to_api_format()["related_integrations"]
+        return sorted((row for row in rows if row["package"] == "azure"), key=lambda row: row.get("integration", ""))
+
+    def test_entra_id_data_stream_maps_to_adlogs_and_events(self):
+        rows = self._azure_rows("rules/cross-platform/initial_access_azure_o365_with_network_alert.toml")
+        self.assertEqual([row.get("integration") for row in rows], ["adlogs", "events"])
+        self.assertEqual(len({row["version"] for row in rows}), 1)
+
+    def test_activitylogs_adds_events(self):
+        rows = self._azure_rows("rules/integrations/azure/credential_access_azure_storage_account_keys_accessed.toml")
+        self.assertEqual([row.get("integration") for row in rows], ["activitylogs", "events"])
+        self.assertEqual(rows[0]["version"], rows[1]["version"])
+
+    def test_events_takes_highest_version_of_rerouted_data_streams(self):
+        rows = self._azure_rows("rules/integrations/azure/credential_access_device_code_signin_aad_graph_enum.toml")
+        by_template = {row.get("integration"): row["version"] for row in rows}
+        self.assertEqual(set(by_template), {"aadgraphactivitylogs", "adlogs", "events"})
+        self.assertEqual(by_template["events"], by_template["aadgraphactivitylogs"])
+
+
 class TestEsqlPackagedIntegrations(unittest.TestCase):
     """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
 
