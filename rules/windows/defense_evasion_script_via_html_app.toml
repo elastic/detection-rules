@@ -2,7 +2,7 @@
 creation_date = "2020/09/09"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -71,15 +71,18 @@ process where host.os.type == "windows" and event.type == "start" and
          /* Issue #379 */
          "*window.close(*",
          "* Chr(*"
-         )
-     and not ?process.parent.executable :
-                  ("?:\\Program Files (x86)\\Citrix\\System32\\wfshell.exe",
+         ) and
+     not (
+        ?process.parent.executable : (
+                   "?:\\Program Files (x86)\\Citrix\\System32\\wfshell.exe",
                    "?:\\Program Files (x86)\\Microsoft Office\\Office*\\MSACCESS.EXE",
-                   "?:\\Program Files\\Quokka.Works GTInstaller\\GTInstaller.exe")
+                   "?:\\Program Files\\Quokka.Works GTInstaller\\GTInstaller.exe") and
+        ?process.parent.executable != null
+     )
      ) or
 
     (process.name : "mshta.exe" and
-     not process.command_line : ("*.hta*", "*.htm*", "-Embedding") and ?process.args_count >=2) or
+     not process.command_line : ("*.hta*", "*.htm*", "-Embedding") and process.args_count >=2) or
 
      /* Execution of HTA file downloaded from the internet */
      (process.name : "mshta.exe" and process.command_line : "*\\Users\\*\\Downloads\\*.hta*") or

@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/11/02"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/11/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when automatic approval of fine-grained personal access token (PAT) requests is enabled for a GitHub
+organization. With auto-approval off, an owner must review and approve each fine-grained PAT before it can access
+organization resources; once enabled, members' PAT requests gain access without that review, removing a key control
+over programmatic access. Following an account takeover, an adversary with owner access may enable auto-approval to
+quietly provision long-lived, organization-scoped tokens for persistence and data access, making this a high-impact
+change to the organization's programmatic-access controls.
+"""
+false_positives = [
+    """
+    Organizations may enable fine-grained PAT auto-approval intentionally to streamline trusted internal token
+    workflows. Confirm the change against a policy decision or change ticket, and scope exceptions by actor when the
+    behavior is expected.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Fine-Grained PAT Auto-Approve Enabled"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Fine-Grained PAT Auto-Approve Enabled
+
+`auto_approve_personal_access_token_requests.enable` turns on automatic approval of fine-grained personal access token (PAT) requests for an organization. Once enabled, members' fine-grained PAT requests gain access to organization resources without an owner reviewing and approving each request, removing a key control over programmatic access. Adversaries with owner access may enable this to quietly provision long-lived, organization-scoped tokens for persistence.
+
+This is a different control from the PAT *access restriction*. Disabling that restriction is `personal_access_token.access_restriction_disabled`, which is covered by a separate rule. Disabling auto-approval (`auto_approve_personal_access_token_requests.disable`) restores the owner-review requirement and is a hardening action, so it is intentionally not alerted here.
+
+### Possible investigation steps
+
+- Review `user.name`, `github.org`, and `github.actor_ip` to confirm whether an authorized organization owner made the change, and from an expected location and client.
+- Determine whether the change aligns with a documented policy decision or change ticket; auto-approval is sometimes enabled intentionally to streamline trusted PAT workflows.
+- List `personal_access_token.access_granted` events after the change to identify PATs that were auto-approved, and review their scopes and target repositories.
+- Correlate with private `git.clone` / `git.push` and other programmatic activity performed by the newly granted tokens.
+- Check for other recent control changes (owner additions, PAT access restriction disabled, MFA or OAuth App restriction changes) that may indicate a broader tampering campaign.
+
+### False positive analysis
+
+- Organizations may legitimately enable auto-approval to reduce administrative overhead for trusted internal fine-grained PAT workflows. Confirm the change is expected and, if so, scope exceptions by actor or correlate with a change ticket.
+- Policy experiments in non-production organizations.
+
+### Response and remediation
+
+- If the change is unauthorized, disable auto-approval to restore the owner-review requirement.
+- Review and revoke fine-grained PATs that were granted while auto-approval was enabled.
+- Audit the resources and repositories accessed by those tokens and rotate any exposed secrets.
+- Confirm the actor's account is not compromised and review their other recent administrative actions.
+"""
+references = [
+    "https://github.blog/security/application-security/introducing-fine-grained-personal-access-tokens-for-github/",
+    "https://docs.github.com/en/organizations/managing-programmatic-access-to-your-organization/setting-a-personal-access-token-policy-for-your-organization",
+]
+risk_score = 47
+rule_id = "56fe656f-641f-412f-92d7-d450f992011f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "auto_approve_personal_access_token_requests.enable"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
