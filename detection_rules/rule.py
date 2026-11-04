@@ -47,6 +47,7 @@ from .schemas import (
     downgrade,
     get_min_supported_stack_version,
     get_stack_schemas,
+    load_stack_schema_map,
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
@@ -708,13 +709,13 @@ class QueryValidator:
         raise NotImplementedError
 
     @cached_method
-    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]]:
+    def get_required_fields(self, index: list[str], stack_version: str | None = None) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
 
-        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
-        beats_version = get_stack_schemas()[str(current_version)]["beats"]
-        endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
+        current_version = Version.parse(stack_version or load_current_package_version(), optional_minor_and_patch=True)
+        ecs_version = get_stack_schemas(str(current_version))[str(current_version)]["ecs"]
+        beats_version = get_stack_schemas(str(current_version))[str(current_version)]["beats"]
+        endgame_version = get_stack_schemas(str(current_version))[str(current_version)]["endgame"]
         ecs_schema = ecs.get_schema(ecs_version)
 
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
@@ -844,10 +845,10 @@ class QueryRuleData(BaseRuleData):
         return None
 
     @cached_method
-    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]] | None:
+    def get_required_fields(self, index: list[str], stack_version: str | None = None) -> list[dict[str, Any]] | None:
         validator = self.validator
         if validator is not None:
-            return validator.get_required_fields(index or [])
+            return validator.get_required_fields(index or [], stack_version)
         return None
 
     @validates_schema
@@ -1515,10 +1516,21 @@ class BaseRuleContents(ABC):
         if self._uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
 
-        # Hash required_fields by name only, since `type` and `ecs` depend on the
-        # schemas pinned to each release branch and would differ across branches
+        # Hash required_fields by name and the type resolved on the newest supported stack, so every
+        # release branch computes the same hash; `unknown` types and the `ecs` flag are left out
         if not include_required_field_schema and hashable_dict.get("required_fields"):
-            hashable_dict["required_fields"] = [{"name": f["name"]} for f in hashable_dict["required_fields"]]
+            required_fields: list[dict[str, Any]] = hashable_dict["required_fields"]
+            data = getattr(self, "data", None)
+            if isinstance(data, QueryRuleData):
+                newest_stack: str = max(load_stack_schema_map(), key=Version.parse)
+                index: list[str] = hashable_dict.get("index") or []
+                required_fields = data.get_required_fields(index, newest_stack) or required_fields
+            hashable_dict["required_fields"] = [
+                {"name": f["name"], "type": f["type"]}
+                if f.get("type") not in (None, "unknown")
+                else {"name": f["name"]}
+                for f in required_fields
+            ]
 
         return hashable_dict
 
