@@ -47,7 +47,6 @@ from .schemas import (
     downgrade,
     get_min_supported_stack_version,
     get_stack_schemas,
-    load_stack_schema_map,
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
@@ -58,23 +57,10 @@ from .stack_emit import (
     parse_stack,
     transforms_for_stack,
 )
-from .utils import PatchedTemplate, cached, cached_method, convert_time_span, get_nested_value, set_nested_value
+from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
-
-
-@cached
-def get_stack_invariant_ecs_schema() -> dict[str, Any]:
-    """Return the ECS flat schema merged across every stack in the schema map, newest definition winning."""
-    
-    ecs_versions = sorted({str(entry["ecs"]) for entry in load_stack_schema_map().values() if entry}, key=Version.parse)
-    merged: dict[str, Any] = {}
-    for ecs_version in ecs_versions:
-        merged.update(ecs.get_schema(ecs_version))
-    return merged
-
-
 TIME_NOW = time.strftime("%Y/%m/%d")
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
@@ -729,7 +715,7 @@ class QueryValidator:
         ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
         beats_version = get_stack_schemas()[str(current_version)]["beats"]
         endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
-        ecs_schema = get_stack_invariant_ecs_schema()
+        ecs_schema = ecs.get_schema(ecs_version)
 
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
@@ -1277,9 +1263,18 @@ class BaseRuleContents(ABC):
 
         rule_hash = self.get_hash()
         rule_hash_with_integrations = self.get_hash(include_integrations=True)
+        rule_hash_with_field_schema = self.get_hash(include_required_field_schema=True)
+        rule_hash_with_integrations_and_field_schema = self.get_hash(
+            include_integrations=True, include_required_field_schema=True
+        )
 
-        # Checking against current and previous version of the hash to avoid mass version bump
-        return existing_sha256 not in (rule_hash, rule_hash_with_integrations)
+        # Checking against current and previous versions of the hash to avoid mass version bump
+        return existing_sha256 not in (
+            rule_hash,
+            rule_hash_with_integrations,
+            rule_hash_with_field_schema,
+            rule_hash_with_integrations_and_field_schema,
+        )
 
     @property
     def is_emit_dirty(self) -> bool:
@@ -1493,7 +1488,12 @@ class BaseRuleContents(ABC):
         """Copy of the cached unversioned API payload, safe for callers to strip fields from."""
         return copy.deepcopy(self._converted_api_payload(apply_emit_transforms=apply_emit_transforms))
 
-    def get_hashable_content(self, include_version: bool = False, include_integrations: bool = False) -> dict[str, Any]:
+    def get_hashable_content(
+        self,
+        include_version: bool = False,
+        include_integrations: bool = False,
+        include_required_field_schema: bool = False,
+    ) -> dict[str, Any]:
         """Returns the rule content to be used for calculating the hash value for the rule.
 
         Always hashes the *baseline* (no stack emit transforms) so the lock hash is
@@ -1515,14 +1515,25 @@ class BaseRuleContents(ABC):
         if self._uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
 
+        # Hash required_fields by name only, since `type` and `ecs` depend on the
+        # schemas pinned to each release branch and would differ across branches
+        if not include_required_field_schema and hashable_dict.get("required_fields"):
+            hashable_dict["required_fields"] = [{"name": f["name"]} for f in hashable_dict["required_fields"]]
+
         return hashable_dict
 
     @cached_method
-    def get_hash(self, include_version: bool = False, include_integrations: bool = False) -> str:
+    def get_hash(
+        self,
+        include_version: bool = False,
+        include_integrations: bool = False,
+        include_required_field_schema: bool = False,
+    ) -> str:
         """Returns a sha256 hash of the rule contents"""
         hashable_contents = self.get_hashable_content(
             include_version=include_version,
             include_integrations=include_integrations,
+            include_required_field_schema=include_required_field_schema,
         )
         return utils.dict_hash(hashable_contents)
 
