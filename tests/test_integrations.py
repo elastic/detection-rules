@@ -669,8 +669,15 @@ class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
         # azure.events reroutes every Azure log category; the rule build depends on this data
         self.assertIn("azure", routing_rules)
         for package, versions in routing_rules.items():
-            latest = max(versions, key=Version.parse)
+            # An incremental build-schemas run records an empty map for a package whose versions it did not parse
+            common_versions = versions.keys() & manifests.get(package, {}).keys()
+            if not common_versions:
+                continue
+            latest = max(common_versions, key=Version.parse)
             manifest = manifests[package][latest]
+            # the rule build only lists a rerouting policy template for a package with more than one
+            if len(manifest.get("policy_templates", [])) < 2:
+                continue
             for source, targets in versions[latest].items():
                 with self.subTest(package=package, source=source):
                     self.assertIsNotNone(get_policy_template_for_data_stream(manifest, source))
@@ -681,8 +688,11 @@ class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
     def test_rerouting_policy_templates_from_routing_rules(self):
         from detection_rules.rule import TOMLRuleContents
 
-        manifests = {"pkg": {"1.0.0": {"policy_templates": ["router", "a"]}}}
-        routing_rules = {"pkg": {"1.0.0": {"router": ["a"]}}}
+        manifests = {
+            "pkg": {"1.0.0": {"policy_templates": ["router", "a"]}},
+            "single": {"1.0.0": {"policy_templates": ["entity"]}},
+        }
+        routing_rules = {"pkg": {"1.0.0": {"router": ["a"]}}, "single": {"1.0.0": {"entity": ["device"]}}}
         with unittest.mock.patch("detection_rules.rule.load_integrations_routing_rules", return_value=routing_rules):
             get_templates = TOMLRuleContents._get_rerouting_policy_templates  # noqa: SLF001
             self.assertEqual(get_templates("pkg", "a", ["1.0.0"], manifests), ["router"])
@@ -690,6 +700,8 @@ class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
             self.assertEqual(get_templates("pkg", None, ["1.0.0"], manifests), [])
             # a version without routing rules does not reroute
             self.assertEqual(get_templates("pkg", "a", ["2.0.0"], manifests), [])
+            # Kibana matches the package row of a package with one policy template
+            self.assertEqual(get_templates("single", "device", ["1.0.0"], manifests), [])
 
     def _azure_rows(self, path: str) -> list[dict]:
         from pathlib import Path
@@ -773,6 +785,30 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
             "rules/cross-platform/reconnaissance_web_server_unusual_spike_in_error_logs.toml"
         )
         self.assertIn("apache_tomcat", [row["package"] for row in rows])
+
+    def test_compared_dataset_skips_from_data_streams_of_the_same_package(self):
+        # FROM data streams are only added for packages whose datasets the query does not compare. Merging them per
+        # data stream would also widen the ES|QL validation schema, so a compared dataset wins for the whole package.
+        import dataclasses
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(
+            Path("rules/cross-platform/execution_azure_vm_run_command_powershell_unrestricted_script.toml")
+        )
+        data = dataclasses.replace(
+            rule.contents.data,
+            query=(
+                "FROM logs-azure.activitylogs-*, logs-azure.signinlogs-* METADATA _id, _version, _index "
+                '| WHERE event.dataset == "azure.signinlogs" | KEEP _id'
+            ),
+        )
+        rows = TOMLRuleContents.get_packaged_integrations(data, rule.contents.metadata, load_integrations_manifests())
+        azure_integrations = {row["integration"] for row in rows or [] if row["package"] == "azure"}
+        self.assertEqual(azure_integrations, {"signinlogs"})
 
 
 class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):

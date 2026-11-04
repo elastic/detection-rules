@@ -1692,7 +1692,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         for rerouting_template in self._get_rerouting_policy_templates(
                             package["package"], integration_name, result.manifest_versions, packages_manifest
                         ):
-                            # The rerouting policy template must fill every target data stream the rule queries.
+                            # Intentionally reuse the queried data stream's version expression (the highest one) rather
+                            # than resolving the rerouting template's own range: the template only fills a data stream
+                            # from the version that has it (azure.events routes aadgraphactivitylogs from 1.37.0).
                             key = (package["package"], rerouting_template)
                             if key not in rerouted or manifest_version > rerouted[key][0]:
                                 rerouted[key] = (manifest_version, result.expression)
@@ -1730,13 +1732,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         version_routing_rules = load_integrations_routing_rules().get(package, {})
         rerouting_templates: list[str] = []
         for manifest_version in manifest_versions:
+            version_manifest = version_manifests.get(manifest_version, {})
+            # Kibana matches the package row of a package with one policy template, so only list a rerouting
+            # policy template when the package has more than one
+            if len(version_manifest.get("policy_templates", [])) < 2:  # noqa: PLR2004
+                continue
             # e.g. azure.events reroutes each log category to its own data stream (routing_rules.yml)
             for source, targets in version_routing_rules.get(manifest_version, {}).items():
                 if data_stream not in targets:
                     continue
-                rerouting_template = get_policy_template_for_data_stream(
-                    version_manifests.get(manifest_version, {}), source
-                )
+                rerouting_template = get_policy_template_for_data_stream(version_manifest, source)
                 if rerouting_template and rerouting_template not in rerouting_templates:
                     rerouting_templates.append(rerouting_template)
         return rerouting_templates
