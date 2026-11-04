@@ -1844,9 +1844,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(data, ESQLRuleData):
             dataset_objs = get_esql_query_event_dataset_integrations(data.query, tree=data.ast)
             datasets.update(str(obj) for obj in dataset_objs)
-            # FROM logs-<package>.<dataset>-* reads a data stream just like an event.dataset comparison does
+            # FROM logs-<package>.<dataset>-* names the data stream of a package whose datasets the query does not
+            # compare; a compared dataset is more specific and also restricts the validation schema
+            query_packages = {normalize_dataset_package(dataset.strip('"').split(".")[0]) for dataset in datasets}
             index_dataset_objs = get_esql_query_index_datasets(data.query, load_integrations_schemas(), tree=data.ast)
-            datasets.update(str(obj) for obj in index_dataset_objs)
+            datasets.update(str(obj) for obj in index_dataset_objs if obj.package not in query_packages)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
