@@ -2,14 +2,15 @@
 creation_date = "2026/11/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/11/03"
+updated_date = "2026/11/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies a Microsoft Graph application querying multiple directory collections and encountering access denials.
-Adversaries with compromised application credentials may enumerate users, groups, applications, and service principals
-to identify privileged identities and opportunities for further access.
+Adversaries with compromised application credentials may enumerate users, groups, applications, service principals,
+directory roles, role assignments, and OAuth grants to identify privileged identities and opportunities for further
+access.
 """
 false_positives = [
     """
@@ -26,7 +27,7 @@ note = """## Triage and analysis
 
 ### Investigating Microsoft Graph Application Directory Reconnaissance with Denied Requests
 
-Microsoft Graph exposes directory information that can help an adversary identify accounts, privileged identities, and applications to target. This rule identifies app-only requests to at least three of the applications, service principals, users, and groups collections within a 15-minute window, with at least one HTTP 403 response. The denial requirement reduces noise from authorized inventory applications that succeed across the collections they are granted. A denied request shows attempted discovery, not successful retrieval of that collection.
+Microsoft Graph exposes directory information that can help an adversary identify accounts, privileged identities, and applications to target. This rule identifies app-only requests to at least three common directory discovery collections (applications, service principals, users, groups, directory roles, role assignments, and OAuth permission grants) within a 15-minute window, with at least one HTTP 403 response. The denial requirement reduces noise from authorized inventory applications that succeed across the collections they are granted. A denied request shows attempted discovery, not successful retrieval of that collection.
 
 ### Possible investigation steps
 
@@ -71,16 +72,14 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
-    "Domain: API",
     "Data Source: Azure",
-    "Data Source: Microsoft Entra ID",
-    "Data Source: Microsoft Graph",
     "Data Source: Microsoft Graph Activity Logs",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
-    "Platform: Entra ID",
+    "Platform: Microsoft Graph",
+    "Platform: Azure",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -94,7 +93,15 @@ from logs-azure.graphactivitylogs-* metadata _id, _index
   and azure.graphactivitylogs.properties.service_principal_id != ""
   and http.request.method == "GET"
   and http.response.status_code in (200, 403)
-  and url.path in ("/v1.0/applications", "/v1.0/servicePrincipals", "/v1.0/users", "/v1.0/groups")
+  and url.path in (
+      "/v1.0/applications",
+      "/v1.0/servicePrincipals",
+      "/v1.0/users",
+      "/v1.0/groups",
+      "/v1.0/directoryRoles",
+      "/v1.0/roleManagement/directory/roleAssignments",
+      "/v1.0/oauth2PermissionGrants"
+)
 | eval Esql.time_window = date_trunc(15 minutes, @timestamp)
 | stats
     Esql.request_count = count(*),
@@ -111,6 +118,16 @@ from logs-azure.graphactivitylogs-* metadata _id, _index
 | keep azure.tenant_id, azure.graphactivitylogs.properties.service_principal_id, Esql.*
 '''
 
+[rule.alert_suppression]
+group_by = [
+    "azure.tenant_id",
+    "azure.graphactivitylogs.properties.service_principal_id",
+]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 30
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
