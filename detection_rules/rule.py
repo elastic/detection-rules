@@ -47,6 +47,7 @@ from .schemas import (
     downgrade,
     get_min_supported_stack_version,
     get_stack_schemas,
+    load_stack_schema_map,
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
@@ -57,10 +58,23 @@ from .stack_emit import (
     parse_stack,
     transforms_for_stack,
 )
-from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
+from .utils import PatchedTemplate, cached, cached_method, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
+
+
+@cached
+def get_stack_invariant_ecs_schema() -> dict[str, Any]:
+    """Return the ECS flat schema merged across every stack in the schema map, newest definition winning."""
+    
+    ecs_versions = sorted({str(entry["ecs"]) for entry in load_stack_schema_map().values() if entry}, key=Version.parse)
+    merged: dict[str, Any] = {}
+    for ecs_version in ecs_versions:
+        merged.update(ecs.get_schema(ecs_version))
+    return merged
+
+
 TIME_NOW = time.strftime("%Y/%m/%d")
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
@@ -715,7 +729,7 @@ class QueryValidator:
         ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
         beats_version = get_stack_schemas()[str(current_version)]["beats"]
         endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
-        ecs_schema = ecs.get_schema(ecs_version)
+        ecs_schema = get_stack_invariant_ecs_schema()
 
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
