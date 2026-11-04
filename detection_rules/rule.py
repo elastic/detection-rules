@@ -12,6 +12,7 @@ import re
 import time
 import typing
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -38,6 +39,7 @@ from .integrations import (
     get_integration_schema_fields,
     get_policy_template_for_data_stream,
     load_integrations_manifests,
+    load_integrations_routing_rules,
     resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -1683,7 +1685,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                         manifest_version = max(Version.parse(v) for v in result.manifest_versions)
                         for rerouting_template in self._get_rerouting_policy_templates(
-                            package["package"], integration_name, version_manifests
+                            package["package"], integration_name, result.manifest_versions, packages_manifest
                         ):
                             # The rerouting policy template must fill every target data stream the rule queries.
                             key = (package["package"], rerouting_template)
@@ -1714,19 +1716,28 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @staticmethod
     def _get_rerouting_policy_templates(
-        package: str, data_stream: str | None, version_manifests: list[dict[str, Any]]
+        package: str, data_stream: str | None, manifest_versions: Iterable[str], packages_manifest: dict[str, Any]
     ) -> list[str]:
-        """Return the policy templates of the package versions that reroute documents to the data stream."""
+        """Return the policy templates whose data streams reroute documents to the data stream.
+
+        The routing rules come from the routing_rules.yml of the package versions (e.g. azure.events reroutes each
+        log category to its own data stream), so the policy template of the source data stream also fills it.
+        """
         if not data_stream:
             return []
-        return [
-            rerouting_template
-            for rerouting_template, target_data_streams in definitions.REROUTING_POLICY_TEMPLATES.get(
-                package, {}
-            ).items()
-            if data_stream in target_data_streams
-            and any(rerouting_template in manifest.get("policy_templates", []) for manifest in version_manifests)
-        ]
+        version_manifests = packages_manifest.get(package, {})
+        version_routing_rules = load_integrations_routing_rules().get(package, {})
+        rerouting_templates: list[str] = []
+        for manifest_version in manifest_versions:
+            for source, targets in version_routing_rules.get(manifest_version, {}).items():
+                if data_stream not in targets:
+                    continue
+                rerouting_template = get_policy_template_for_data_stream(
+                    version_manifests.get(manifest_version, {}), source
+                )
+                if rerouting_template and rerouting_template not in rerouting_templates:
+                    rerouting_templates.append(rerouting_template)
+        return rerouting_templates
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""

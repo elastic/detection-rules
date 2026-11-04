@@ -631,19 +631,65 @@ class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
         # manifests built before data streams were kept only resolve policy template names
         self.assertIsNone(get_policy_template_for_data_stream({"policy_templates": ["adlogs"]}, "signinlogs"))
 
-    def test_rerouting_policy_template_targets_have_a_policy_template(self):
-        from detection_rules.integrations import get_policy_template_for_data_stream, load_integrations_manifests
-        from detection_rules.schemas import definitions
+    def test_parse_version_routing_rules(self):
+        from detection_rules.integrations import parse_version_routing_rules
+
+        routing_rules = [
+            {
+                "source_dataset": "azure.events",
+                "rules": [
+                    {"target_dataset": "azure.signinlogs", "if": "ctx.event?.dataset == 'azure.signinlogs'"},
+                    {"target_dataset": "azure.activitylogs", "if": "ctx.event?.dataset == 'azure.activitylogs'"},
+                    # a templated target is resolved per document, another package has its own policy templates
+                    {"target_dataset": "{{event.dataset}}", "if": "true"},
+                    {"target_dataset": "aws.cloudtrail", "if": "true"},
+                    {"target_dataset": ["azure.auditlogs", "azure.events"], "if": "true"},
+                ],
+            }
+        ]
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zip_ref:
+            zip_ref.writestr("azure-1.0.0/data_stream/events/routing_rules.yml", yaml.safe_dump(routing_rules))
+            zip_ref.writestr("azure-1.0.0/data_stream/activitylogs/fields/fields.yml", "[]")
+        with zipfile.ZipFile(buffer) as zip_ref:
+            self.assertEqual(
+                parse_version_routing_rules(zip_ref, "azure"),
+                {"events": ["activitylogs", "auditlogs", "signinlogs"]},
+            )
+
+    def test_routing_rule_sources_and_targets_have_a_policy_template(self):
+        from detection_rules.integrations import (
+            get_policy_template_for_data_stream,
+            load_integrations_manifests,
+            load_integrations_routing_rules,
+        )
 
         manifests = load_integrations_manifests()
-        for package, rerouting in definitions.REROUTING_POLICY_TEMPLATES.items():
-            latest = max(manifests[package], key=Version.parse)
+        routing_rules = load_integrations_routing_rules()
+        # azure.events reroutes every Azure log category; the rule build depends on this data
+        self.assertIn("azure", routing_rules)
+        for package, versions in routing_rules.items():
+            latest = max(versions, key=Version.parse)
             manifest = manifests[package][latest]
-            for rerouting_template, targets in rerouting.items():
-                self.assertIn(rerouting_template, manifest["policy_templates"])
+            for source, targets in versions[latest].items():
+                with self.subTest(package=package, source=source):
+                    self.assertIsNotNone(get_policy_template_for_data_stream(manifest, source))
                 for target in targets:
                     with self.subTest(package=package, target=target):
                         self.assertIsNotNone(get_policy_template_for_data_stream(manifest, target))
+
+    def test_rerouting_policy_templates_from_routing_rules(self):
+        from detection_rules.rule import TOMLRuleContents
+
+        manifests = {"pkg": {"1.0.0": {"policy_templates": ["router", "a"]}}}
+        routing_rules = {"pkg": {"1.0.0": {"router": ["a"]}}}
+        with unittest.mock.patch("detection_rules.rule.load_integrations_routing_rules", return_value=routing_rules):
+            get_templates = TOMLRuleContents._get_rerouting_policy_templates  # noqa: SLF001
+            self.assertEqual(get_templates("pkg", "a", ["1.0.0"], manifests), ["router"])
+            self.assertEqual(get_templates("pkg", "b", ["1.0.0"], manifests), [])
+            self.assertEqual(get_templates("pkg", None, ["1.0.0"], manifests), [])
+            # a version without routing rules does not reroute
+            self.assertEqual(get_templates("pkg", "a", ["2.0.0"], manifests), [])
 
     def _azure_rows(self, path: str) -> list[dict]:
         from pathlib import Path

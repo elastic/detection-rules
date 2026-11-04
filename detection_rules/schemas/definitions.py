@@ -113,30 +113,6 @@ NON_DATASET_PACKAGES = [
     "panw",
     "crowdstrike",
 ]
-# Policy templates that collect several log categories through one input and reroute each document to the data
-# stream of its category (routing_rules.yml of the policy template's data stream). Either the rerouting policy
-# template or the policy template of the target data stream can fill the data stream, so a rule that queries a
-# target data stream also lists the rerouting policy template as a related integration.
-# Shape: package -> rerouting policy template -> target data streams
-REROUTING_POLICY_TEMPLATES: dict[str, dict[str, tuple[str, ...]]] = {
-    # https://github.com/elastic/integrations/blob/main/packages/azure/data_stream/events/routing_rules.yml
-    "azure": {
-        "events": (
-            "aadgraphactivitylogs",
-            "activitylogs",
-            "application_gateway",
-            "auditlogs",
-            "eventhub",
-            "firewall_logs",
-            "graphactivitylogs",
-            "identity_protection",
-            "platformlogs",
-            "provisioning",
-            "signinlogs",
-            "springcloudlogs",
-        ),
-    },
-}
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse("8.3.0"), None),
     "required_fields": (Version.parse("8.3.0"), None),

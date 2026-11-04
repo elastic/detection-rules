@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 MANIFEST_FILE_PATH = get_etc_path(["integration-manifests.json.gz"])
 DEFAULT_MAX_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
+ROUTING_RULES_FILE_PATH = get_etc_path(["integration-routing-rules.json.gz"])
 
 
 _notified_integrations: set[str] = set()
@@ -51,6 +52,14 @@ def load_integrations_manifests() -> dict[str, Any]:
 def load_integrations_schemas() -> dict[str, Any]:
     """Load the consolidated integrations schemas."""
     return json.loads(read_gzip(get_etc_path(["integration-schemas.json.gz"])))
+
+
+@cached
+def load_integrations_routing_rules() -> dict[str, Any]:
+    """Load the consolidated routing rules: package -> version -> source data stream -> target data streams."""
+    if not ROUTING_RULES_FILE_PATH.exists():
+        return {}
+    return json.loads(read_gzip(ROUTING_RULES_FILE_PATH))
 
 
 class IntegrationManifestSchema(Schema):
@@ -196,6 +205,37 @@ def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, An
     return version_schema
 
 
+def parse_version_routing_rules(zip_ref: zipfile.ZipFile, package: str) -> dict[str, list[str]]:
+    """Parse the routing rules of an EPR package zip into source data stream -> rerouted data streams.
+
+    A data stream with a routing_rules.yml (e.g. azure.events) reroutes each document to the data stream of its
+    category, so the policy template of the source data stream also fills the target data streams. Only literal
+    targets in the same package are kept: a templated target (``{{...}}``) is resolved per document, and a data
+    stream of another package is filled through that package's own policy templates.
+    """
+    prefix = f"{package}."
+    routing: dict[str, list[str]] = {}
+    for file in zip_ref.namelist():
+        if not fnmatch.fnmatch(file, "*/data_stream/*/routing_rules.yml"):
+            continue
+        source = Path(file).parent.name
+        targets: set[str] = set()
+        entries: list[dict[str, Any]] = yaml.safe_load(zip_ref.read(file)) or []
+        for entry in entries:
+            rules: list[dict[str, Any]] = entry.get("rules") or []
+            for rule in rules:
+                target_datasets: str | list[Any] | None = rule.get("target_dataset")
+                if isinstance(target_datasets, str):
+                    target_datasets = [target_datasets]
+                for target in target_datasets or []:
+                    if isinstance(target, str) and target.startswith(prefix) and "{{" not in target:
+                        targets.add(target.removeprefix(prefix))
+        targets.discard(source)
+        if targets:
+            routing[source] = sorted(targets)
+    return routing
+
+
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
@@ -207,6 +247,14 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
         final_integration_schemas = load_integrations_schemas()
     else:
         final_integration_schemas = {}
+
+    # The routing rules come from the same package zips but live in their own file, so that no consumer of the
+    # schemas (keyed by data stream) can read them as a data stream. A version is recorded even without routing
+    # rules, which marks it as parsed. A full build only parses the zips it downloads for new schemas; a single
+    # integration build also downloads the versions of that integration that have no routing rules recorded yet.
+    if overwrite and ROUTING_RULES_FILE_PATH.exists():
+        ROUTING_RULES_FILE_PATH.unlink()
+    final_routing_rules: dict[str, Any] = load_integrations_routing_rules() if not overwrite else {}
 
     # Load the integration manifests
     integration_manifests = load_integrations_manifests()
@@ -221,9 +269,10 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
     # Loop through the packages and versions
     for package, versions in integration_manifests.items():
         print(f"processing {package}")
-        final_integration_schemas.setdefault(package, {})  # type: ignore[reportUnknownMemberType]
+        package_schemas = final_integration_schemas.setdefault(package, {})  # type: ignore[reportUnknownMemberType]
+        package_routing_rules = final_routing_rules.setdefault(package, {})
         for version, manifest in versions.items():
-            if package in final_integration_schemas and version in final_integration_schemas[package]:
+            if version in package_schemas and (version in package_routing_rules or not integration):
                 continue
 
             # Download the zip file
@@ -233,12 +282,16 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
 
             # Open the zip file
             with unzip(response.content) as zip_ref:
-                final_integration_schemas[package][version] = parse_version_schema(zip_ref, package)
+                if version not in package_schemas:
+                    package_schemas[version] = parse_version_schema(zip_ref, package)
+                package_routing_rules[version] = parse_version_routing_rules(zip_ref, package)
 
-    # Write the final integration schemas to disk
+    # Write the final integration schemas and routing rules to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
         schema_file_bytes = json.dumps(final_integration_schemas).encode("utf-8")
         _ = schema_file.write(schema_file_bytes)
+    with gzip.open(ROUTING_RULES_FILE_PATH, "w") as routing_rules_file:
+        _ = routing_rules_file.write(json.dumps(final_routing_rules, sort_keys=True).encode("utf-8"))
 
     clear_caches()
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
