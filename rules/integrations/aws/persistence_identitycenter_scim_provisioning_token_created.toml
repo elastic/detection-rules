@@ -60,7 +60,7 @@ references = [
     "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
     "https://ammune.ai/blog/scim-api-security-best-practices",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "907803c1-0b2b-571c-83d7-889068cdf776"
 setup = """## Setup
 
@@ -74,7 +74,7 @@ This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-
 - AWS notes that SCIM events are only emitted for access tokens created from September 2024 onward; a token older than that must be rotated before its activity appears in CloudTrail.
 
 Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Platform: AWS",
@@ -160,6 +160,13 @@ FROM logs-aws.cloudtrail-*
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 

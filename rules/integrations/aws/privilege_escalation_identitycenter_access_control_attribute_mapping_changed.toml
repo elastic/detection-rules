@@ -2,8 +2,8 @@
 creation_date = "2026/09/10"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/09/10"
 
 [rule]
@@ -109,12 +109,9 @@ FROM logs-aws.cloudtrail-*
     AND event.action IN ("CreateInstanceAccessControlAttributeConfiguration",
     "UpdateInstanceAccessControlAttributeConfiguration",
     "DeleteInstanceAccessControlAttributeConfiguration")
-| GROK aws.cloudtrail.request_parameters """[{,] ?instanceArn=%{DATA:Esql.gk_instancearn_0}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?accessControlAttributes=\[?\{[^{}]*?key=%{DATA:Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_key_1}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?value=\[?\{[^{}]*?source=%{DATA:Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_value_source_2}[,}\]]"""
-| EVAL Esql.instance = Esql.gk_instancearn_0,
-    Esql.attribute_keys = MV_CONCAT(Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_key_1, ","),
-    Esql.attribute_sources = MV_CONCAT(Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_value_source_2, ","),
+| EVAL Esql.instance = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceArn"),
+    Esql.attribute_keys = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceAccessControlAttributeConfiguration.accessControlAttributes.key"), ","),
+    Esql.attribute_sources = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceAccessControlAttributeConfiguration.accessControlAttributes.value.source"), ","),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
 | EVAL Esql.record = CASE(Esql.attribute_keys IS NOT NULL,
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.instance, "~", Esql.attribute_keys, "~", Esql.attribute_sources, "~", Esql_priv.actor))

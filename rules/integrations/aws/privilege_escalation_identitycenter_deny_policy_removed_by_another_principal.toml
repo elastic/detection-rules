@@ -62,7 +62,7 @@ references = [
     "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
     "https://github.com/HackTricks-wiki/hacktricks-cloud/blob/74335dc4ee4248d4c10c69a5698341121bd2183d/src/pentesting-cloud/aws-security/aws-privilege-escalation/aws-sso-and-identitystore-privesc/README.md",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "8a2118bd-89ec-5cb9-ba81-3abbdf618b29"
 setup = """## Setup
 
@@ -75,7 +75,7 @@ This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-
 - The removed policy document is only available on the preceding PutInlinePolicyToPermissionSet event, so both the put and the delete must be inside the lookback.
 
 Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Platform: AWS",
@@ -134,7 +134,7 @@ FROM logs-aws.cloudtrail-*
 | WHERE Esql.deny_set_at IS NOT NULL
     AND (Esql.replaced_at IS NULL OR Esql.replaced_at < Esql.deny_set_at)
     AND Esql.provisioned_after_removal_at IS NOT NULL
-    AND NOT MV_CONCAT(Esql_priv.deny_setters_values, ",") == Esql.removed_by
+    AND NOT MV_CONTAINS(Esql_priv.deny_setters_values, Esql.removed_by)
 | EVAL Esql.deny_lifetime_seconds = DATE_DIFF("seconds", Esql.deny_set_at, @timestamp)
 | KEEP Esql.*,
     Esql_priv.*,
