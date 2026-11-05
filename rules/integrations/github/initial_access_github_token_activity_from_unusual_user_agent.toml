@@ -8,7 +8,7 @@ updated_date = "2026/09/22"
 author = ["Elastic"]
 description = """
 Identifies the first time a GitHub token is used with a given user agent to perform a clone, push, archive download, or
-API request. The rule tracks new combinations of `github.hashed_token` and `github.user_agent` over a 14-day history and
+API request. The rule tracks new combinations of `user.name` and `github.user_agent` over a 14-day history and
 covers classic personal access tokens, fine-grained personal access tokens, and OAuth access tokens. A token that
 suddenly authenticates from a new client is a common indicator of a stolen or misused credential, since an adversary
 replaying a token rarely reproduces the victim's original tooling. Named credential scanners such as TruffleHog or Nord
@@ -33,7 +33,7 @@ note = """## Triage and analysis
 
 ### Investigating GitHub Token Activity from Unusual User Agent
 
-This rule fires when a GitHub token (`github.hashed_token`) is observed with a `github.user_agent` that has not been seen for that token in the previous 14 days while performing a clone (`git.clone`), push (`git.push`), archive download (`repo.download_zip`), or API request (`api.request`). A new client for an established token is a strong signal that the token has been exported and replayed elsewhere, because legitimate usage tends to keep a stable toolchain. Review the token owner and type (`user.name`, `github.programmatic_access_type`), the new client string (`github.user_agent`), the source address (`github.actor_ip`), and the action and resources involved (`event.action`, `github.org`, `github.repo`, `github.route`) to decide whether this is a benign client change or credential misuse. Named credential scanners are handled by a separate rule, so matches here are typically generic clients such as `python-requests`, `curl`, or custom scripts.
+This rule fires when a user (`user.name`) is observed with a `github.user_agent` that has not been seen for them in the previous 14 days while performing token-authenticated activity: a clone (`git.clone`), push (`git.push`), archive download (`repo.download_zip`), or API request (`api.request`). A new client for an established user is a strong signal that one of their tokens has been exported and replayed elsewhere, because legitimate usage tends to keep a stable toolchain. Keying novelty on the user rather than the token avoids noise from routine token creation and rotation, since a freshly minted token would otherwise always look new. Review the token owner and type (`user.name`, `github.programmatic_access_type`), the new client string (`github.user_agent`), the source address (`github.actor_ip`), and the action and resources involved (`event.action`, `github.org`, `github.repo`, `github.route`) to decide whether this is a benign client change or credential misuse. Named credential scanners are handled by a separate rule, so matches here are typically generic clients such as `python-requests`, `curl`, or custom scripts.
 
 ### Possible investigation steps
 
@@ -80,7 +80,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset:"github.audit" and event.category:"configuration" and github.user_agent:* and
+data_stream.dataset:"github.audit" and event.category:"configuration" and user.name:* and github.user_agent:* and
 github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token" or "Personal access token") and
 event.action:("git.clone" or "git.push" or "repo.download_zip" or "api.request")
@@ -153,7 +153,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["github.hashed_token", "github.user_agent"]
+value = ["user.name", "github.user_agent"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
