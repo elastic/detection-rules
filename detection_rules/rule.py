@@ -727,7 +727,7 @@ class QueryValidator:
         ecs_schema = ecs.get_schema(ecs_version)
 
         # ECS schemas pinned to the other supported stacks, newest first. A field missing from this
-        # branch's pin but defined in another pin (e.g. gen_ai.* on 8.19, pinned to ECS 8.17.0) is
+        # branch's pin but defined in another pin (e.g. gen_ai.* on 8.19, pinned to an older ECS) is
         # still ECS and still mapped by the stack, so resolve it there to keep `ecs`/`type` the same on
         # every release branch; otherwise the version lock hash oscillates between branches.
         fallback_ecs_versions = sorted(
