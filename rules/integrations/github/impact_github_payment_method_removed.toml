@@ -2,13 +2,16 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects removal of a GitHub payment method. Adversaries with billing access may delete payment instruments to disrupt
-the organization or hide a plan change.
+Identifies the removal of a payment method from a GitHub organization or enterprise. Billing changes are high-privilege
+actions, and an adversary with billing-manager or owner access can delete a payment instrument to disrupt the
+organization's paid plan, which can lead to downgraded features, suspended private repositories, and loss of access to
+paid capabilities. The action may also be used to obscure fraudulent plan changes or to pressure the organization during
+an extortion or takeover scenario.
 """
 false_positives = ["    Finance rotating cards at expiry. Confirm with the billing owners.\n    "]
 from = "now-9m"
@@ -17,21 +20,33 @@ license = "Elastic License v2"
 name = "GitHub Payment Method Removed"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub Payment Method Removed
 
-`payment_method.remove` is a billing-admin action. Correlate with plan changes and owner modifications.
+The `payment_method.remove` audit action is logged when a billing manager, organization owner, or enterprise owner removes a payment method. Billing operations are high-privilege and rarely performed, so an unexpected removal can be an attempt to disrupt the organization by causing its paid plan to lapse, which downgrades features and can suspend private repositories. Review the actor (`user.name`, `github.actor_ip`), the token used (`github.hashed_token`, `github.programmatic_access_type`), and the organization or enterprise affected (`github.org`, `github.business`), and correlate with any surrounding plan changes or owner modifications to determine whether the action was authorized.
 
 ### Possible investigation steps
 
-- Identify `user.name` and `github.actor_ip`. Confirm with finance whether a card rotation was planned.
+- Identify the actor and confirm billing-manager or owner privileges using `user.name`, `github.actor_ip`, `github.hashed_token`, and `github.programmatic_access_type`, and verify the actor is expected to manage billing.
+- Confirm with the finance or billing owners whether a card rotation, expiry replacement, or plan change was planned for the affected organization or enterprise (`github.org`, `github.business`).
+- Review the GitHub billing audit log for related events by the same actor, such as additional payment method changes, plan downgrades, or spending-limit modifications.
+- Check for enterprise or organization owner changes and membership modifications around the same time that could indicate account takeover.
+- Review the actor's recent activity for other high-impact or destructive actions, such as repository deletions or transfers and visibility changes, that suggest a broader disruption or takeover.
 
 ### False positive analysis
 
-- Expired card replacement.
+- Routine finance operations such as replacing an expired card or rotating payment instruments. Confirm with the billing owners and scope exceptions to the specific actor where appropriate.
+- Planned plan or vendor changes during organizational restructuring. Validate against change-management or finance records before dismissing.
 
 ### Response and remediation
 
-- Restore a valid payment method. Review billing managers and enterprise owners.
+- If the removal was unauthorized, restore a valid payment method promptly to avoid a lapse that could downgrade the plan or suspend private repositories.
+- Revoke the token identified by `github.hashed_token` and the actor's other tokens if the identity is suspected compromised, and require reauthentication.
+- Review the billing managers, organization owners, and enterprise owners, removing any unauthorized members.
+- Audit recent billing and ownership changes for additional unauthorized modifications by the same actor.
+- Engage incident response and your finance team per your organization's playbooks if account takeover or fraud is suspected.
 """
 references = ["https://docs.github.com/en/billing/managing-your-billing/adding-or-editing-a-payment-method"]
 risk_score = 73
@@ -43,8 +58,9 @@ tags = [
     "Platform: GitHub",
     "Use Case: Threat Detection",
     "Tactic: Impact",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -75,9 +91,9 @@ from logs-github.audit-* metadata _id, _index, _version
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1489"
-name = "Service Stop"
-reference = "https://attack.mitre.org/techniques/T1489/"
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
 
 
 [rule.threat.tactic]
