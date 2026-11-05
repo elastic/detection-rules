@@ -55,6 +55,7 @@ from .schemas import (
     downgrade,
     get_min_supported_stack_version,
     get_stack_schemas,
+    load_stack_schema_map,
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
@@ -725,6 +726,17 @@ class QueryValidator:
         endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
         ecs_schema = ecs.get_schema(ecs_version)
 
+        # ECS schemas pinned to the other supported stacks, newest first. A field missing from this
+        # branch's pin but defined in another pin (e.g. gen_ai.* on 8.19, pinned to ECS 8.17.0) is
+        # still ECS and still mapped by the stack, so resolve it there to keep `ecs`/`type` the same on
+        # every release branch; otherwise the version lock hash oscillates between branches.
+        fallback_ecs_versions = sorted(
+            {str(v["ecs"]) for v in load_stack_schema_map().values() if v and v.get("ecs")} - {str(ecs_version)},
+            key=Version.parse,
+            reverse=True,
+        )
+        fallback_ecs_schemas = [ecs.get_schema(v) for v in fallback_ecs_versions]
+
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
@@ -760,6 +772,8 @@ class QueryValidator:
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
+            if field_type is None:
+                field_type = next((s[fld]["type"] for s in fallback_ecs_schemas if fld in s), None)
             is_ecs = field_type is not None
 
             if not is_ecs:
