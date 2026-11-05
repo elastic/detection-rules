@@ -11,18 +11,6 @@ author = ["Elastic"]
 description = """
 Detects an Identity Store user being created and immediately assigned access to an AWS account by the same principal. Neither event is suspicious alone, but the pair is the shape of a backdoor identity: an account that no joiner process approved now holds standing access. Direct user assignment is the quieter path because most organizations audit group entitlements rather than per-user assignments.
 """
-Detects an Identity Store user being created and then assigned access to an AWS account within the same window, by the
-same principal. Neither half is suspicious alone. Directory users are created constantly by onboarding, and account
-assignments are the ordinary mechanism for granting access, so a rule on either event by itself is noise. The pair is
-the signal: an identity that did not exist minutes ago now holds standing access to an AWS account, and one principal
-performed both steps. This is the shape of a backdoor identity. An intruder who already holds Identity Center
-administration creates a user in the directory, grants it access directly rather than through a group, and from then on
-authenticates as a legitimate workforce identity that no joiner process ever approved and no group membership review
-will surface. Direct user assignment is the quieter path, because most organizations review group entitlements rather
-than the much smaller set of per-user assignments. The rule reports the created user, the acting principal, the
-permission set and the target account, and whether the creation and the grant share an actor. Assignments to users
-created outside the window do not match, and a user created without a subsequent grant does not match.
-"""
 false_positives = [
     """
     Automated joiner tooling that provisions a directory user and assigns account access in one workflow. This is a
