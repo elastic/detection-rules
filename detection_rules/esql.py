@@ -84,6 +84,33 @@ def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = Non
     return event_datasets
 
 
+def get_esql_query_index_datasets(
+    query: str, integration_schemas: dict[str, Any], tree: Any | None = None
+) -> list[EventDataset]:
+    """Extract the data streams that the FROM/TS index patterns of an ES|QL query read."""
+    event_datasets: list[EventDataset] = []
+    for index in get_esql_query_indices(query, tree=tree):
+        for package in infer_packages_from_indices([index]):
+            version_schemas: dict[str, Any] = integration_schemas.get(package, {})
+            data_streams = {
+                data_stream
+                for version_schema in version_schemas.values()
+                for data_stream, stream_fields in version_schema.items()
+                if data_stream != "jobs" and isinstance(stream_fields, dict)
+            }
+            matching = [
+                data_stream
+                for data_stream in sorted(data_streams)
+                if stream_matches_indices(package, data_stream, [index])
+            ]
+            # A broad pattern (logs-azure.*) or one that matches no data stream (logs-apache_tomcat.error-*) names none
+            if len(matching) == 1:
+                item = EventDataset(package=package, integration=matching[0])
+                if item not in event_datasets:
+                    event_datasets.append(item)
+    return event_datasets
+
+
 def local_esql_index(source: str) -> str:
     """Drop a ``cluster:`` or ``cluster::`` prefix from an index pattern."""
     cleaned = source.strip().strip("`")
@@ -202,15 +229,13 @@ def stream_matches_indices(package: str, dataset: str, indices: list[str]) -> bo
     """Return True when a Fleet package stream could back any FROM index pattern."""
     if not indices:
         return True
+    # A data stream is <type>-<dataset>-<namespace>; matching up to the `-` keeps logs-aws.cloudtrail_otel-* from
+    # also matching the cloudtrail stream. A source such as logs-aws.cloudtrail* still matches through its own `*`.
     candidates = (
-        f"logs-{package}.{dataset}*",
         f"logs-{package}.{dataset}-*",
-        f"metrics-{package}.{dataset}*",
         f"metrics-{package}.{dataset}-*",
-        f"traces-{package}.{dataset}*",
         f"traces-{package}.{dataset}-*",
         # endpoint events use logs-endpoint.events.<dataset>-*
-        f"logs-{package}.events.{dataset}*",
         f"logs-{package}.events.{dataset}-*",
     )
     return any(index_patterns_match(index, candidate) for index in indices for candidate in candidates)
