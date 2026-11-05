@@ -2,7 +2,7 @@
 creation_date = "2026/10/01"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_comments = "Non-aggregating ES|QL query; 9.4.0 kept for consistency with the Identity Center ruleset baseline."
 min_stack_version = "9.4.0"
 updated_date = "2026/10/01"
 
@@ -48,7 +48,7 @@ Detects a change to the external identity provider trust of an IAM Identity Cent
 - Read the reported operation. `ImportExternalIdPCertificate` adds a signing certificate and is the highest-concern case. `UpdateExternalIdPConfigurationForDirectory` can repoint issuer or endpoint metadata. `DisableExternalIdPConfigurationForDirectory` falls authentication back to the Identity Center directory, which matters if any user has a password set there. `DeleteExternalIdPCertificate` can be used to force reliance on a certificate the attacker controls after importing one.
 - Identify the acting principal and confirm the change was requested. Identity-source changes should originate from a small, known set of administrators and correspond to a change record. A permission-set session making this change is especially significant, because it means federated access was used to alter the federation itself.
 - Enumerate the current trust state out of band with `aws sso-admin list-instances` and the directory's identity-provider configuration, and compare the certificate thumbprints against what your identity provider actually publishes. An unrecognised thumbprint is confirmation.
-- Review authentication that followed. The alert reports the count of federated sign-in and authentication events observed for the directory after the change. Any sign-in after an unauthorised certificate import should be treated as unauthenticated, regardless of which user it claims to be.
+- Review authentication that followed the change. Pivot on the affected directory and look for federated sign-in and authentication events (`UserAuthentication` from signin.amazonaws.com, `Authenticate` and `Federate` from sso.amazonaws.com) after the change timestamp. Any sign-in after an unauthorised certificate import should be treated as unauthenticated, regardless of which user it claims to be.
 
 ### False positive analysis
 
@@ -80,7 +80,7 @@ This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-
 - These operations are Identity Store console APIs and are emitted under the sso-directory.amazonaws.com event source rather than identitystore.amazonaws.com, so collect console API activity and do not filter the Identity Center owner account to public API event sources only.
 - This rule reads Identity Center attribution fields that the AWS integration only maps from version 7.4.0 onward: aws.cloudtrail.user_identity.on_behalf_of.user_id, aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn and aws.cloudtrail.user_identity.credential_id. On an earlier integration those fields are absent and the rule cannot match, so AWS integration 7.4.0 or later is required rather than recommended.
 
-Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+The lookback overlaps the run interval, so alert suppression on the directory and operation deduplicates repeated matches; measure CloudTrail delivery latency in your environment before shortening the lookback."""
 severity = "high"
 tags = [
     "Domain: Cloud",
@@ -101,15 +101,15 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-*
-| WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
-    (event.provider IN ("sso-directory.amazonaws.com", "sso.amazonaws.com") AND event.action IN (
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.outcome == "success"
+    AND event.provider IN ("sso-directory.amazonaws.com", "sso.amazonaws.com")
+    AND event.action IN (
     "ImportExternalIdPCertificate", "DeleteExternalIdPCertificate",
     "CreateExternalIdPConfigurationForDirectory", "UpdateExternalIdPConfigurationForDirectory",
     "EnableExternalIdPConfigurationForDirectory", "DisableExternalIdPConfigurationForDirectory",
-    "AssociateDirectory", "DisassociateDirectory"))
-    OR (event.provider == "signin.amazonaws.com" AND event.action == "UserAuthentication")
-    OR (event.provider == "sso.amazonaws.com" AND event.action IN ("Authenticate", "Federate")))
+    "AssociateDirectory", "DisassociateDirectory")
 | GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directory_id}[,}]"""
 | GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
 | GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_nested_directory_id}[,}\]]"""
@@ -121,38 +121,12 @@ FROM logs-aws.cloudtrail-*
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
     Esql.subject = COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id,
     CASE(aws.cloudtrail.user_identity.type == "IdentityCenterUser", user.id))
-| EVAL Esql.trust_change = event.action IN (
-    "ImportExternalIdPCertificate", "DeleteExternalIdPCertificate",
-    "CreateExternalIdPConfigurationForDirectory", "UpdateExternalIdPConfigurationForDirectory",
-    "EnableExternalIdPConfigurationForDirectory", "DisableExternalIdPConfigurationForDirectory",
-    "AssociateDirectory", "DisassociateDirectory")
-| EVAL Esql.auth_record = CASE(NOT Esql.trust_change AND Esql.subject IS NOT NULL,
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", COALESCE(Esql.subject, "none"), "~", event.action))
-| INLINE STATS Esql.authentications_values = VALUES(Esql.auth_record)
-| WHERE Esql.trust_change
-| MV_EXPAND Esql.authentications_values
-| DISSECT Esql.authentications_values "%{Esql.a_ms}~%{Esql.a_subject}~%{Esql.a_action}"
-| EVAL Esql.a_time = TO_DATETIME(TO_LONG(Esql.a_ms))
-| EVAL Esql.after_change = CASE(Esql.a_time > @timestamp, 1, 0)
-| STATS Esql.authentications_after_change_count = SUM(Esql.after_change),
-    Esql.first_authentication_at = MIN(CASE(Esql.after_change == 1, Esql.a_time)),
-    Esql.authenticated_subjects_values = VALUES(CASE(Esql.after_change == 1, Esql.a_subject)),
-    Esql.authentication_actions_values = VALUES(CASE(Esql.after_change == 1, Esql.a_action))
-    BY Esql.changed_at = @timestamp,
-    event.action,
-    Esql.directory,
-    Esql_priv.actor,
-    aws.cloudtrail.request_id,
-    cloud.account.id,
-    source.ip,
-    user.name,
-    cloud.region,
-    event.outcome,
-    user_agent.original,
-    event.provider
-| EVAL Esql.seconds_to_first_authentication = DATE_DIFF("seconds", Esql.changed_at, Esql.first_authentication_at)
-| KEEP Esql.*,
+| KEEP _id,
+    _version,
+    _index,
+    Esql.*,
     Esql_priv.*,
+    @timestamp,
     event.action,
     aws.cloudtrail.request_id,
     cloud.account.id,
@@ -206,15 +180,10 @@ missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.changed_at",
     "event.action",
     "Esql.directory",
     "Esql_priv.actor",
-    "Esql.authentications_after_change_count",
-    "Esql.first_authentication_at",
-    "Esql.seconds_to_first_authentication",
-    "Esql.authenticated_subjects_values",
-    "Esql.authentication_actions_values",
+    "Esql.subject",
     "aws.cloudtrail.request_id",
     "cloud.account.id",
     "source.ip",
