@@ -9,15 +9,13 @@ updated_date = "2026/09/17"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an identity-binding attribute being changed on an IAM Identity Center user. A trusted token issuer resolves an
-external claim against a named Identity Store attribute, commonly the provider's email claim against Identity Center
-userName, and SAML federation resolves a subject the same way. Whoever can write that attribute therefore decides which
-Identity Center identity an external assertion maps to, so rebinding it to a value the actor controls at the identity
-provider turns a legitimate external assertion into a token for the rebound identity, without altering a policy,
-assignment or permission set. CloudTrail masks the new value but records the attribute path in the clear, which is the
-signal this rule uses. Changes to attributes that no claim resolves against, such as displayName, do not match. Because
-the attribute is durable state, the rule reports the change itself and separately counts how many times that identity
-was used afterwards, so a rebind that has not yet been exercised still produces an alert.
+Detects an identity-binding attribute (such as userName, emails, or externalId) being changed on an IAM Identity Center
+user. A trusted token issuer or SAML federation resolves an external claim against that attribute, so whoever can write
+it decides which Identity Center identity an external assertion maps to; rebinding it to a value the actor controls turns
+a legitimate assertion into a token for the rebound identity, without altering any policy, assignment or permission set.
+CloudTrail masks the new value but records the attribute path, which is the signal this rule uses, and changes to
+attributes no claim resolves against do not match. The rule reports the change and separately counts subsequent use of
+that identity, so a rebind that has not yet been exercised still alerts.
 """
 false_positives = [
     """
