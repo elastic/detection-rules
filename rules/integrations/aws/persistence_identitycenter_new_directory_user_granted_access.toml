@@ -93,25 +93,25 @@ FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
     (event.provider IN ("identitystore.amazonaws.com", "sso-directory.amazonaws.com") AND event.action == "CreateUser")
     OR (event.provider == "sso.amazonaws.com" AND event.action == "CreateAccountAssignment"))
-| GROK aws.cloudtrail.response_elements """[{,] ?userId=%{DATA:Esql.gk_userid_0}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_user_userid_1}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalId=%{DATA:Esql.gk_principalid_2}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalType=%{DATA:Esql.gk_principaltype_3}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permissionsetarn_4}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetId=%{DATA:Esql.gk_targetid_5}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetType=%{DATA:Esql.gk_targettype_6}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentCreationStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_accountassignmentcreationstatus_status_7}[,}\]]"""
-| EVAL Esql.created_user = COALESCE( Esql.gk_userid_0, Esql.gk_user_userid_1),
-    Esql.principal = Esql.gk_principalid_2,
-    Esql.principal_type = Esql.gk_principaltype_3,
-    Esql.permission_set = Esql.gk_permissionsetarn_4,
-    Esql.target_account = Esql.gk_targetid_5,
+| GROK aws.cloudtrail.response_elements """[{,] ?userId=%{DATA:Esql.gk_user_id}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_nested_user_id}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?principalId=%{DATA:Esql.gk_principal_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?principalType=%{DATA:Esql.gk_principal_type}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permission_set_arn}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?targetId=%{DATA:Esql.gk_target_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?targetType=%{DATA:Esql.gk_target_type}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentCreationStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_assignment_creation_status}[,}\]]"""
+| EVAL Esql.created_user = COALESCE( Esql.gk_user_id, Esql.gk_nested_user_id),
+    Esql.principal = Esql.gk_principal_id,
+    Esql.principal_type = Esql.gk_principal_type,
+    Esql.permission_set = Esql.gk_permission_set_arn,
+    Esql.target_account = Esql.gk_target_id,
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
 | EVAL Esql.stage = CASE(
     event.action == "CreateUser" AND Esql.created_user IS NOT NULL, "created",
     event.action == "CreateAccountAssignment" AND Esql.principal_type == "USER"
-    AND Esql.gk_targettype_6 == "AWS_ACCOUNT"
-    AND Esql.gk_accountassignmentcreationstatus_status_7 IN ("IN_PROGRESS", "SUCCEEDED"), "granted",
+    AND Esql.gk_target_type == "AWS_ACCOUNT"
+    AND Esql.gk_assignment_creation_status IN ("IN_PROGRESS", "SUCCEEDED"), "granted",
     "ignore")
 | EVAL Esql.creation_record = CASE(Esql.stage == "created",
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.created_user, "~", Esql_priv.actor))

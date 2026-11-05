@@ -99,18 +99,18 @@ FROM logs-aws.cloudtrail-*
     (event.provider == "sso-directory.amazonaws.com" AND event.action IN (
     "CreateBearerToken", "DeleteBearerToken", "CreateProvisioningTenant", "DeleteProvisioningTenant"))
     OR event.provider == "identitystore-scim.amazonaws.com")
-| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directoryid_0}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identitystoreid_1}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_user_directoryid_2}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?tenantId=%{DATA:Esql.gk_tenantid_3}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?provisioningTenantId=%{DATA:Esql.gk_provisioningtenantid_4}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?op=%{DATA:Esql.gk_httpbody_operations_op_5}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?path=%{DATA:Esql.gk_httpbody_operations_path_6}[,}\]]"""
-| EVAL Esql.directory = COALESCE( Esql.gk_directoryid_0, Esql.gk_identitystoreid_1, Esql.gk_user_directoryid_2),
-    Esql.tenant = COALESCE( Esql.gk_tenantid_3, Esql.gk_provisioningtenantid_4),
+| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directory_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_nested_directory_id}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?tenantId=%{DATA:Esql.gk_tenant_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?provisioningTenantId=%{DATA:Esql.gk_provisioning_tenant_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?op=%{DATA:Esql.gk_operations_op}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?path=%{DATA:Esql.gk_operations_path}[,}\]]"""
+| EVAL Esql.directory = COALESCE( Esql.gk_directory_id, Esql.gk_identity_store_id, Esql.gk_nested_directory_id),
+    Esql.tenant = COALESCE( Esql.gk_tenant_id, Esql.gk_provisioning_tenant_id),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.scim_op = MV_CONCAT(Esql.gk_httpbody_operations_op_5, ","),
-    Esql.scim_path = MV_CONCAT(Esql.gk_httpbody_operations_path_6, ",")
+    Esql.scim_op = MV_CONCAT(Esql.gk_operations_op, ","),
+    Esql.scim_path = MV_CONCAT(Esql.gk_operations_path, ",")
 | EVAL Esql.token_change = event.provider == "sso-directory.amazonaws.com"
 | EVAL Esql.scim_record = CASE(NOT Esql.token_change,
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", event.action, "~",

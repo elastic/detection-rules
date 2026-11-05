@@ -106,20 +106,20 @@ FROM logs-aws.cloudtrail-*
     AND event.action IN ("UpdateUser", "UpdateUserName"))
     OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM")
     OR (event.provider == "sso.amazonaws.com" AND event.action == "GetRoleCredentials"))
-| GROK aws.cloudtrail.request_parameters """[{,] ?userId=%{DATA:Esql.gk_userid_0}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_user_userid_1}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identitystoreid_2}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directoryid_3}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_user_directoryid_4}[,}\]]"""
-| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_5}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?attributePath=%{DATA:Esql.gk_operations_attributepath_6}[,}\]]"""
-| EVAL Esql.target_user = COALESCE( Esql.gk_userid_0, Esql.gk_user_userid_1),
-    Esql.identity_store = COALESCE( Esql.gk_identitystoreid_2, Esql.gk_directoryid_3, Esql.gk_user_directoryid_4),
+| GROK aws.cloudtrail.request_parameters """[{,] ?userId=%{DATA:Esql.gk_user_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_nested_user_id}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directory_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_nested_directory_id}[,}\]]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_additional_user_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?attributePath=%{DATA:Esql.gk_attribute_path}[,}\]]"""
+| EVAL Esql.target_user = COALESCE( Esql.gk_user_id, Esql.gk_nested_user_id),
+    Esql.identity_store = COALESCE( Esql.gk_identity_store_id, Esql.gk_directory_id, Esql.gk_nested_directory_id),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.subject = COALESCE(Esql.gk_identitystore_userid_5, aws.cloudtrail.user_identity.on_behalf_of.user_id)
+    Esql.subject = COALESCE(Esql.gk_additional_user_id, aws.cloudtrail.user_identity.on_behalf_of.user_id)
 | EVAL Esql.attribute_path = CASE(
     event.action == "UpdateUserName", "userName",
-    MV_CONCAT(Esql.gk_operations_attributepath_6, ","))
+    MV_CONCAT(Esql.gk_attribute_path, ","))
 | EVAL Esql.is_attribute_write = event.action IN ("UpdateUser", "UpdateUserName")
 | EVAL Esql.binding_attribute = TO_LOWER(Esql.attribute_path) RLIKE ".*(username|emails|externalid).*"
 | EVAL Esql.use_record = CASE(NOT Esql.is_attribute_write AND Esql.subject IS NOT NULL,

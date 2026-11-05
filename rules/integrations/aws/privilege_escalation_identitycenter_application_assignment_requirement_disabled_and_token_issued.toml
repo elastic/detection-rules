@@ -101,14 +101,14 @@ FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
     (event.provider == "sso.amazonaws.com" AND event.action == "PutApplicationAssignmentConfiguration")
     OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM"))
-| GROK aws.cloudtrail.request_parameters """[{,] ?applicationArn=%{DATA:Esql.gk_applicationarn_0}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_clientid_1}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?assignmentRequired=%{DATA:Esql.gk_assignmentrequired_2}[,}]"""
-| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_3}[,}]"""
-| EVAL Esql.app = COALESCE(Esql.gk_applicationarn_0, Esql.gk_clientid_1),
-    Esql.assignment_required = Esql.gk_assignmentrequired_2,
+| GROK aws.cloudtrail.request_parameters """[{,] ?applicationArn=%{DATA:Esql.gk_application_arn}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_client_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?assignmentRequired=%{DATA:Esql.gk_assignment_required}[,}]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_additional_user_id}[,}]"""
+| EVAL Esql.app = COALESCE(Esql.gk_application_arn, Esql.gk_client_id),
+    Esql.assignment_required = Esql.gk_assignment_required,
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.subject = Esql.gk_identitystore_userid_3
+    Esql.subject = Esql.gk_additional_user_id
 | EVAL Esql.stage = CASE(
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "false", "opened",
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "true", "closed",

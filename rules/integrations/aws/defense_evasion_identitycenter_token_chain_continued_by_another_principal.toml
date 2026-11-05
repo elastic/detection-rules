@@ -109,19 +109,19 @@ FROM logs-aws.cloudtrail-*
     AND event.provider == "sso-oauth.amazonaws.com"
     AND event.action == "CreateTokenWithIAM"
     AND event.outcome == "success"
-| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_clientid_0}[,}]"""
-| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_1}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?grantType=%{DATA:Esql.gk_granttype_2}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?requestedTokenType=%{DATA:Esql.gk_requestedtokentype_3}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?subjectTokenType=%{DATA:Esql.gk_subjecttokentype_4}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?issuedTokenType=%{DATA:Esql.gk_issuedtokentype_5}[,}]"""
-| EVAL Esql.app = Esql.gk_clientid_0,
-    Esql.subject = Esql.gk_identitystore_userid_1,
+| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_client_id}[,}]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_additional_user_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?grantType=%{DATA:Esql.gk_grant_type}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?requestedTokenType=%{DATA:Esql.gk_requested_token_type}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?subjectTokenType=%{DATA:Esql.gk_subject_token_type}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?issuedTokenType=%{DATA:Esql.gk_issued_token_type}[,}]"""
+| EVAL Esql.app = Esql.gk_client_id,
+    Esql.subject = Esql.gk_additional_user_id,
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.grant = Esql.gk_granttype_2,
-    Esql.requested_token_type = Esql.gk_requestedtokentype_3,
-    Esql.subject_token_type = Esql.gk_subjecttokentype_4,
-    Esql.issued_token_type = Esql.gk_issuedtokentype_5
+    Esql.grant = Esql.gk_grant_type,
+    Esql.requested_token_type = Esql.gk_requested_token_type,
+    Esql.subject_token_type = Esql.gk_subject_token_type,
+    Esql.issued_token_type = Esql.gk_issued_token_type
 | EVAL Esql.stage = CASE(
     Esql.grant == "urn:ietf:params:oauth:grant-type:jwt-bearer", "established",
     Esql.grant IN ("refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"), "continued", "ignore")

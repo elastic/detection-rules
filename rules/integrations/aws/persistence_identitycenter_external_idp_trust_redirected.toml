@@ -110,13 +110,13 @@ FROM logs-aws.cloudtrail-*
     "AssociateDirectory", "DisassociateDirectory"))
     OR (event.provider == "signin.amazonaws.com" AND event.action == "UserAuthentication")
     OR (event.provider == "sso.amazonaws.com" AND event.action IN ("Authenticate", "Federate")))
-| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directoryid_0}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identitystoreid_1}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_user_directoryid_2}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directory_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_nested_directory_id}[,}\]]"""
 | EVAL Esql.directory = COALESCE(
-    Esql.gk_directoryid_0,
-    Esql.gk_identitystoreid_1,
-    Esql.gk_user_directoryid_2,
+    Esql.gk_directory_id,
+    Esql.gk_identity_store_id,
+    Esql.gk_nested_directory_id,
     "unknown"),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
     Esql.subject = COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id,
