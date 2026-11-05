@@ -30,14 +30,14 @@ note = """## Triage and analysis
 
 ### Investigating GitHub Outside Collaborator Added to Repository
 
-This rule fires on `repository_invitation.create`, logged when an actor invites an outside account to a repository, and `org.add_outside_collaborator`, logged when that account is added to the repository (typically after the invite is accepted). Outside collaborators are granted direct repository access without being organization members, so they frequently bypass organization SSO and team-based review, making this a convenient persistence mechanism after account or token compromise. Review the actor (`user.name`, `github.actor_ip`), the account receiving access (`user.target.name`), the repository and permission level (`github.repo`, `github.permission`), and the token used (`github.hashed_token`, `github.programmatic_access_type`) to determine whether the grant was authorized. When the action is performed through the GitHub web UI, `github.programmatic_access_type` and `github.hashed_token` may be empty; a fine-grained PAT, classic PAT, or OAuth token on these actions is a stronger compromise signal.
+This rule fires on `repository_invitation.create`, logged when an actor invites an outside account to a repository, and `org.add_outside_collaborator`, logged when that account is added to the repository (typically after the invite is accepted). Outside collaborators are granted direct repository access without being organization members, so they frequently bypass organization SSO and team-based review, making this a convenient persistence mechanism after account or token compromise. Review the actor (`user.name`, `github.actor_ip`), the repository and permission level (`github.repo`, `github.permission`), and the token used (`github.hashed_token`, `github.programmatic_access_type`) to determine whether the grant was authorized, and identify the invited account from the audit event details in the GitHub UI, since the GitHub integration does not currently map the invitee to a dedicated field. When the action is performed through the GitHub web UI, `github.programmatic_access_type` and `github.hashed_token` may be empty; a fine-grained PAT, classic PAT, or OAuth token on these actions is a stronger compromise signal.
 
 ### Possible investigation steps
 
-- Identify the actor and the account receiving access using `user.name`, `user.target.name`, and `github.actor_ip`, and confirm whether the actor is a repository administrator who normally manages collaborators.
+- Identify the actor using `user.name` and `github.actor_ip`, confirm whether the actor is a repository administrator who normally manages collaborators, and identify the invited account from the audit event details.
 - Review `github.repo` and `github.permission` to understand which repository was shared and at what level, prioritizing write or admin grants on private repositories.
 - Check `github.programmatic_access_type` and `github.hashed_token` to determine whether the grant was made interactively or with a token; token-backed invites should be treated as higher urgency than a logged-in owner using the UI.
-- Confirm whether `user.target.name` already belongs to the organization; outside collaborators bypass organization SSO and team review more often than members, so an unfamiliar external account is higher risk.
+- Confirm whether the invited account already belongs to the organization; outside collaborators bypass organization SSO and team review more often than members, so an unfamiliar external account is higher risk.
 - Pivot to clones, archive downloads, and `git.push` events by the invitee or the same hashed token after the add, which indicate the access is already being used.
 
 ### False positive analysis
@@ -50,7 +50,7 @@ This rule fires on `repository_invitation.create`, logged when an actor invites 
 - If the collaborator was not authorized, remove them from the repository and cancel any pending invitations.
 - Revoke the actor's sessions and the token identified by `github.hashed_token` if the invite was not approved, and require the user to reauthenticate.
 - Review the repository's permissions and the organization's outside-collaborator policy, tightening who can invite external accounts.
-- Review activity by `user.target.name` and the actor for clones, archive downloads, or pushes that indicate private code was already accessed.
+- Review activity by the invited account and the actor for clones, archive downloads, or pushes that indicate private code was already accessed.
 - Engage incident response per your organization's playbooks if account or token compromise is confirmed.
 """
 references = [
@@ -86,7 +86,6 @@ from logs-github.audit-* metadata _id, _index, _version
     @timestamp,
     event.action,
     user.name,
-    user.target.name,
     github.org,
     github.repo,
     github.actor_ip,
@@ -120,7 +119,6 @@ field_names = [
     "@timestamp",
     "event.action",
     "user.name",
-    "user.target.name",
     "github.org",
     "github.repo",
     "github.actor_ip",
