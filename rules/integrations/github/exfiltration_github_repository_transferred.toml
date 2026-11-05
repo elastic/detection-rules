@@ -7,8 +7,11 @@ updated_date = "2026/09/21"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a GitHub repository is transferred out of an organization. Transferring a repository moves source code,
-issues, and settings to another account and is a common collection and exfiltration path after credential theft.
+Identifies when a GitHub repository is transferred out of an organization. A repository transfer moves the source code,
+issue history, pull requests, wikis, and settings to another user or organization and removes it from the originating
+organization's control. Adversaries who have compromised a privileged account or token use outgoing transfers to move
+intellectual property to an account they control, making this both a collection and an exfiltration technique that can
+bypass controls focused on cloning or archive downloads.
 """
 false_positives = [
     """
@@ -22,26 +25,33 @@ license = "Elastic License v2"
 name = "GitHub Repository Transferred Out of Organization"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub Repository Transferred Out of Organization
 
-`repo.transfer_outgoing` is logged when a repository is sent to another user or organization. That action can strip the source org of visibility and copy intellectual property to an attacker-controlled account.
+The `repo.transfer_outgoing` audit action is logged when a repository is sent from the organization to another user or organization. A transfer hands over the full repository (code, issues, pull requests, and settings) and removes it from the source organization's visibility, so an unauthorized transfer can permanently exfiltrate intellectual property to an attacker-controlled account. Review the actor (`user.name`, `github.actor_ip`), the token used (`github.hashed_token`, `github.programmatic_access_type`), and the repository and its sensitivity (`github.repo`, `github.visibility`) to determine whether the transfer was approved, and identify the destination owner to assess exposure.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `github.repo`, `github.programmatic_access_type`, and `github.actor_ip`.
-- Determine the destination owner from the GitHub UI or subsequent `repo.transfer` events.
-- Check whether the repo was private and whether similar transfers occurred in a short window (mass collection).
-- Review other activity by the same token: clones, ZIP downloads, collaborator adds, visibility changes.
+- Identify the actor and token behind the transfer using `user.name`, `github.actor_ip`, `github.hashed_token`, and `github.programmatic_access_type`, and confirm whether the actor is a repository or organization administrator who would normally perform transfers.
+- Determine the destination owner of the transfer from the GitHub audit log or UI, and assess whether it is a known company organization or an external, attacker-controlled account.
+- Review `github.repo` and `github.visibility` to understand the sensitivity of the transferred repository, prioritizing private repositories and those containing source code or secrets.
+- Check for additional `repo.transfer_outgoing` events from the same actor or token in a short window, which can indicate bulk exfiltration of multiple repositories.
+- Review the actor's surrounding GitHub activity for clones, archive downloads, collaborator additions, or visibility changes that suggest broader account compromise.
 
 ### False positive analysis
 
-- Approved repo moves between company orgs or to a user's account during offboarding.
+- Planned ownership moves during organizational restructuring, mergers, or consolidation between company-owned organizations. Confirm the destination owner and that the transfer was approved through change management.
+- Transfer of a personal or non-sensitive project to an employee's account during offboarding. Validate against HR or offboarding records and scope exceptions to the specific actor and repository where appropriate.
 
 ### Response and remediation
 
-- If unauthorized, contact GitHub Support immediately to reverse the transfer if still possible.
-- Revoke the actor's tokens and review org ownership.
-- Inventory remaining repositories for additional transfers or visibility changes.
+- If the transfer is unauthorized, contact GitHub Support immediately to attempt to reverse it while the window to do so is still open.
+- Revoke the token identified by `github.hashed_token` and the actor's other tokens, and require the user to reauthenticate.
+- Review and, if necessary, reset organization ownership and administrative permissions to prevent further transfers.
+- Inventory the organization's remaining repositories for additional outgoing transfers, visibility changes, or collaborator additions by the same actor.
+- Rotate any secrets or deploy keys that were stored in the transferred repository, and engage incident response per your organization's playbooks if sensitive data was exposed.
 """
 references = [
     "https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository",
@@ -56,8 +66,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Collection",
     "Tactic: Exfiltration",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
