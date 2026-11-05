@@ -1,0 +1,171 @@
+[metadata]
+creation_date = "2026/08/18"
+integration = ["security_ai", "aws_bedrock"]
+maturity = "production"
+min_stack_comments = "Detection rules for security_ai integration package."
+min_stack_version = "9.6.0"
+updated_date = "2026/11/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects base64-encoded content within GenAI prompt or completion text. The
+security_ai ML model has identified one or more candidate strings in
+the message that score as encoded payloads. Attackers embed base64 in prompts to
+smuggle instructions past content filters, exfiltrate data, or inject indirect
+prompt-injection payloads into model context.
+
+Strings that match known credential formats (AWS access key IDs, API keys, private
+key headers, and similar) are excluded — those fire the dedicated
+"GenAI Prompt Contains Leaked Credential" rule instead at higher severity.
+"""
+false_positives = [
+    """
+    Developers or administrators sending base64-encoded configuration blobs,
+    tokens, or binary artifacts to a model for parsing or analysis. Review the
+    decoded content and the surrounding prompt to determine intent.
+    """,
+    """
+    If a credential-shaped string is present alongside other encoded content, the
+    credential pattern suppresses this alert. The higher-severity credential rule
+    fires instead and the investigation guide for that rule covers triage of any
+    co-occurring obfuscated content.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GenAI Prompt Contains Base64-Encoded Payload"
+note = """
+## Triage and Analysis
+
+### Investigating GenAI Prompt Contains Base64-Encoded Payload
+
+The `security_ai` ML integration has flagged one or more base64-encoded
+strings in a GenAI prompt or completion. Base64 is a common obfuscation technique
+used in prompt injection, jailbreaking, and data-exfiltration attacks targeting LLMs.
+
+Strings that match known credential patterns are suppressed in this rule and routed
+to the dedicated "GenAI Prompt Contains Leaked Credential" rule instead.
+
+### Possible investigation steps
+
+- Examine `security_ai.encoding.input_messages.strings` for encoded payloads in
+  the user input, and `security_ai.encoding.output_messages.strings` for encoded
+  payloads in the model's response. Decode each string (standard base64) and inspect
+  the plaintext for:
+  - Shell commands, PowerShell, JavaScript, or other scripting payloads
+  - Secondary instructions intended to override system prompts (indirect prompt injection)
+  - Sensitive data being sent to the model for exfiltration via its output
+- Review the corresponding `.probabilities` arrays — higher values indicate stronger
+  confidence that the string is genuinely encoded rather than a benign coincidence.
+- The `input_messages` scope covers the last user turn in `gen_ai.input.messages`; the
+  `output_messages` scope covers the last assistant turn in `gen_ai.output.messages`. A hit
+  in `output_messages` means the encoded string appeared in the model's own response.
+- Check `gen_ai.input.messages` or `gen_ai.output.messages` for the full conversation context.
+- Identify the user or application that originated the request (`user.id`, `source.ip`,
+  `user_agent.original`).
+- Determine whether this user or application has sent similar encoded payloads before.
+- Check the model's response (`gen_ai.output.messages`) to assess whether the injected
+  instructions influenced output.
+
+### False positive analysis
+
+- Developers sending base64-encoded config, tokens, or binary data for legitimate
+  model processing is common. Decoded content that is benign and contextually
+  appropriate (e.g., a JWT being sent for parsing) is likely a false positive.
+- Consider adding an exception for known automation accounts or specific API consumers
+  that regularly process encoded data.
+
+### Response and remediation
+
+- If the decoded payload contains malicious instructions or scripts, treat this as an
+  active prompt injection attempt. Revoke the API key or session and notify the owner.
+- Review model output delivered to downstream systems — if the model acted on injected
+  instructions, assess what data or actions were affected.
+- Consider rate-limiting or blocking the source IP or user until the root cause is understood.
+"""
+references = [
+    "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+    "https://www.elastic.co/guide/en/security/current/prebuilt-rules-management.html",
+]
+risk_score = 47
+rule_id = "781c9c2e-f42c-42b2-8a86-0de4e32b06cf"
+setup = """This rule requires the security_ai Fleet integration. Install the
+integration and ensure that the ML model pipeline is enriching invocation events before
+enabling this rule."""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Use Case: Security for AI",
+    "Tactic: Defense Evasion",
+    "Mitre Atlas: AML.T0068",
+    "Data Source: AWS Bedrock",
+    "Platform: AWS",
+    "Service: AWS Bedrock",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+to = "now"
+type = "esql"
+
+query = '''
+FROM logs-aws_bedrock.invocation-* METADATA _id, _version, _index
+| EVAL Esql_priv.b64_strings = CONCAT(
+    COALESCE(MV_CONCAT(security_ai.encoding.input_messages.strings, "\n"), ""), "\n",
+    COALESCE(MV_CONCAT(security_ai.encoding.output_messages.strings, "\n"), ""))
+| WHERE Esql_priv.b64_strings != "\n"
+// Suppress credential-shaped content — those fire the dedicated credential rule instead.
+// Credential formats are split across two RLIKEs because a single pattern with every format exceeds
+// ES|QL's regex determinization limit. A key must not be glued to a preceding key character (or be
+// preceded by a JSON-escaped \n, \r or \t); that also keeps the automaton small.
+// Not lowercased: credential prefixes (AKIA, sk-, ghp_, etc.) are case-significant.
+| WHERE NOT Esql_priv.b64_strings RLIKE """(.*([^A-Za-z0-9_\-]|\\[nrt]))?((AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}|ABSK[A-Za-z0-9+/=]{20}|AIza[0-9A-Za-z_\-]{35}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_\-]{20,}|sk-ant-api03-[A-Za-z0-9_\-]{80,}|sk-proj-[A-Za-z0-9_\-]{20,}).*"""
+| WHERE NOT Esql_priv.b64_strings RLIKE """(.*([^A-Za-z0-9_\-]|\\[nrt]))?(sk-[A-Za-z0-9]{48}|sk_live_[A-Za-z0-9]{24}|hf_[A-Za-z0-9]{34}|xox[baprs]-[A-Za-z0-9\-]{10,}|eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\..*|-----BEGIN [A-Z ]*PRIVATE KEY-----).*"""
+| KEEP _id, _version, _index, @timestamp, security_ai.*, gen_ai.*, aws_bedrock.*, user.*, cloud.*, event.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0068"
+name = "LLM Prompt Obfuscation"
+reference = "https://atlas.mitre.org/techniques/AML.T0068/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
