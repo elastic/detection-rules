@@ -301,11 +301,7 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
 
     def test_required_fields_resolve_ecs_from_other_stack_pins(self):
-        """A field missing from this stack's ECS pin but present in another pin's ECS resolves as ECS.
-
-        Keeps `ecs`/`type` identical on every release branch so the version lock hash does not
-        oscillate between branches (e.g. gen_ai.* on 8.19, which is pinned to ECS 8.17.0).
-        """
+        """A field missing from this stack's ECS pin but present in another pin's ECS resolves as ECS."""
         from detection_rules.schemas import get_stack_schemas as real_get_stack_schemas
 
         field_name = "gen_ai.tool.name"  # added to ECS in 9.1.0
