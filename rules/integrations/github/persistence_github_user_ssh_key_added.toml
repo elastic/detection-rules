@@ -2,13 +2,15 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects addition of a GitHub user SSH public key. Adversaries add keys for persistence after stealing interactive
-credentials. User-level public_key.create may not appear in a non-EMU enterprise audit stream.
+Identifies the addition of an SSH public key to a GitHub user account. An SSH key grants the account Git access over SSH,
+so an adversary who has stolen interactive credentials can add their own key to maintain persistent repository access even
+after the original password or session is revoked. Note that the user-level `public_key.create` action may not appear in a
+non-EMU enterprise audit stream, where it is retained only in the per-user security log.
 """
 false_positives = [
     """
@@ -21,22 +23,33 @@ license = "Elastic License v2"
 name = "GitHub User SSH Key Added"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GitHub User SSH Key Added
 
-`public_key.create` is the documented action. On this lab's non-EMU stream, user SSH key add/delete did not appear; the rule is still valid where GitHub includes the action in streamed audit.
+This rule fires on GitHub's `public_key.create` audit action, which records the addition of an SSH public key to a user account. Because an SSH key provides durable Git access independent of the account password, adding one is a common persistence step after an account takeover. Review the user and source (`user.name`, `github.actor_ip`), the client and token (`github.user_agent`, `github.hashed_token`, `github.programmatic_access_type`), and correlate with other recent account changes to determine whether the legitimate user added the key. Note that user-level `public_key.create` events may not reach `logs-github.audit-*` on non-EMU enterprises, where they are retained only in the per-user security log.
 
 ### Possible investigation steps
 
-- Identify `user.name`, `github.actor_ip`, and key fingerprint/title if present.
-- Correlate with unrecognized-device login and new PATs.
+- Confirm with the user whether they added an SSH key, and whether `github.actor_ip` and `github.user_agent` correspond to a device and network they use, such as onboarding a new workstation.
+- Geolocate `github.actor_ip` and review its ASN to check whether the source is consistent with the user's normal GitHub activity.
+- Review `github.hashed_token` and `github.programmatic_access_type` to determine whether the key was added interactively or with a PAT or OAuth token, the latter being a stronger compromise signal.
+- Correlate the same `user.name` and `github.actor_ip` with related account changes, such as unrecognized-device sign-ins, new personal access tokens, or OAuth grants, that indicate account takeover.
+- Pivot to subsequent Git activity such as clones, pushes, or archive downloads that may have used the new key.
 
 ### False positive analysis
 
-- Expected laptop onboarding.
+- A developer adding an SSH key for a new or replacement workstation. Confirm the key, source IP, and that the user expected it before dismissing.
+- Automation or onboarding workflows that register SSH keys for a service account. Validate against deployment records and scope exceptions to the specific user where appropriate.
 
 ### Response and remediation
 
-- Delete unauthorized keys, revoke sessions, and require SSH certificates if policy allows.
+- If the key was not added by the legitimate user, delete the unauthorized SSH key immediately.
+- Reset the user's credentials and revoke active sessions if account takeover is suspected, and require re-authentication.
+- Review all SSH keys, personal access tokens, and OAuth authorizations on the account and remove any others that are unexpected.
+- Hunt for Git activity that used the new key, such as clones, pushes, or archive downloads, to assess what was accessed.
+- Consider requiring SSH certificates or hardware-backed keys where policy allows, and engage incident response per your organization's playbooks if compromise is confirmed.
 """
 references = [
     "https://github.blog/news-insights/company-news/security-alert-new-phishing-campaign-targets-github-users/",
@@ -51,8 +64,9 @@ tags = [
     "Platform: GitHub",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
+    "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -86,9 +100,9 @@ id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 [[rule.threat.technique.subtechnique]]
-id = "T1098.004"
-name = "SSH Authorized Keys"
-reference = "https://attack.mitre.org/techniques/T1098/004/"
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
 
 
 
