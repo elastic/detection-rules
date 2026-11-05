@@ -300,6 +300,28 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
 
         self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
 
+    def test_required_fields_resolve_ecs_from_other_stack_pins(self):
+        """A field missing from this stack's ECS pin but present in another pin's ECS resolves as ECS."""
+        from detection_rules.schemas import get_stack_schemas as real_get_stack_schemas
+
+        field_name = "gen_ai.tool.name"  # added to ECS in 9.1.0
+        current_version = str(Version.parse(load_current_package_version(), optional_minor_and_patch=True))
+        pinned = dict(real_get_stack_schemas()[current_version], ecs="8.17.0")
+
+        def required(stack_map: dict) -> dict:
+            validator = KQLValidator(f"{field_name}:*")
+            with (
+                unittest.mock.patch("detection_rules.rule.get_stack_schemas", return_value={current_version: pinned}),
+                unittest.mock.patch("detection_rules.rule.load_stack_schema_map", return_value=stack_map),
+            ):
+                return {f["name"]: f for f in validator.get_required_fields([])}
+
+        only_old_pin = required({"8.19.0": {"ecs": "8.17.0"}})
+        self.assertEqual(only_old_pin[field_name], {"name": field_name, "type": "unknown", "ecs": False})
+
+        with_newer_pin = required({"8.19.0": {"ecs": "8.17.0"}, "9.4.0": {"ecs": "9.4.0"}})
+        self.assertEqual(with_newer_pin[field_name], {"name": field_name, "type": "keyword", "ecs": True})
+
     def test_non_esql_validation_uses_patch_floor_for_integration_schema(self):
         """Non-ES|QL schema validation resolves integration schemas using the inferred patch floor."""
         package = "pkg"
