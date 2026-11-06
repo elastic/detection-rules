@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/10/29"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/10/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects commands that set an ESXi host's VIB acceptance level to CommunitySupported. This permits community packages
+that do not require a trusted signature and may be used to prepare for installation of untrusted software on the
+hypervisor.
+"""
+false_positives = [
+    """
+    Approved driver installation, lab configuration, and maintenance may require CommunitySupported packages. Confirm
+    the change and package provenance with the virtualization owner.
+    """,
+]
+from = "now-10m"
+index = ["logs-vsphere.log-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi VIB Acceptance Set to CommunitySupported"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ESXi VIB Acceptance Set to CommunitySupported
+
+The command changes the host's package acceptance policy. The event alone does not prove the command succeeded, that the prior policy was stronger, or that a VIB was installed.
+
+#### Possible investigation steps
+
+- Review the command, originating session, and account. Confirm whether the acceptance policy changed and record its previous value if available.
+- Correlate with software vib install commands, force or signature-check bypass flags, and newly installed VIBs.
+- Check the publisher, source, and expected purpose of any package installed after the policy change.
+- Ask the virtualization owner whether an approved driver or maintenance change required this setting.
+
+### False positive analysis
+
+Community drivers and authorized lab work can require this level. Verify the approved package and change window before considering an exception. A command that repeats an existing setting may also match.
+
+### Response and remediation
+
+- Preserve the session and package-installation records if the change is unauthorized.
+- Review installed VIBs and coordinate removal of untrusted packages with the virtualization owner.
+- Restore the approved acceptance policy after checking dependencies and assessing the host for persistence.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1689/T1689.yaml",
+]
+risk_score = 47
+rule_id = "a520051d-cf6a-538c-a121-3029e2e409f0"
+setup = """## Setup
+
+Collect ESXi host syslog with the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"vsphere.log" and message:("software acceptance set" and "CommunitySupported")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.010"
+name = "Downgrade Attack"
+reference = "https://attack.mitre.org/techniques/T1562/010/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = ["@timestamp", "host.name", "message", "event.original", "process.name"]
