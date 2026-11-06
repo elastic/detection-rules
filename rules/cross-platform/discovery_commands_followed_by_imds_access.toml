@@ -1,0 +1,216 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0. 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a process that spawns multiple distinct host, user, or network discovery utilities and within a short time
+window, accesses the cloud instance metadata service (IMDS) at 169.254.169.254, either directly or through a child
+process.
+"""
+false_positives = [
+    """
+    Cloud bootstrap tooling, guest agents, configuration management and monitoring agents may run discovery commands
+    and query the instance metadata service from the same parent process. Validate the parent executable and command
+    line and exclude approved automation.
+    """,
+]
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Discovery Commands Followed by IMDS Access"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+
+### Investigating Multiple Discovery Commands Followed by IMDS Access
+
+Each result groups the activity of a single parent process on a host: the discovery commands it spawned
+(`Esql.recon_command_values`) and the connections to the instance metadata service made by the process itself or by
+one of its children. The correlation key is stored in `Esql.correlation_id`.
+
+### Possible investigation steps
+
+- Review `Esql.process_parent_executable_values` and `Esql.process_parent_command_line_values` to identify the process
+  that drove the activity and determine whether it is an interactive shell, a script interpreter, a web application, or
+  approved automation.
+- Inspect `Esql.process_command_line_values` for the exact discovery commands and any metadata request paths such as
+  `/latest/meta-data/iam/security-credentials/` (AWS), `/metadata/identity/oauth2/token` (Azure), or
+  `/computeMetadata/v1/instance/service-accounts/` (GCP).
+- Identify the user in `Esql.user_name_values` and the session context, and check whether the activity followed a
+  remote login, an exploit, or the execution of a newly dropped file.
+- Correlate the host and time window with cloud control-plane logs to determine whether instance role credentials or
+  managed identity tokens were subsequently used from this host or from an external IP address.
+- Look for follow-on behavior such as cloud CLI or SDK usage, credential staging to disk, or outbound connections to
+  unfamiliar destinations.
+
+### False positive analysis
+
+- Cloud-init, cloud guest agents, configuration management tools (Puppet, Chef, Salt, Ansible), MDM agents, and
+  monitoring agents can legitimately run discovery utilities and query the metadata service. Confirm the parent
+  executable path and exclude approved tooling by path or command line.
+- In-house bootstrap or service startup scripts may collect host details and read instance metadata. Validate the script
+  location, owner, and execution schedule.
+
+### Response and remediation
+
+- Isolate the affected instance or host and terminate the offending process tree.
+- Revoke or rotate any instance role credentials, managed identity tokens, or secrets that may have been retrieved from
+  the metadata service, and review the permissions attached to the instance role.
+- Remove any dropped scripts, binaries, or persistence mechanisms associated with the activity.
+- Enforce IMDSv2 or the strongest metadata protections offered by the cloud provider and restrict metadata access to
+  the processes that require it.
+"""
+references = [
+    "https://docs.litellm.ai/blog/security-incident-oct-21-2026",
+]
+risk_score = 47
+rule_id = "ee9f9ede-3537-47aa-a94a-206690cd5037"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
+| WHERE
+    (
+      (MV_CONTAINS(event.action, "exec") OR event.action == "start")
+      AND
+      process.name.caseless IN (
+        // Linux
+        "ip", "ss", "hostnamectl", "uptime", "uname", "whoami", "id", "hostname",
+        "netstat", "arp", "ifconfig", "route", "w", "who",
+        "last", "getent", "dmidecode",
+        // macOS
+        "sw_vers", "system_profiler", "scutil", "networksetup", "ioreg",
+        "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups",
+        // Windows
+        "whoami.exe", "hostname.exe", "ipconfig.exe", "systeminfo.exe", "netstat.exe",
+        "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
+        "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
+      )
+    )
+    OR destination.ip IN ("169.254.169.254", "169.254.170.2", "169.254.170.23", "100.100.100.200", "168.63.129.16","")
+| WHERE process.parent.executable IS NULL OR NOT (
+    process.parent.executable LIKE "/Library/Application Support/JAMF/*" OR
+    process.parent.executable LIKE "/usr/local/jamf/*" OR
+    process.parent.executable LIKE "/opt/homebrew/*" OR
+    process.parent.executable LIKE "/usr/local/Cellar/*" OR
+    process.parent.executable LIKE "/opt/puppetlabs/*" OR
+    process.parent.executable LIKE "/opt/chef/*" OR
+    process.parent.executable LIKE "/usr/lib/google-cloud-sdk/*" OR
+    process.parent.executable LIKE "/Applications/Docker.app/Contents/MacOS/*"
+  )
+| EVAL
+    is_recon = process.name.caseless IN (
+      "ip", "ss", "hostnamectl", "uptime", "uname", "whoami", "id", "hostname",
+      "netstat", "arp", "ifconfig", "route", "w", "who",
+      "last", "getent", "dmidecode",
+      "sw_vers", "system_profiler", "scutil", "networksetup", "ioreg",
+      "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups",
+      "whoami.exe", "hostname.exe", "ipconfig.exe", "systeminfo.exe", "netstat.exe",
+      "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
+      "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
+    ) AND MV_CONTAINS(event.category, "process"),
+    is_metadata = destination.ip == "169.254.169.254"
+      OR destination.address == "169.254.169.254"
+// recon events correlate on their parent, metadata events on both themselves and their parent
+| EVAL
+    Esql.correlation_id = CASE(
+      is_recon,
+      process.parent.entity_id,
+      MV_APPEND(process.entity_id, process.parent.entity_id)
+    ),
+    recon_command = CASE(is_recon, process.name.caseless, null),
+    metadata_access = CASE(is_metadata, 1, 0)
+| MV_EXPAND Esql.correlation_id
+| WHERE Esql.correlation_id IS NOT NULL
+| STATS
+    Esql.host_name_values = VALUES(host.name),
+    Esql.host_ip_values = VALUES(host.ip),
+    Esql.process_name_values = VALUES(process.name),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_entity_id_values = VALUES(process.entity_id),
+    Esql.process_parent_entity_id_values = VALUES(process.parent.entity_id),
+    Esql.process_parent_name_values = VALUES(process.parent.name),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.destination_ip_values = VALUES(destination.ip),
+    Esql.destination_port_values = VALUES(destination.port),
+    Esql.network_transport_values = VALUES(network.transport),
+    Esql.recon_command_values = VALUES(recon_command),
+    Esql.recon_command_count_distinct = COUNT_DISTINCT(recon_command),
+    Esql.metadata_access_count = SUM(metadata_access),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  BY host.id, Esql.correlation_id
+| WHERE Esql.recon_command_count_distinct >= 3
+    AND Esql.metadata_access_count > 0
+    AND DATE_DIFF("seconds", Esql.first_seen, Esql.last_seen) <= 10
+| KEEP host.id, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[[rule.threat.technique]]
+id = "T1033"
+name = "System Owner/User Discovery"
+reference = "https://attack.mitre.org/techniques/T1033/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.005"
+name = "Cloud Instance Metadata API"
+reference = "https://attack.mitre.org/techniques/T1552/005/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
