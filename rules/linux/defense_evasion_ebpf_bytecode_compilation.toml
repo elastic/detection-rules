@@ -9,8 +9,8 @@ author = ["Elastic"]
 description = """
 Detects on-host compilation of eBPF bytecode via clang targeting the BPF backend. This covers the two-token form
 (`-target bpf`) as well as the little-endian (`bpfel`) and big-endian (`bpfeb`) variants. It also matches the
-single-token forms (`--target=bpf`, `-target=bpf`), which are not accepted by clang but will still be audited by execve
-as an attempted compilation. eBPF-based rootkits and reconnaissance tooling commonly compile their kernel-side
+single-token form `--target=bpf`, which clang accepts, and the rejected `-target=bpf` form, which is still audited by
+execve as an attempted compilation. eBPF-based rootkits and reconnaissance tooling commonly compile their kernel-side
 component directly on the victim host rather than shipping a prebuilt object file, making on-host BPF compilation a
 useful signal for detecting compile-after-delivery activity. While legitimate observability and networking tooling also
 compiles eBPF programs on-host, unexpected compilation outside of known CI/CD or development workflows may warrant
@@ -48,7 +48,7 @@ note = """## Triage and analysis
 
 This rule detects `clang` invocations that target the BPF backend, which compiles C source code into eBPF bytecode object files. Adversaries use this technique to build kernel-side eBPF components directly on a compromised host, avoiding detection of prebuilt binaries by hash or signature. The compiled object is typically loaded into the kernel via `bpf()` syscall or `bpftool` to implement rootkit functionality, traffic manipulation, or stealthy data collection.
 
-The rule covers the two-token argument form (`-target bpf`) as well as the `bpfel` (little-endian) and `bpfeb` (big-endian) target variants and full triples like `bpf-unknown-none`. It also matches single-token forms (`--target=bpf`, `-target=bpf`), which are rejected by clang but will still be audited by `execve` as attempted compilations. This breadth ensures that all valid syntaxes, as well as common typos that still generate audit events, are captured.
+The rule covers the two-token argument form (`-target bpf`) as well as the `bpfel` (little-endian) and `bpfeb` (big-endian) target variants and full triples like `bpf-unknown-none`. It also matches the single-token form `--target=bpf`, which clang accepts, and the rejected `-target=bpf` form, which is still audited by `execve` as an attempted compilation. This breadth ensures that all valid syntaxes, as well as common typos that still generate audit events, are captured.
 
 ### Rule limitations
 
@@ -95,8 +95,6 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
     "Rule Type: Event Correlation (EQL)",
     "Platform: Linux",
 ]
