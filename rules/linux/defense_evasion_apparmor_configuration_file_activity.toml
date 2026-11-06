@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects non-deletion file activity under /etc/apparmor.d, where system AppArmor profiles, abstractions,
+tunables, local overrides, and profile state links are stored. Adversaries may create or replace policy files to weaken
+confinement, grant additional access to a compromised application, or prepare an unauthorized profile for loading.
+"""
+false_positives = [
+    "Legitimate package installation, profile deployment, policy tuning, and approved configuration management.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AppArmor Configuration File Activity
+
+AppArmor profiles define mandatory access controls for applications and are conventionally stored under
+`/etc/apparmor.d/`. The directory also contains reusable abstractions and tunables, local overrides, cached policy, and
+links that disable profiles or place them in complain mode. Unauthorized activity in this tree can weaken confinement or
+stage a profile for later loading with `apparmor_parser`.
+
+### Possible investigation steps
+
+- Review the affected path, file operation, owner, mode, hash, responsible process, parent process, user, and timestamp.
+- Determine whether the writer belongs to an authorized package installation, AppArmor administration command, profile
+  deployment, or configuration-management workflow.
+- Inspect the changed policy for broad filesystem access, dangerous capabilities, network permissions, execution
+  transitions, complain-mode flags, aliases, variables, or includes that weaken the original profile.
+- For files beneath `disable/` or `force-complain/`, resolve the link target and determine which profile's enforcement
+  state changed.
+- Compare the artifact with package metadata, source-controlled policy, and a known-good host.
+- Look for subsequent `apparmor_parser` execution, access to AppArmor's `.load`, `.replace`, or `.remove` interfaces, and
+  restarts of the application governed by the affected profile.
+- Correlate the event with recent authentication, privilege escalation, software installation, and defense-evasion
+  activity on the host.
+
+### False positive analysis
+
+- AppArmor, application, container, virtualization, and security packages commonly install or update profiles.
+- Administrators may add local overrides or reload profiles while deploying applications or troubleshooting denied
+  access.
+- Configuration-management and image-building systems may enforce organization-specific policies. Confirm the artifact
+  and writer against an approved deployment before creating an exception.
+
+### Response and remediation
+
+- Isolate the host if the policy change is unauthorized or if a sensitive service lost expected confinement.
+- Preserve the modified policy and related process telemetry, then restore affected profiles from trusted packages or
+  source control.
+- Remove unauthorized disable or force-complain links and reload the approved policy using trusted administration tools.
+- Review activity performed by the affected application while its confinement may have been weakened.
+- Scope the same file path, hash, writer, and policy changes across the environment, and rebuild the host if root-level
+  compromise cannot be confidently excluded.
+"""
+references = [
+    "https://apparmor.net/man/master/apparmor.d/",
+    "https://apparmor.net/profiles/Policy_Layout/",
+]
+risk_score = 21
+rule_id = "ead57786-2f51-4d9f-ae36-b9604ae3327c"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like "/etc/apparmor.d/*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
