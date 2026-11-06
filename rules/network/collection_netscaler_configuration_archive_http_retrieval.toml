@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/10/27"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an HTTP GET with a successful or partial-content response for an exposed NetScaler configuration path, a
+configuration-like archive under its logon web root, or the LogonPoint/a staging path observed in exploitation attempts.
+A response at these paths is suspicious but does not prove that the returned body contains configuration.
+"""
+false_positives = [
+    "Authorized theme/archive distribution, administrative testing, or generic success pages at matching paths.",
+]
+from = "now-9m"
+index = ["logs-network_traffic.http-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Potential NetScaler Configuration File or Archive Retrieval"
+note = """## Triage and analysis
+
+### Investigating Potential NetScaler Configuration File or Archive Retrieval
+
+- Confirm the destination is a NetScaler service and inspect the exact normalized path and request source.
+- Review response status, MIME type, byte count, and restricted content evidence. A 200 login page or a generic error
+  document is not proof that configuration was delivered. Partial-content responses may represent resumed retrieval.
+- Look for preceding configuration-archive commands or file-integrity observations and poisoned Citrix login records.
+- Determine whether the requested file exists in the appliance web root, when it appeared, and whether it contains
+  configuration. Use preserved forensic evidence; do not browse attacker infrastructure or execute recovered content.
+
+### False positive analysis
+
+Approved theme archives, administrative transfers, testing, and catch-all web routes can match. Verify the actual response
+and deployment purpose before excluding a source/path relationship. Missing or blocked (403/404) retrievals do not match.
+
+### Response and remediation
+
+Preserve the retrieved file or archive and access records, restrict unauthorized web access, and scope exposed material
+if transfer is confirmed. Investigate both HA nodes and all affected service identities. Coordinate credential rotation
+with the owner."""
+references = ["https://www.elastic.co/docs/reference/integrations/network_traffic"]
+risk_score = 47
+rule_id = "d90564ec-13cc-4e57-906c-2e2dc90f128f"
+setup = """## Setup
+
+Use the Network Packet Capture HTTP integration at a point with visibility into requests and responses to the NetScaler.
+For HTTPS, use an authorized decrypted observation point. Add the event tag `netscaler-destination` through trusted asset
+enrichment only when destination.ip and the observed virtual service identify a NetScaler service. The integration does
+not add this tag automatically. Do not tag an entire shared sensor or all services behind a shared address.
+
+The query uses parsed url.path, so query strings do not change the path match. Confirm decoding and normalization for your
+HTTP parser. Renamed extensionless staging paths other than the observed /logon/LogonPoint/a require file/audit correlation
+and are not universally covered. Preserve response metadata and, where permitted, restricted content evidence."""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Resources: Investigation Guide",
+    "Data Source: Network Packet Capture",
+    "Tactic: Collection",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "network_traffic.http" and
+  tags : "netscaler-destination" and source.ip != null and destination.ip != null and
+  http.request.method == "GET" and http.response.status_code in (200, 206) and
+  url.path like~ (
+    "/nsconfig/ns.conf", "/flash/nsconfig/ns.conf", "/logon/LogonPoint/a",
+    "/logon/LogonPoint/nsconfig*", "/logon/LogonPoint/*.tgz", "/logon/LogonPoint/*.tar.gz",
+    "/logon/LogonPoint/*.tar", "/logon/LogonPoint/*.zip"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1602"
+name = "Data from Configuration Repository"
+reference = "https://attack.mitre.org/techniques/T1602/"
+[[rule.threat.technique.subtechnique]]
+id = "T1602.002"
+name = "Network Device Configuration Dump"
+reference = "https://attack.mitre.org/techniques/T1602/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
