@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/08/26"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,16 +21,23 @@ references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-
 risk_score = 73
 rule_id = "143cb236-0956-4f42-a706-814bcaa0cf5a"
 severity = "high"
-tags = ["Tactic: Initial Access",
-        "Domain: Endpoint",
-        "Use Case: Threat Detection",
-        "Data Source: Corelight",
-        "Data Source: Fortinet",
-        "Data Source: Network Traffic",
-        "Data Source: PAN-OS",
-        "Data Source: pfSense",
-        "Data Source: Zeek",
-        "Resources: Investigation Guide"
+tags = [
+    "Tactic: Initial Access",
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Data Source: Corelight",
+    "Data Source: Fortinet",
+    "Data Source: Network Traffic",
+    "Data Source: PAN-OS",
+    "Data Source: pfSense",
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: Custom Query (KQL)",
+    "Domain: Network",
+    "Data Source: Network Packet Capture",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -71,6 +78,10 @@ query = '''
     10.0.0.0/8 or
     172.16.0.0/12 or
     192.168.0.0/16
+  ) and
+  not (
+    data_stream.dataset:panw.panos and
+    network.application:("incomplete" or "insufficient-data" or "not-applicable")
   )
 '''
 note = """## Triage and analysis

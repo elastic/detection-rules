@@ -12,6 +12,7 @@ import re
 import time
 import typing
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -29,14 +30,21 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
-from .esql import get_esql_query_event_dataset_integrations
-from .esql_errors import EsqlSemanticError
+from .esql import (
+    get_esql_query_event_dataset_integrations,
+    get_esql_query_index_datasets,
+    normalize_dataset_package,
+)
+from .esql_errors import EsqlSemanticError, public_esql_error
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     IntegrationVersionNotFoundError,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
+    get_policy_template_for_data_stream,
     load_integrations_manifests,
+    load_integrations_routing_rules,
+    load_integrations_schemas,
     resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -47,6 +55,7 @@ from .schemas import (
     downgrade,
     get_min_supported_stack_version,
     get_stack_schemas,
+    load_stack_schema_map,
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
@@ -59,10 +68,6 @@ from .stack_emit import (
 )
 from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
-
-if typing.TYPE_CHECKING:
-    from .remote_validation import RemoteValidator
-
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
@@ -721,6 +726,17 @@ class QueryValidator:
         endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
         ecs_schema = ecs.get_schema(ecs_version)
 
+        # ECS schemas pinned to the other supported stacks, newest first. A field missing from this
+        # branch's pin but defined in another pin (e.g. gen_ai.* on 8.19, pinned to an older ECS) is
+        # still ECS and still mapped by the stack, so resolve it there to keep `ecs`/`type` the same on
+        # every release branch; otherwise the version lock hash oscillates between branches.
+        fallback_ecs_versions = sorted(
+            {str(v["ecs"]) for v in load_stack_schema_map().values() if v and v.get("ecs")} - {str(ecs_version)},
+            key=Version.parse,
+            reverse=True,
+        )
+        fallback_ecs_schemas = [ecs.get_schema(v) for v in fallback_ecs_versions]
+
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
@@ -756,6 +772,8 @@ class QueryValidator:
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
+            if field_type is None:
+                field_type = next((s[fld]["type"] for s in fallback_ecs_schemas if fld in s), None)
             is_ecs = field_type is not None
 
             if not is_ecs:
@@ -767,7 +785,7 @@ class QueryValidator:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
 
             if not field_type and isinstance(self, ESQLValidator):
-                field_type = self.get_unique_field_type(fld)
+                field_type = getattr(self, "_resolved_field_types", {}).get(fld)
 
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 
@@ -1037,6 +1055,25 @@ class EQLRuleData(QueryRuleData):
         return None
 
 
+def _esql_load_error(exc: BaseException) -> Exception:
+    """Add rule-load bypass hints to a mapped ES|QL semantic error."""
+    mapped = public_esql_error(exc)
+    if not isinstance(mapped, EsqlSemanticError):
+        return mapped
+    message = str(mapped).lower()
+    hint = ""
+    if "keep" in message:
+        hint = " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
+    elif "metadata" in message:
+        hint = (
+            " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+            "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
+        )
+    if not hint:
+        return mapped
+    return EsqlSemanticError(f"{mapped}{hint}")
+
+
 @dataclass(frozen=True, kw_only=True)
 class ESQLRuleData(QueryRuleData):
     """ESQL rules are a special case of query rules."""
@@ -1049,67 +1086,56 @@ class ESQLRuleData(QueryRuleData):
     @validates_schema
     def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
+        import esql  # local import: avoid cycle with rule_validators at module import
+
         if data.get("index"):
             raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
 
-        # Convert the query string to lowercase to handle case insensitivity
-        query_lower = data["query"].lower()
+        bypass_metadata = os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is not None
+        bypass_keep = os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is not None
 
-        # Combine both patterns using an OR operator and compile the regex.
-        # The first part matches the metadata fields in the from clause by allowing one or
-        # multiple indices and any order of the metadata fields
-        # The second part matches the stats command with the by clause
-        combined_pattern = re.compile(
-            r"(from\s+(?:\S+\s*,\s*)*\S+\s+metadata\s+"
-            r"(?:_id|_version|_index)(?:,\s*(?:_id|_version|_index)){2})"
-            r"|(\bstats\b.*?\bby\b)",
-            re.DOTALL,
-        )
+        cfg = set_esql_config(load_current_package_version())
 
-        # Ensure that non-aggregate queries have metadata
-        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None:
-            bypass_metadata_hint = (
-                " To bypass ES|QL `FROM` metadata validation, set the environment variable "
-                "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
-            )
-            if not combined_pattern.search(query_lower):
-                raise EsqlSemanticError(
-                    f"Rule: {data['name']} contains a non-aggregate query without"
-                    f" metadata fields '_id', '_version', and '_index' ->"
-                    f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
-                    + bypass_metadata_hint
+        def reject_incomplete_keeps(tree: Any) -> None:
+            """Require metadata columns on every KEEP of a non-aggregating query."""
+            if esql.has_aggregating_stats(tree):
+                return
+            required = {"_id", "_version", "_index"}
+            for cmd in tree.commands:
+                if not isinstance(cmd, esql.ast.KeepCommand):
+                    continue
+                fields = {c.strip() for c in (*cmd.columns, *cmd.wildcards)}
+                if "*" in fields or required.issubset(fields):
+                    continue
+                raise esql.EsqlSemanticError(
+                    f"Rule: {data['name']} contains a keep clause without metadata fields "
+                    f"'_id', '_version', and '_index' -> Add '_id', '_version', '_index' to the keep command."
                 )
 
-        # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
-        if os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is None:
-            bypass_keep_hint = (
-                " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
-            )
-            # Match | followed by optional whitespace/newlines and then 'keep'
-            keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-            keep_matches = list(keep_pattern.finditer(query_lower))
-            if not keep_matches:
-                raise EsqlSemanticError(
-                    f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
-                    + bypass_keep_hint
-                )
-
-            # Ensure that keep clause includes metadata fields on non-aggregate queries
-            aggregate_pattern = re.compile(
-                r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL
-            )
-            if not aggregate_pattern.search(query_lower):
-                for keep_match in keep_matches:
-                    raw_keep = re.sub(r"//.*", "", keep_match.group(1))
-                    keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
-                    if "*" not in keep_fields:
-                        required_metadata = {"_id", "_version", "_index"}
-                        if not required_metadata.issubset(set(map(str.strip, keep_fields))):
-                            raise EsqlSemanticError(
-                                f"Rule: {data['name']} contains a keep clause without"
-                                f" metadata fields '_id', '_version', and '_index' ->"
-                                f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
-                            )
+        try:
+            with cfg, esql.Schema({}, allow_missing=True):
+                tree = esql.parse_query(data["query"])
+            if not bypass_metadata and not bypass_keep:
+                esql.validate_detection_rule_query(tree, name=data["name"])
+                reject_incomplete_keeps(tree)
+            elif not bypass_metadata:
+                # KEEP bypassed: still enforce METADATA / aggregate shape.
+                if not esql.is_aggregate_query(tree):
+                    metadata = set(esql.get_metadata_fields(tree))
+                    if not {"_id", "_version", "_index"}.issubset(metadata):
+                        raise esql.EsqlSemanticError(
+                            f"Rule: {data['name']} contains a non-aggregate query without metadata fields "
+                            f"'_id', '_version', and '_index' -> Add 'metadata _id, _version, _index' "
+                            f"to the from command or add an aggregate function."
+                        )
+            elif not bypass_keep:
+                if not esql.has_keep(tree):
+                    raise esql.EsqlSemanticError(
+                        f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+                    )
+                reject_incomplete_keeps(tree)
+        except esql.EsqlError as exc:
+            raise _esql_load_error(exc) from exc
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1647,6 +1673,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     if not package_integrations:
                         return
 
+                    # (package, rerouting policy template) -> (highest manifest version, its version expression)
+                    rerouted: dict[tuple[str, str], tuple[Version, str]] = {}
                     for package in package_integrations:
                         integration = package.get("integration")
                         integration_name = (
@@ -1662,21 +1690,75 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             continue
                         package["version"] = result.expression
 
-                        # Union policy templates across manifest-backed versions only.
-                        policy_templates: set[str] = set()
-                        for manifest_version in result.manifest_versions:
-                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
-                            policy_templates.update(version_data.get("policy_templates", []))
-
-                        if package["integration"] not in policy_templates:
+                        # The query names a data stream; Kibana matches related integrations by policy template.
+                        version_manifests = [
+                            packages_manifest.get(package["package"], {}).get(manifest_version, {})
+                            for manifest_version in result.manifest_versions
+                        ]
+                        policy_template = self._get_policy_template(version_manifests, integration_name)
+                        if policy_template:
+                            package["integration"] = policy_template
+                        else:
                             del package["integration"]
                         resolved_package_integrations.append(package)
+
+                        manifest_version = max(Version.parse(v) for v in result.manifest_versions)
+                        for rerouting_template in self._get_rerouting_policy_templates(
+                            package["package"], integration_name, result.manifest_versions, packages_manifest
+                        ):
+                            # Intentionally reuse the queried data stream's version expression (the highest one) rather
+                            # than resolving the rerouting template's own range: the template only fills a data stream
+                            # from the version that has it (azure.events routes aadgraphactivitylogs from 1.37.0).
+                            key = (package["package"], rerouting_template)
+                            if key not in rerouted or manifest_version > rerouted[key][0]:
+                                rerouted[key] = (manifest_version, result.expression)
+
+                    for (package_name, rerouting_template), (_, expression) in rerouted.items():
+                        resolved_package_integrations.append(
+                            {"package": package_name, "integration": rerouting_template, "version": expression}
+                        )
 
                 # remove duplicate entries
                 package_integrations = list(
                     {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
                 )
                 obj.setdefault("related_integrations", package_integrations)
+
+    @staticmethod
+    def _get_policy_template(version_manifests: list[dict[str, Any]], data_stream: str | None) -> str | None:
+        """Return the policy template that collects the data stream in any of the package version manifests."""
+        if not data_stream:
+            return None
+        for version_manifest in version_manifests:
+            policy_template = get_policy_template_for_data_stream(version_manifest, data_stream)
+            if policy_template:
+                return policy_template
+        return None
+
+    @staticmethod
+    def _get_rerouting_policy_templates(
+        package: str, data_stream: str | None, manifest_versions: Iterable[str], packages_manifest: dict[str, Any]
+    ) -> list[str]:
+        """Return the policy templates whose data streams reroute documents to the data stream."""
+        if not data_stream:
+            return []
+        version_manifests = packages_manifest.get(package, {})
+        version_routing_rules = load_integrations_routing_rules().get(package, {})
+        rerouting_templates: list[str] = []
+        for manifest_version in manifest_versions:
+            version_manifest = version_manifests.get(manifest_version, {})
+            # Kibana matches the package row of a package with one policy template, so only list a rerouting
+            # policy template when the package has more than one
+            if len(version_manifest.get("policy_templates", [])) < 2:  # noqa: PLR2004
+                continue
+            # e.g. azure.events reroutes each log category to its own data stream (routing_rules.yml)
+            for source, targets in version_routing_rules.get(manifest_version, {}).items():
+                if data_stream not in targets:
+                    continue
+                rerouting_template = get_policy_template_for_data_stream(version_manifest, source)
+                if rerouting_template and rerouting_template not in rerouting_templates:
+                    rerouting_templates.append(rerouting_template)
+        return rerouting_templates
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -1779,8 +1861,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations: list[dict[str, Any]] = []
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
         if isinstance(data, ESQLRuleData):
-            dataset_objs = get_esql_query_event_dataset_integrations(data.query)
+            dataset_objs = get_esql_query_event_dataset_integrations(data.query, tree=data.ast)
             datasets.update(str(obj) for obj in dataset_objs)
+            # FROM logs-<package>.<dataset>-* names the data stream of a package whose datasets the query does not
+            # compare; a compared dataset is more specific and also restricts the validation schema
+            query_packages = {normalize_dataset_package(dataset.strip('"').split(".")[0]) for dataset in datasets}
+            index_dataset_objs = get_esql_query_index_datasets(data.query, load_integrations_schemas(), tree=data.ast)
+            datasets.update(str(obj) for obj in index_dataset_objs if obj.package not in query_packages)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
         # if both exist, rule tags are only used if defined in definitions for non-dataset packages
@@ -1792,16 +1879,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not rule_integrations and data.related_integrations:
             rule_integrations = list({ri.package for ri in data.related_integrations})
         for integration in rule_integrations:
+            package = normalize_dataset_package(integration)
             ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             if isinstance(data, MachineLearningRuleData):
-                packaged_integrations.append({"package": integration, "integration": None})
-            elif integration in definitions.NON_DATASET_PACKAGES:
-                if _metadata_package_row_needed(integration, datasets):
-                    packaged_integrations.append({"package": integration, "integration": None})
-            elif integration.lower() in ml_packages_lower or (
-                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
+                packaged_integrations.append({"package": package, "integration": None})
+            elif package in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(package, datasets):
+                    packaged_integrations.append({"package": package, "integration": None})
+            elif package.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(package, datasets)
             ):
-                packaged_integrations.append({"package": integration, "integration": None})
+                packaged_integrations.append({"package": package, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 
@@ -1825,7 +1913,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             data.validate(metadata) if hasattr(data, "validate") else False  # type: ignore[reportUnknownMemberType]
 
     @staticmethod
-    def validate_remote(remote_validator: "RemoteValidator", contents: "TOMLRuleContents") -> None:
+    def validate_remote(remote_validator: Any, contents: "TOMLRuleContents") -> None:
         _ = remote_validator.validate_rule(contents)
 
     @classmethod
@@ -2090,19 +2178,78 @@ def set_eql_config(min_stack_version_val: str) -> eql.parser.ParserConfig:
     return config
 
 
+def set_esql_config(min_stack_version_val: str) -> Any:
+    """Enable ES|QL features for this stack version (detection-rules-esql-py + DR overrides)."""
+    import esql  # local import: rule.py loads validators at module end
+
+    if min_stack_version_val:
+        min_stack_version = Version.parse(min_stack_version_val, optional_minor_and_patch=True)
+    else:
+        min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+
+    # Merge package defaults with optional DR overrides, then materialize a bool map
+    # under context["features"] — the key verify_features() reads (not top-level names).
+    features = {**esql.ESQL_FEATURES, **(definitions.ELASTICSEARCH_ESQL_FEATURES or {})}
+    feature_flags: dict[str, bool] = {}
+    for name, version_range in features.items():
+        lo, hi = version_range
+        lo_v = Version.parse(str(lo), optional_minor_and_patch=True) if not isinstance(lo, Version) else lo
+        hi_v = (
+            None
+            if hi is None
+            else (Version.parse(str(hi), optional_minor_and_patch=True) if not isinstance(hi, Version) else hi)
+        )
+        feature_flags[name] = lo_v <= min_stack_version <= (hi_v or min_stack_version)
+    cfg = esql.ParserConfig(min_stack_version=str(min_stack_version), features=feature_flags)
+
+    def _kql_parse(text: str) -> Any:
+        # Nested KQL() inside ES|QL commonly uses uppercase operators (NOT/AND/OR).
+        # Always normalize for Kibana parity; RULES_CONFIG.normalize_kql_keywords
+        # only governs top-level kuery rule queries.
+        return kql.parse(text, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+
+    def _eql_parse(text: str) -> Any:
+        # Nested EQL() (gated to 9.7+ by the parser) uses the same hook model as KQL.
+        # Prefer full event queries; fall back to expression fragments.
+        eql_cfg = set_eql_config(str(min_stack_version))
+        with eql_cfg, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            try:
+                return eql.parse_query(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            except eql.EqlParseError:
+                return eql.parse_expression(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+
+    cfg.context["kql_parse"] = _kql_parse
+    cfg.context["eql_parse"] = _eql_parse
+    return cfg
+
+
 def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     """Get a list of unique fields used in a rule query from rule contents."""
     contents = rule.contents.to_api_format()
     language = contents.get("language")
     query = contents.get("query")
-    if language not in ("kuery", "eql"):
+    if language not in ("kuery", "eql", "esql"):
         return None
 
-    # remove once py-eql supports ipv6 for cidrmatch
+    # Many rules (notably ES|QL) leave min_stack_version unset; the config setters
+    # fall back to the current package version when it is empty.
+    min_stack_version = rule.contents.metadata.get("min_stack_version") or ""
 
-    min_stack_version = rule.contents.metadata.get("min_stack_version")
-    if not min_stack_version:
-        raise ValueError("Min stack version not found")
+    if language == "esql":
+        import esql  # local import: avoid cycle with rule_validators
+
+        if not isinstance(query, str):
+            raise TypeError("ES|QL rule query must be a string")
+        cfg = set_esql_config(min_stack_version)
+        with cfg, esql.Schema({}, allow_missing=True):
+            tree = esql.parse_query(query)
+        from .rule_validators import ESQLValidator
+
+        names = set(esql.get_unique_fields(tree))
+        names.update(ESQLValidator.nested_query_field_names(tree))
+        return sorted(names)
+
+    # remove once py-eql supports ipv6 for cidrmatch
     cfg = set_eql_config(min_stack_version)
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
         if language == "kuery":
