@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/08/18"
-integration = ["security_ai", "aws_bedrock"]
+integration = ["security_ai", "aws_bedrock", "openai_chatgpt_enterprise"]
 maturity = "production"
 min_stack_comments = "Detection rules for security_ai integration package."
 min_stack_version = "9.6.0"
@@ -102,8 +102,11 @@ tags = [
     "Tactic: Defense Evasion",
     "Mitre Atlas: AML.T0068",
     "Data Source: AWS Bedrock",
+    "Data Source: OpenAI ChatGPT Enterprise",
     "Platform: AWS",
+    "Platform: OpenAI",
     "Service: AWS Bedrock",
+    "Service: OpenAI ChatGPT Enterprise",
     "Rule Type: ES|QL",
     "Resources: Investigation Guide",
 ]
@@ -112,7 +115,7 @@ to = "now"
 type = "esql"
 
 query = '''
-FROM logs-aws_bedrock.invocation-* METADATA _id, _version, _index
+FROM logs-aws_bedrock.invocation-*, logs-openai_chatgpt_enterprise.codex_log-*, logs-openai_chatgpt_enterprise.conversation_message-*, logs-openai_chatgpt_enterprise.custom_agents_log-* METADATA _id, _version, _index
 | EVAL Esql_priv.b64_strings = CONCAT(
     COALESCE(MV_CONCAT(security_ai.encoding.input_messages.strings, "\n"), ""), "\n",
     COALESCE(MV_CONCAT(security_ai.encoding.output_messages.strings, "\n"), ""))
@@ -124,7 +127,7 @@ FROM logs-aws_bedrock.invocation-* METADATA _id, _version, _index
 // Not lowercased: credential prefixes (AKIA, sk-, ghp_, etc.) are case-significant.
 | WHERE NOT Esql_priv.b64_strings RLIKE """(.*([^A-Za-z0-9_\-]|\\[nrt]))?((AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}|ABSK[A-Za-z0-9+/=]{20}|AIza[0-9A-Za-z_\-]{35}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_\-]{20,}|sk-ant-api03-[A-Za-z0-9_\-]{80,}|sk-proj-[A-Za-z0-9_\-]{20,}).*"""
 | WHERE NOT Esql_priv.b64_strings RLIKE """(.*([^A-Za-z0-9_\-]|\\[nrt]))?(sk-[A-Za-z0-9]{48}|sk_live_[A-Za-z0-9]{24}|hf_[A-Za-z0-9]{34}|xox[baprs]-[A-Za-z0-9\-]{10,}|eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\..*|-----BEGIN [A-Z ]*PRIVATE KEY-----).*"""
-| KEEP _id, _version, _index, @timestamp, security_ai.*, gen_ai.*, aws_bedrock.*, user.*, cloud.*, event.*
+| KEEP _id, _version, _index, @timestamp, security_ai.*, gen_ai.*, aws_bedrock.*, user.*, cloud.*, event.*, openai_chatgpt_enterprise.*
 '''
 
 [[rule.threat]]
@@ -139,19 +142,6 @@ reference = "https://attack.mitre.org/techniques/T1027/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"

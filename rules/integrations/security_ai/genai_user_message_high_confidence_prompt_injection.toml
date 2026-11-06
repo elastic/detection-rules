@@ -103,7 +103,11 @@ FROM logs-aws_bedrock.invocation-*, logs-openai_chatgpt_enterprise.codex_log-*, 
       security_ai.instruction_override.input_messages.prediction == "1"
       AND security_ai.instruction_override.input_messages.probability > 0.98
     )
-| EVAL Esql.full_text = MV_CONCAT(FIELD_EXTRACT(gen_ai.input.messages, "content.text"), " ")
+| EVAL Esql.full_text = TRIM(CONCAT(
+    COALESCE(MV_CONCAT(FIELD_EXTRACT(gen_ai.input.messages, "content.text"), " "), ""), " ",
+    COALESCE(MV_CONCAT(FIELD_EXTRACT(gen_ai.input.messages, "content.guardContent.text.text"), " "), ""), " ",
+    COALESCE(MV_CONCAT(FIELD_EXTRACT(gen_ai.input.messages, "parts.content"), " "), "")
+  ))
 | EVAL Esql.full_len = COALESCE(LENGTH(Esql.full_text), 0)
 | EVAL Esql.excerpts = CONCAT(
     CASE(security_ai.instruction_override.input_messages.top_snippet.text IS NULL, "", CONCAT(security_ai.instruction_override.input_messages.top_snippet.text, " ")),
