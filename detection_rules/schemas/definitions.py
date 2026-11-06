@@ -471,7 +471,7 @@ EXPECTED_RULE_TAGS = [
 ]
 
 
-MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
+MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD", "security_ai"]
 
 CodeString = NewType("CodeString", str)
 Markdown = NewType("Markdown", CodeString)
