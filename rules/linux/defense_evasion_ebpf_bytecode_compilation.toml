@@ -105,10 +105,17 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name like "clang*" and (
-  (process.args == "-target" and process.args like ("bpf", "bpf-*", "bpfel", "bpfel-*", "bpfeb", "bpfeb-*")) or
   process.args like (
     "--target=bpf", "--target=bpf-*", "--target=bpfel", "--target=bpfel-*", "--target=bpfeb", "--target=bpfeb-*",
     "-target=bpf", "-target=bpf-*", "-target=bpfel", "-target=bpfel-*", "-target=bpfeb", "-target=bpfeb-*"
+  ) or
+  (
+    process.args in ("-target", "--target") and
+    process.command_line like (
+      "*-target bpf*", "*--target bpf*",
+      "*-target \"bpf*", "*--target \"bpf*",
+      "*-target 'bpf*", "*--target 'bpf*"
+    )
   )
 )
 '''
