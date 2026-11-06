@@ -1,0 +1,136 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/10/26"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/26"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects a successful Microsoft Entra ID audit event for Register device where the registered device carries a default
+Windows or kit-style hostname (DESKTOP-*, Device-*, or Work Pc*). Adversary-in-the-middle and device-code phishing kits, along with tooling such as
+ROADtools, register a device with the token broker to obtain a device-bound Primary Refresh Token (PRT) and rarely set a
+custom device name, so the registered object keeps the default DESKTOP-<random>, Device-<random>, or Work Pc <random> name. Registering a device establishes
+persistence that survives password resets and user session revocation. This rule is intentionally simple and user-agent
+and OS-build independent, so it still fires when a kit changes its Dsreg user agent or spoofed OS build. Default
+hostnames are also common on legitimate personal or freshly imaged Windows devices, so this is a building block rule
+that does not generate alerts on its own. It captures the population of default-named registrations so it can be
+correlated with other signals (non-Dsreg user agents, spoofed OS builds, multiple registrations, or the AiTM chain) and
+baselined over time, with the intent to promote it to a standalone rule if the volume proves manageable.
+"""
+false_positives = [
+    """
+    Users joining or registering a personal or freshly imaged Windows device that still has its default hostname will
+    match. This rule is informational only and is intended for correlation and baselining, not standalone alerting.
+    """,
+    """
+    Bulk or manual provisioning (for example imaging labs, shared kiosks, or contractors) can register many DESKTOP-*, Device-*, or Work Pc*
+    devices. Add exceptions for approved provisioning accounts or egress addresses after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Device Registration with Default Hostname Pattern"
+note = """## Triage and analysis
+
+### Investigating Entra ID Device Registration with Default Hostname Pattern
+
+This rule fires on a successful `Register device` audit event where the target device name starts with `DESKTOP-`, `Device-`, or `Work Pc`. Huntress reported all three prefixes, each followed by a random suffix, in the token replay campaign.
+Phishing kits and tooling that register a device to mint a PRT usually leave the default name in place. The signal is
+weak alone and strong in context, so triage on who registered it, from where, and what happened before and after.
+
+### Possible investigation steps
+
+- Identify the user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`), the device name and object ID (`azure.auditlogs.properties.target_resources.0.display_name`, `azure.auditlogs.properties.target_resources.0.id`), and the registration source (`azure.auditlogs.properties.initiated_by.user.ipAddress`).
+- Review `azure.auditlogs.properties.userAgent`. Spoofed `Dsreg/10.0 (Windows 10.0.19041.928)` or `Dsreg/10.0 (Windows 10.0.19045.2006)` strings, or raw HTTP clients such as `axios/*`, `node`, or `python-requests/*`, indicate tooling.
+- Pivot to `logs-azure.signinlogs-*` for the same user shortly before the registration. Look for a Microsoft Authentication Broker (`29d9ed98-a469-4536-ade2-f981bc1d605e`) sign-in to the `Device Registration Service` resource (`01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9`), risky or AiTM sign-ins, and device-code flows.
+- Pivot after the registration for `primaryRefreshToken` sign-ins to other resources from an unmanaged device, from the same source IP or a hosting ASN.
+- Check the registration source ASN (`source.as.organization.name`). Hosting, cloud, or VPS providers (for example Hetzner, AWS, Alibaba, Tencent, Interserver) are far more suspicious than the user's usual ISP or corporate egress. There is no hosting flag in the log, so judge by organization name.
+- Aggregate `Register device` events by source IP and ASN across the tenant. One IP registering devices for several users is high-fidelity suspicious.
+- Check for added persistence in the same window: `User registered security info`, `User deleted security info`, new inbox rules, or OAuth consents.
+
+### False positive analysis
+
+- Legitimate users enrolling a personal or newly imaged Windows device often keep the default hostname. Validate with the user and the source network.
+- Approved imaging or provisioning workflows. Add exceptions by initiating account or egress IP.
+- Consider pairing with the related Entra ID device-registration rules (user agent, OS build, multiple registrations, and the AiTM chain rule) to raise confidence.
+
+### Response and remediation
+
+- If suspicious, remove the rogue device BEFORE revoking sessions, because device-bound PRTs survive `revokeSignInSessions`.
+    - `GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for unrecognized devices.
+- Revoke refresh tokens and sessions, then reset credentials and re-register MFA.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Review and remove attacker-added MFA methods, inbox or forwarding rules, and OAuth consents.
+- Restrict who can register or join devices and require MFA or a compliant device for registration through Conditional Access.
+"""
+references = [
+    "https://www.huntress.com/blog/token-replay-spray",
+    "https://www.elastic.co/security-labs/tycoon-2fa-aitm-detection-engineering",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+    "https://learn.microsoft.com/en-us/entra/identity/devices/concept-primary-refresh-token",
+]
+risk_score = 21
+rule_id = "f97be43a-4df9-49aa-9934-e908e4efe919"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Platform: Entra ID",
+    "Platform: Azure",
+    "Data Source: Entra ID Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+    "Rule Type: Custom Query (KQL)",
+    "Threat: AiTM Phishing",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"azure.auditlogs" and event.action:"Register device" and
+event.outcome:(success or Success) and
+azure.auditlogs.properties.initiated_by.user.id:* and
+azure.auditlogs.properties.target_resources.0.display_name:(DESKTOP-* or Device-* or Work*Pc*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.properties.userAgent",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.id",
+    "azure.correlation_id",
+]
+
