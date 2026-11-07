@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -138,10 +138,14 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS RDS",
-    "Use Case: Asset Visibility",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS RDS",
     "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -151,6 +155,7 @@ data_stream.dataset: aws.cloudtrail
     and event.provider: rds.amazonaws.com 
     and event.action: (DeleteDBCluster or DeleteGlobalCluster or DeleteDBInstance)
     and event.outcome: success
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 

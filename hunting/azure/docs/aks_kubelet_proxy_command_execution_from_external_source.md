@@ -25,10 +25,10 @@ FROM logs-azure.platformlogs-* METADATA _source
     source_ips  = TO_STRING(JSON_EXTRACT(_source, "$.azure.platformlogs.properties.log.sourceIPs"))
 // only Kubelet command-execution endpoints, not /metrics, /stats, /pods monitoring
 | WHERE obj_res == "nodes" AND obj_sub == "proxy"
-    AND request_uri RLIKE ".*/proxy/(run|exec|attach|portforward|portForward|cri)(/|\?|$).*"
+    AND request_uri RLIKE """.*/proxy/(run|exec|attach|portforward|portForward|cri)(/|\?|$).*"""
 // strip internal / RFC1918 ranges; keep only events that still carry an external client IP
-| EVAL external_ips = REPLACE(source_ips, "(10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|127\.[0-9]+\.[0-9]+\.[0-9]+)", "")
-| WHERE external_ips RLIKE ".*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+.*"
+| EVAL external_ips = REPLACE(source_ips, """(10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|127\.[0-9]+\.[0-9]+\.[0-9]+)""", "")
+| WHERE external_ips RLIKE """.*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+.*"""
 | KEEP @timestamp, kube_user, source_ips, request_uri
 | SORT @timestamp DESC
 | LIMIT 100

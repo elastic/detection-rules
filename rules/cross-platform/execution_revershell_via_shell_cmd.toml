@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,13 @@ tags = [
     "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Reverse Shell",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -81,8 +88,8 @@ process where event.type in ("start", "process_started") and
   /* noisy FPs */
   not (process.parent.name : "timeout" and process.executable : "/var/lib/docker/overlay*") and
   not process.command_line : (
-    "*/dev/tcp/sirh_db/*", "*/dev/tcp/remoteiot.com/*", "*dev/tcp/elk.stag.one/*", "*dev/tcp/kafka/*",
-    "*/dev/tcp/$0/$1*", "*/dev/tcp/127.*", "*/dev/udp/127.*", "*/dev/tcp/localhost/*", "*/dev/tcp/itom-vault/*") and
+    "*/dev/tcp/remoteiot.com/*", "*dev/tcp/kafka/*", "*/dev/tcp/$0/$1*", "*/dev/tcp/127.*",
+    "*/dev/udp/127.*", "*/dev/tcp/localhost/*") and
   not process.parent.command_line : "runc init"
 '''
 
