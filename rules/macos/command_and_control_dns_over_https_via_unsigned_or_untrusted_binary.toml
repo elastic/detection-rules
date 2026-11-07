@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/10/29"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unsigned or untrusted Mach-O, executed from a staging directory, opening a direct TLS connection to a public
+DNS resolver. Malware uses DNS-over-HTTPS so command-and-control lookups never reach the host resolver.
+"""
+false_positives = [
+    "Unsigned developer tools in ~/Library/Application Support that implement DNS-over-HTTPS themselves.",
+    "Ad-hoc signed utilities launched from Downloads, /tmp, or a mounted volume that use a public DoH resolver.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS over HTTPS via Unsigned or Untrusted Binary"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating DNS over HTTPS via Unsigned or Untrusted Binary
+
+Public resolvers such as Cloudflare, Google, Quad9, OpenDNS, and AdGuard accept DNS-over-HTTPS on port 443. A signed application normally sends DNS through the system resolver. An unsigned or untrusted Mach-O started from a staging directory that connects straight to one of these addresses is bypassing that resolver, which hides the lookup from DNS logs.
+
+### Possible investigation steps
+
+- Review process.executable, process.code_signature, process.hash.sha256, and the parent process to see where the binary came from and why it is untrusted.
+- Confirm destination.ip and destination.port are a public resolver on 443, then check for other outbound connections from the same process.entity_id that are not resolver addresses.
+- Search file events for the executable being written into /tmp, /Users/Shared, Downloads, /Volumes, or ~/Library/Application Support just before the connection.
+- Look for follow-on persistence such as a new LaunchAgent or LaunchDaemon, a login item, or a shell spawned by the same process.
+- Pivot on the executable hash across hosts to see whether the same unsigned binary has made the same resolver connection elsewhere.
+
+### False positive analysis
+
+- Unsigned helpers under ~/Library/Application Support sometimes speak DNS-over-HTTPS on their own. Confirm the binary with the user before excluding it, and scope the exception to that executable path or signing id.
+- A developer running an ad-hoc build from Downloads or /tmp can hit the same resolvers. Exclude the known tool path rather than the whole staging directory.
+
+### Response and remediation
+
+- Terminate the unsigned process and quarantine the executable from the staging directory.
+- Block further execution of that hash and review the host for persistence and additional payloads downloaded after the resolver connection.
+- If the same hash appears on other hosts, isolate those hosts and scope the download URL or parent process that wrote the binary.
+"""
+references = [
+  "https://blog.netlab.360.com/an-analysis-of-godlua-backdoor-en/",
+  "https://github.com/SpiderLabs/DoHC2",
+]
+risk_score = 47
+rule_id = "3eb9dd9c-6f0a-45cc-b95c-701218b8c413"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "macos" and event.type == "start" and event.action == "connection_attempted" and
+  destination.port == 443 and
+  cidrmatch(destination.ip,
+    /* Cloudflare, including malware-blocking resolvers */
+    "1.1.1.1/32", "1.0.0.1/32", "1.1.1.2/32", "1.0.0.2/32", "1.1.1.3/32", "1.0.0.3/32",
+    /* Google */
+    "8.8.8.8/32", "8.8.4.4/32",
+    /* Quad9 */
+    "9.9.9.9/32", "149.112.112.112/32", "9.9.9.10/32", "149.112.112.10/32", "9.9.9.11/32", "149.112.112.11/32",
+    /* OpenDNS */
+    "208.67.222.222/32", "208.67.220.220/32",
+    /* AdGuard */
+    "94.140.14.14/32", "94.140.15.15/32") and
+  (process.code_signature.trusted == false or process.code_signature.exists == false) and
+  process.executable like (
+    "/tmp/*",
+    "/private/tmp/*",
+    "/private/var/tmp/*",
+    "/var/tmp/*",
+    "/Users/Shared/*",
+    "/Users/*/Downloads/*",
+    "/private/var/folders/*",
+    "/var/folders/*",
+    "/Volumes/*",
+    "/Users/*/Library/Application Support/*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
