@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a GitHub sign-in from an unrecognized device. GitHub emits `user.sign_in_from_unrecognized_device`,
+`user.sign_in_from_unrecognized_device_and_location`, and `user.new_device_used` when an account authenticates from a
+device or location it has not seen before. For Enterprise Managed User (EMU) enterprises these user security-log actions
+stream into the enterprise audit log, where a sign-in from an unfamiliar device can indicate that stolen credentials or a
+hijacked session are being used from attacker infrastructure. Personal-account enterprises typically retain these events
+only in the per-user security log, which does not stream to Elastic, so this rule is targeted at EMU audit data.
+"""
+false_positives = [
+    "    A developer signing in from a new laptop or phone. Confirm with the user and that MFA succeeded.\n    ",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Sign-in from Unrecognized Device"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Sign-in from Unrecognized Device
+
+This rule fires on GitHub's `user.sign_in_from_unrecognized_device`, `user.sign_in_from_unrecognized_device_and_location`, and `user.new_device_used` audit actions, which record authentication from a device or location the account has not used before. In Enterprise Managed User (EMU) enterprises these actions reach `logs-github.audit-*`; on non-EMU GHEC they are generally kept only in the per-user security log and will not appear here. A sign-in from an unrecognized device is a common early indicator of account takeover, so review the user and source (`user.name`, `github.actor_ip`, `github.actor_location.country_name`), the device and client (`github.device`, `github.user_agent`), and correlate with any credential or configuration changes that followed to determine whether the legitimate user signed in.
+
+### Possible investigation steps
+
+- Confirm with the user whether they recently signed in from a new device, phone, or location, and whether `github.device` and `github.user_agent` match equipment they use.
+- Geolocate `github.actor_ip` and review `github.actor_location.country_name` and the ASN, checking whether the sign-in originates from a location or network consistent with the user's normal activity.
+- Review `event.action` to distinguish a new device (`user.new_device_used`) from a new device and location (`user.sign_in_from_unrecognized_device_and_location`), the latter being higher risk.
+- Correlate the same `user.name` and `github.actor_ip` with subsequent credential changes, such as new personal access tokens, OAuth grants, or SSH keys, that indicate the session is being used to establish persistence.
+- Review the user's recent authentication and security activity for related events, such as MFA changes, recovery-code usage, or additional unrecognized-device sign-ins.
+
+### False positive analysis
+
+- A developer signing in from a replacement workstation, a new phone, or a travel or home network after completing device verification and MFA. Confirm with the user and that MFA succeeded before dismissing.
+- Expected changes such as a new corporate laptop rollout or VPN egress change that presents as a new device or location. Validate against IT records and scope exceptions where appropriate.
+
+### Response and remediation
+
+- If the sign-in was not performed by the legitimate user, reset the user's password and revoke active sessions immediately.
+- Revoke any personal access tokens, OAuth authorizations, and SSH keys created or used around the time of the sign-in.
+- Re-enroll or verify MFA for the account, and require the user to re-authenticate from a known device.
+- Review the account's recent audit activity for repository access, clones, archive downloads, or membership changes performed from the unrecognized device.
+- Engage incident response per your organization's playbooks and, if the IP or device is confirmed malicious, block or monitor it across the environment.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/reviewing-your-security-log",
+]
+risk_score = 47
+rule_id = "cbbfd58a-fdb4-4618-9975-27f66165c127"
+setup = """## Setup
+
+This rule is intended for GitHub Enterprise Managed User (EMU) enterprises where user security-log actions stream into the enterprise audit log. Personal-account GHEC trials generally will not emit these events to `logs-github.audit-*`.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in (
+      "user.sign_in_from_unrecognized_device",
+      "user.sign_in_from_unrecognized_device_and_location",
+      "user.new_device_used"
+    )
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.device,
+    github.actor_location.country_name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.device",
+    "github.actor_location.country_name",
+]
+
