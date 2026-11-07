@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful account creation where the target name is Administrator with one or more leading or trailing ASCII
+spaces. Adversaries may use this name to impersonate the built-in administrator account.
+"""
+false_positives = [
+    """
+    Approved administration or configuration management; review the initiating process and the exact changed object.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.security-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Local Administrator-Lookalike Account Created With Whitespace"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Local Administrator-Lookalike Account Created With Whitespace
+
+Inspect the exact account name in user.effective.name in the successful 4720 event. Display the name with delimiters or inspect its code points because spaces can be difficult to distinguish in the UI. Review the creating identity and correlate process telemetry; the event may identify SYSTEM/lsass.exe as the actor or broker.
+
+The rule matches the English name Administrator case-insensitively with one or more ASCII spaces before or after it, including spaces on both sides. It excludes the unpadded name and does not cover renamed or localized built-in accounts or Unicode confusables. Account creation alone does not establish membership in the Administrators group or privilege escalation. This rule uses the Elastic Defend security-event mapping; other Windows event integrations require separate mapping validation.
+
+Validate change authorization, process ancestry and related activity before escalating.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1564/T1564.yaml",
+]
+risk_score = 47
+rule_id = "8c7c471e-bc27-5242-a292-798385559715"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Platform: Windows",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where host.os.type == "windows" and event.code == "4720" and event.outcome == "success" and
+  user.effective.name regex~ (" +Administrator *", " *Administrator +")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
