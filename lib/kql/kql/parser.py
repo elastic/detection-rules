@@ -96,42 +96,44 @@ def wildcard2regex(wc: str) -> re.Pattern:
     return re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
 
 
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
+ELASTICSEARCH_TYPE_FAMILIES = {
+    # range types
+    "long_range": "range",
+    "double_range": "range",
+    "date_range": "range",
+    "ip_range": "range",
+
+    # text search types
+    "annotated-text": "text",
+    "completion": "text",
+    "match_only_text": "text",
+    "search-as_you_type": "text",
+
+    # keyword
+    "constant_keyword": "keyword",
+    "wildcard": "keyword",
+
+    # date
+    "date_nanos": "date",
+
+    # integer
+    "token_count": "integer",
+    "long": "integer",
+    "short": "integer",
+    "byte": "integer",
+    "unsigned_long": "integer",
+
+    # float
+    "double": "float",
+    "half_float": "float",
+    "scaled_float": "float",
+}
+
+
 def elasticsearch_type_family(mapping_type: str) -> str:
     """Get the family of type for an Elasticsearch mapping type."""
-    # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
-    return {
-        # range types
-        "long_range": "range",
-        "double_range": "range",
-        "date_range": "range",
-        "ip_range": "range",
-
-        # text search types
-        "annotated-text": "text",
-        "completion": "text",
-        "match_only_text": "text",
-        "search-as_you_type": "text",
-
-        # keyword
-        "constant_keyword": "keyword",
-        "wildcard": "keyword",
-
-        # date
-        "date_nanos": "date",
-
-        # integer
-        "token_count": "integer",
-        "long": "integer",
-        "short": "integer",
-        "byte": "integer",
-        "unsigned_long": "integer",
-
-        # float
-        "double": "float",
-        "half_float": "float",
-        "scaled_float": "float",
-
-    }.get(mapping_type, mapping_type)
+    return ELASTICSEARCH_TYPE_FAMILIES.get(mapping_type, mapping_type)
 
 
 class BaseKqlParser(Interpreter):
@@ -438,12 +440,26 @@ class KqlParser(BaseKqlParser):
         return Field(eql.utils.to_unicode(literal))
 
     def value(self, tree):
-        if self.scoped_field is None:
-            raise self.error(tree, "Value not tied to field")
-
-        field_name = self.scoped_field.name
         token = tree.children[0]
         value = self.unescape_literal(token)
+
+        if self.scoped_field is None:
+            # A value with no field (e.g. `"Accepted password for root"`) is a free-text
+            # search: Kibana runs it against the index's default fields. There is no field
+            # to type-check or convert the value against, so it is used as-is. Quoted
+            # strings stay literal; an unescaped `*` elsewhere makes the value a wildcard.
+            is_quoted = token.type == "QUOTED_STRING"
+
+            if not is_quoted and self.has_unescaped_wildcard(token.value):
+                # a wildcard compiles to a `query_string`, which has no phrase/best_fields
+                # distinction, so `is_quoted` is irrelevant here (and always False)
+                return FreeText(Wildcard(eql.utils.to_unicode(value)))
+            if eql.utils.is_string(value):
+                return FreeText(String(eql.utils.to_unicode(value)), is_quoted=is_quoted)
+            # bare numbers/booleans/null are never quoted
+            return FreeText(Value.from_python(value))
+
+        field_name = self.scoped_field.name
 
         # Handle wildcard literals (may contain spaces) and unquoted literals with an
         # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so

@@ -355,6 +355,12 @@ def migrate_to_9_5(version: Version, api_contents: dict[str, Any]) -> dict[str, 
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("9.6")
+def migrate_to_9_6(version: Version, api_contents: dict[str, Any]) -> dict[str, Any]:
+    """Default migration for 9.6."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(
     api_contents: dict[str, Any], target_version: str, current_version_val: str | None = None
 ) -> dict[str, Any]:
@@ -402,7 +408,8 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     }
 
     if stack_version > current_package:
-        versions[stack_version] = {"beats": "main", "ecs": "master"}
+        # no mapped entry above the current package, so validate against the newest mapped release
+        versions[str(stack_version)] = stack_map[max(stack_map, key=Version.parse)]
 
     return OrderedDict(sorted(versions.items(), reverse=True))
 

@@ -162,8 +162,8 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         """Sequence-level by and per-subquery runs; subqueries use different integrations and validate correctly."""
         rc = RuleCollection()
         query = """
-        sequence by host.id, user.id with maxspan=1s
-          [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
+        sequence by host.id, agent.id with maxspan=1s
+          [any where event.dataset == "azure.auditlogs" and azure.auditlogs.operation_name == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
           [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by okta.actor.id
         """
         rule = {
@@ -182,8 +182,8 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         """Sequence-level by with runs; okta subquery incorrectly uses an azure join field causing validation failure."""
         rc = RuleCollection()
         query = """
-        sequence by host.id, user.id with maxspan=1s
-          [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
+        sequence by host.id, agent.id with maxspan=1s
+          [any where event.dataset == "azure.auditlogs" and azure.auditlogs.operation_name == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName with runs=5
           [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
         """
         bad_rule = {
@@ -205,7 +205,7 @@ class TestEQLSequencePerIntegration(BaseRuleTest):
         query = """
         sequence with maxspan=30m
         [any where event.dataset == "azure.identity_protection"] by azure.identityprotection.properties.user_principal_name
-        [any where event.dataset == "azure.auditlogs" and event.action == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
+        [any where event.dataset == "azure.auditlogs" and azure.auditlogs.operation_name == "Register device"] by azure.auditlogs.properties.initiated_by.user.userPrincipalName
         [authentication where event.dataset == "okta.system" and okta.event_type == "user.mfa.okta_verify.deny_push"] by okta.actor.id
         """
         rule = {
