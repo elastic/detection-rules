@@ -2,7 +2,7 @@
 creation_date = "2026/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/08/25"
+updated_date = "2026/11/07"
 
 [rule]
 author = ["descambiado"]
@@ -67,7 +67,7 @@ Correlate the two by timestamp and target user to get both the actor and the reg
   `Phone.Phone.PhoneNumber` property, or pivot to the paired `Update user` event and read
   `StrongAuthenticationUserDetails`, to recover the registered contact details.
 - Confirm those contact details belong to the account owner and not to a third party.
-- Review the actor's source IP in `azure.auditlogs.properties.initiated_by.user.ip_address` against
+- Review the actor's source IP in `azure.auditlogs.properties.initiated_by.user.ipAddress` against
   their normal administrative locations.
 - Verify the change against the help desk ticket queue or change calendar for a matching account
   recovery request.
@@ -89,8 +89,10 @@ Correlate the two by timestamp and target user to get both the actor and the reg
 ### Response and remediation
 
 - Remove the unauthorized authentication method from the affected account.
-- Revoke the account's refresh tokens so any session established with the attacker-controlled factor
-  is terminated.
+- Revoke the account's sign-in sessions so any session established with the attacker-controlled factor
+  is invalidated. Revoking refresh tokens alone does not terminate access tokens already issued or
+  sessions an application holds directly, so check resource-level sessions (for example SharePoint,
+  Exchange) and confirm access was actually cut before closing the case.
 - Reset the account password if there is any indication the account was compromised before the method
   was registered.
 - Review the initiating administrator's recent activity for other accounts they modified.
@@ -108,6 +110,7 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
+    "Platform: Entra ID",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
     "Data Source: Microsoft Entra ID Audit Logs",
@@ -115,6 +118,7 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Credential Access",
     "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
 ]
 timestamp_override = "event.ingested"
 type = "query"
