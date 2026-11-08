@@ -2,7 +2,7 @@
 creation_date = "2026/08/23"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/08/23"
+updated_date = "2026/11/07"
 
 [rule]
 author = ["Elastic", "descambiado"]
@@ -31,15 +31,21 @@ note = """## Triage and analysis
 ### Investigating Entra ID Named Location Modified
 
 Named locations are IP range or country definitions that Conditional Access policies reference as a
-condition. Widening a trusted IP range or deleting a named location neutralizes any policy that depends
-on it, without changing the policy's own enabled state.
+condition. The effect of a change depends on how each policy uses the location: widening a range that a
+policy excludes can open a bypass, while widening a range a policy includes (for example to block sign-ins
+or require MFA from it) extends that control instead of weakening it. A named location cannot be deleted
+while a policy still references it, so a successful deletion means every policy reference was already
+removed. Either way, the referencing policy's own enabled state does not change, so alerts that watch for
+policy modifications do not fire.
 
 #### Possible investigation steps
 
 - Identify the actor who made the change (`azure.auditlogs.properties.initiated_by`) and verify whether
   it was authorized by a change management ticket.
-- Compare `modifiedProperties.oldValue` and `newValue` for the `NamedLocation` field in the event's
-  `target_resources` to see exactly which IP ranges or countries were added, removed, or deleted.
+- Compare `old_value` and `new_value` under `azure.auditlogs.properties.target_resources.*.modified_properties.*`
+  for the `NamedLocation.ipRanges` and `NamedLocation.isTrusted` properties, and read the target resource's
+  `display_name` to identify which named location changed and exactly which IP ranges, countries, or trust
+  setting were added, removed, or flipped.
 - Identify which Conditional Access policies reference this named location and assess whether the change
   weakens their effective coverage.
 - Review sign-in logs for authentications from IP ranges newly included in the modified location in the
@@ -58,7 +64,9 @@ on it, without changing the policy's own enabled state.
 ### Response and remediation
 
 - Restore the named location to its prior definition via Entra ID > Conditional Access > Named locations.
-  Deleted named locations can be restored within 30 days.
+  Named locations have no soft-delete or restore window: a deleted location must be recreated from the
+  pre-change configuration recorded in the audit event, and every Conditional Access policy that referenced
+  it by ID must be updated to point at the newly created object.
 - Review the effectiveness of every Conditional Access policy that references the affected named
   location.
 - Review sign-in logs for activity from IPs newly covered by the modified range.
@@ -104,6 +112,16 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
 
 [rule.threat.tactic]
 id = "TA0005"
