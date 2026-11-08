@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Linux NFS export configuration. NFS exports define which local directories
+remote clients may mount and the access controls applied to those clients. Adversaries may create or alter exports to
+expose sensitive data, permit remote writes, or preserve client UID 0 privileges through options such as
+no_root_squash.
+"""
+false_positives = [
+    "Legitimate NFS administration, storage provisioning, cluster configuration, and configuration-management activity.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux NFS Export Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux NFS Export Configuration File Activity
+
+NFS export configuration determines which local paths remote clients can mount and whether they receive read, write,
+identity-squashing, and authentication restrictions. Unauthorized changes can expose sensitive directories or permit a
+remote client to modify files using asserted numeric identities. File activity records the durable configuration change,
+but it does not prove that the export was reloaded, exposed over the network, or accessed by a client.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Retrieve the changed export configuration and identify the exported path, permitted clients or networks, and export
+  options.
+- Prioritize exports of `/` or other sensitive paths, broad client specifications, writable access, `no_root_squash`,
+  `insecure`, `crossmnt`, and weak authentication such as `sec=sys`.
+- Establish provenance through configuration-management records, storage changes, host build records, and comparison
+  with peer NFS servers.
+- Determine whether `exportfs -r` or `exportfs -a` ran afterward and inspect the effective exports with `exportfs -v`.
+- Correlate the change with NFS service activation, new listeners on TCP or UDP port 2049, RPC service changes, and NFS
+  network activity from new or unexpected clients.
+- Review sensitive files that may have been read or modified while the export was active. Endpoint telemetry on the
+  server may not identify remote file operations, so use NFS-aware network telemetry and filesystem evidence where
+  available.
+
+### False positive analysis
+
+- NFS administrators and automation routinely modify export definitions while provisioning storage or changing client
+  access.
+- Cluster, backup, virtualization, and high-performance computing platforms may manage export files dynamically.
+  Validate the writer, exported path, clients, and options before creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed configuration, effective export state, and relevant network telemetry before remediation.
+- Remove unauthorized exports, restore approved options, and reload the export table using trusted administration
+  procedures.
+- Restrict network access to the NFS service and unmount the export from unauthorized clients where possible.
+- Review and restore sensitive files modified through the export and investigate credentials or persistence introduced
+  through remote writes.
+- Scope matching export paths, client specifications, options, writers, and NFS clients across the environment.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man5/exports.5.html",
+    "https://man7.org/linux/man-pages/man8/exportfs.8.html",
+]
+risk_score = 21
+rule_id = "7ed3d1ba-747a-41de-a99a-d69958a48de5"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/exports",
+    "/etc/exports.d/*.exports"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1039"
+name = "Data from Network Shared Drive"
+reference = "https://attack.mitre.org/techniques/T1039/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
