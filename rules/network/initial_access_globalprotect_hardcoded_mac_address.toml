@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/06/12"
+integration = ["panw"]
+maturity = "production"
+updated_date = "2026/06/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a successful GlobalProtect VPN gateway connection where the client reports a hardcoded, synthetic MAC
+address associated with exploit tooling and PoC scanners targeting CVE-2026-0257. Legitimate network interface cards
+never ship with sequential-hex MAC addresses such as aa:bb:cc:dd:ee:ff or 00:11:22:33:44:55; their presence in a VPN
+session log indicates the connection was made by a scripted client impersonating a real endpoint, not a genuine user
+device.
+"""
+false_positives = [
+    """
+    Virtual machines used for VPN client development or QA testing may be assigned synthetic MAC addresses by the
+    hypervisor. These should never connect to production GlobalProtect gateways; add known test host MACs to an
+    exception list if this is required.
+    """,
+]
+from = "now-9m"
+index = ["logs-panw.panos*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GlobalProtect VPN Session with Hardcoded Scanner MAC Address"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GlobalProtect VPN Session with Hardcoded Scanner MAC Address
+
+This rule fires when a PAN-OS GlobalProtect gateway records a successful connection from a client
+reporting a known synthetic MAC address. These values appear in exploit tooling and PoC scanners
+targeting CVE-2026-0257, an authentication bypass in GlobalProtect that allows unauthenticated attackers
+to establish VPN sessions without valid credentials. No real endpoint MAC address will match
+`aa:bb:cc:dd:ee:ff` or `00:11:22:33:44:55` — both are purely sequential placeholder values that no
+production NIC ships with. This is a near-zero false positive signal when seen on a production gateway.
+
+### Possible investigation steps
+
+- Review `source.ip` and cross-reference against the known CVE-2026-0257 scanning IPs published by
+  Unit 42: 23.128.228.6, 104.207.144.154, 146.19.216.119-120/125, 179.43.172.213, 185.195.232.139,
+  198.12.106.60, 202.144.192.47.
+- Inspect `panw.panos.source.user` and `panw.panos.source.user_info.domain` — auth bypass sessions
+  typically also present with an empty or domain-absent user field alongside the synthetic MAC.
+- Check `panw.panos.client.os_version` and `panw.panos.hostname` for additional scanner artifacts:
+  the exact string "Microsoft Windows 10 Pro 64-bit" (no build number) and hostnames such as
+  WINDOWS-LAPTOP-001, DESKTOP-GP01, or GP-CLIENT are hardcoded in known exploit tooling.
+- Determine if the session remains active and whether any internal access, configuration changes, or
+  lateral movement occurred via the assigned tunnel IP after the connection was established.
+- Verify the PAN-OS firmware version on the targeted gateway and confirm whether it has been patched
+  for CVE-2026-0257.
+
+### False positive analysis
+
+- Hypervisor-assigned synthetic MACs on VMs used for VPN client testing that are accidentally or
+  intentionally connected to a production gateway. Add the specific MAC of known test VMs to an
+  exception list and investigate why a test system reached a production gateway.
+
+### Response and remediation
+
+- Block the source IP at the perimeter immediately and terminate any active VPN session from that IP.
+- Patch the GlobalProtect gateway to a firmware version that addresses CVE-2026-0257.
+- Review all VPN sessions from the same source IP over the past 30 days for prior reconnaissance.
+- If post-connection activity is confirmed, treat the internal tunnel IP as compromised and investigate
+  for lateral movement and persistence.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-0257",
+    "https://unit42.paloaltonetworks.com/active-exploitation-of-pan-os-cve-2026-0257/",
+    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    "https://attack.mitre.org/techniques/T1190/",
+    "https://attack.mitre.org/techniques/T1133/",
+]
+risk_score = 47
+rule_id = "43825368-15a4-47aa-af7b-549d5c5e5428"
+setup = """## Setup
+
+This rule requires the Elastic PANW integration forwarding GlobalProtect gateway session logs to
+Elasticsearch. Confirm that `panw.panos` data stream events with the action
+`globalprotect-gateway-connected` are being ingested and that the `panw.panos.src.mac` field is
+populated in those events.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: PAN-OS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.action : "globalprotect-gateway-connected"
+  and panw.panos.src.mac : ("aa:bb:cc:dd:ee:ff" or "00:11:22:33:44:55")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
