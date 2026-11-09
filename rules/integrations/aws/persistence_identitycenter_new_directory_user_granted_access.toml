@@ -2,8 +2,8 @@
 creation_date = "2026/10/06"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/10/06"
 
 [rule]
@@ -93,14 +93,14 @@ FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
     (event.provider IN ("identitystore.amazonaws.com", "sso-directory.amazonaws.com") AND event.action == "CreateUser")
     OR (event.provider == "sso.amazonaws.com" AND event.action == "CreateAccountAssignment"))
-| GROK aws.cloudtrail.response_elements """[{,] ?userId=%{DATA:Esql.gk_user_id}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_nested_user_id}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalId=%{DATA:Esql.gk_principal_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalType=%{DATA:Esql.gk_principal_type}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permission_set_arn}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetId=%{DATA:Esql.gk_target_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetType=%{DATA:Esql.gk_target_type}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentCreationStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_assignment_creation_status}[,}\]]"""
+| EVAL Esql.gk_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "userId"),
+    Esql.gk_nested_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.userId"),
+    Esql.gk_principal_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalId"),
+    Esql.gk_principal_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalType"),
+    Esql.gk_permission_set_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.gk_target_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetId"),
+    Esql.gk_target_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetType"),
+    Esql.gk_assignment_creation_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status")
 | EVAL Esql.created_user = COALESCE( Esql.gk_user_id, Esql.gk_nested_user_id),
     Esql.principal = Esql.gk_principal_id,
     Esql.principal_type = Esql.gk_principal_type,
@@ -113,17 +113,34 @@ FROM logs-aws.cloudtrail-*
     AND Esql.gk_target_type == "AWS_ACCOUNT"
     AND Esql.gk_assignment_creation_status IN ("IN_PROGRESS", "SUCCEEDED"), "granted",
     "ignore")
-| EVAL Esql.creation_record = CASE(Esql.stage == "created",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.created_user, "~", Esql_priv.actor))
-| INLINE STATS Esql.creations_values = VALUES(Esql.creation_record)
-| WHERE Esql.stage == "granted" AND Esql.principal IS NOT NULL
+| EVAL Esql.correlation_user = COALESCE(Esql.created_user, Esql.principal),
+    Esql.creation_record = CASE(Esql.stage == "created",
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.created_user)),
+    Esql.grant_record = CASE(Esql.stage == "granted" AND Esql.principal IS NOT NULL,
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.permission_set, "~", Esql.target_account, "~",
+            aws.cloudtrail.request_id, "~", COALESCE(cloud.account.id, "none"), "~",
+            COALESCE(cloud.region, "none"), "~", event.outcome, "~", event.action, "~", event.provider))
+| STATS Esql.creations_values = VALUES(Esql.creation_record),
+    Esql.grants_values = VALUES(Esql.grant_record)
+    BY Esql.correlation_user,
+    Esql_priv.actor
+| MV_EXPAND Esql.grants_values
+| DISSECT Esql.grants_values "%{Esql.g_ms}~%{Esql.g_permission_set}~%{Esql.g_target_account}~%{Esql.g_request_id}~%{Esql.g_account_id}~%{Esql.g_region}~%{Esql.g_outcome}~%{Esql.g_action}~%{Esql.g_provider}"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.g_ms)),
+    Esql.principal = Esql.correlation_user,
+    Esql.permission_set = Esql.g_permission_set,
+    Esql.target_account = Esql.g_target_account,
+    aws.cloudtrail.request_id = Esql.g_request_id,
+    cloud.account.id = CASE(Esql.g_account_id != "none", Esql.g_account_id),
+    cloud.region = CASE(Esql.g_region != "none", Esql.g_region),
+    event.outcome = Esql.g_outcome,
+    event.action = Esql.g_action,
+    event.provider = Esql.g_provider
 | MV_EXPAND Esql.creations_values
-| DISSECT Esql.creations_values "%{Esql.c_ms}~%{Esql.c_user}~%{Esql_priv.c_actor}"
+| DISSECT Esql.creations_values "%{Esql.c_ms}~%{Esql.c_user}"
 | EVAL Esql.c_time = TO_DATETIME(TO_LONG(Esql.c_ms))
-| WHERE Esql.c_user == Esql.principal AND Esql.c_time < @timestamp
-| STATS Esql.created_at = MAX(Esql.c_time),
-    Esql_priv.creating_principals_values = VALUES(Esql_priv.c_actor),
-    Esql.same_actor_creations_count = COUNT(CASE(Esql_priv.c_actor == Esql_priv.actor AND Esql_priv.actor != "unknown", 1))
+| WHERE Esql.c_user == Esql.principal AND Esql.c_time < @timestamp AND Esql_priv.actor != "unknown"
+| STATS Esql.created_at = MAX(Esql.c_time)
     BY Esql.granted_at = @timestamp,
     Esql.principal,
     Esql_priv.actor,
@@ -131,22 +148,17 @@ FROM logs-aws.cloudtrail-*
     Esql.target_account,
     aws.cloudtrail.request_id,
     cloud.account.id,
-    user.name,
     cloud.region,
     event.outcome,
-    user_agent.original,
     event.action,
     event.provider
-| WHERE Esql.same_actor_creations_count > 0
 | EVAL Esql.seconds_from_creation_to_grant = DATE_DIFF("seconds", Esql.created_at, Esql.granted_at)
 | KEEP Esql.*,
     Esql_priv.*,
     aws.cloudtrail.request_id,
     cloud.account.id,
-    user.name,
     cloud.region,
     event.outcome,
-    user_agent.original,
     event.action,
     event.provider
 '''
@@ -201,7 +213,6 @@ field_names = [
     "Esql.target_account",
     "Esql.created_at",
     "Esql.granted_at",
-    "Esql_priv.creating_principals_values",
     "Esql.seconds_from_creation_to_grant",
 ]
 

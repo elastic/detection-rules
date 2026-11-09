@@ -2,7 +2,7 @@
 creation_date = "2026/09/08"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3, JSON_EXTRACT GA 9.5. Verified on 9.6.0."
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. JSON_EXTRACT GA 9.5. Verified on 9.6.0."
 min_stack_version = "9.6.0"
 updated_date = "2026/09/08"
 
@@ -36,6 +36,7 @@ Detects a native AWSReservedSSO role creating and immediately activating, or rea
 
 - Review the native AttachRolePolicy event with invokedBy sso.amazonaws.com and the activation made by the affected reserved SSO role. Immediate activation requires CreatePolicyVersion request setAsDefault and response isDefaultVersion both true. Older-version activation requires SetDefaultPolicyVersion and a preceding CreatePolicyVersion document with the exact policy ARN and version ID. Creating a non-default version is a silent control until it is activated.
 - The exact policy ARN must be observed attached to the exact role within the lookback. A similarly named policy or a role outside the reserved Identity Center path is insufficient. JSON_EXTRACT parses the native policyDocument string conservatively: only a single flat unconditional Allow/Action */Resource * statement is accepted. The older administrator version must be observed in the lookback; an unknown version never inherits administrator status from a different version. Deletion before activation cancels the affected version. A limited version remains silent even when another observed version is administrator.
+- Aggregated alerts retain correlation fields rather than arbitrary event-level values. Use `aws.cloudtrail.request_id`, `Esql.source_request_ids_values` and `Esql.version_creation_requests_values` to recover the activation, attachment and policy-version source events, including source IP and user agent, from the original CloudTrail records.
 - Verify why the role could mutate its own granting policy. Authorized testing or bootstrap can match. The rule identifies administrator-policy activation, not proof that the prior version lacked administrator access or that SCPs and boundaries permit every action. Review the actual before/after policy versions and subsequent role activity.
 - These queries read standard AWS CloudTrail fields and calculate correlations at query time. The 125-minute lookback bounds the available context; it is not a complete inventory. Missing history does not become an assumed attachment, protected-resource label or authorization decision. The behavior window for the final access change is 30 minutes where specified. AWS event time determines order; same-second stages deliberately do not match. Review late or missing CloudTrail delivery when investigating a missed detection.
 
@@ -109,30 +110,52 @@ FROM logs-aws.cloudtrail-*
 | EVAL Esql.stage = CASE(event.action == "AttachRolePolicy" AND aws.cloudtrail.user_identity.invoked_by == "sso.amazonaws.com", "attach",
     event.action == "DetachRolePolicy", "detach", event.action == "CreatePolicyVersion", "version",
     event.action == "SetDefaultPolicyVersion", "activate", event.action == "DeletePolicyVersion", "delete", "ignore")
-| EVAL Esql.record = CASE(Esql.stage IN ("attach", "detach"),
+| EVAL Esql.attachment_record = CASE(
+    Esql.stage IN ("attach", "detach")
+      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND Esql.attached_role RLIKE "[-A-Za-z0-9+=,.@_/]+",
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.attached_role)),
-    Esql.version_record = CASE(Esql.stage IN ("version", "delete"),
+    Esql.version_record = CASE(
+    Esql.stage IN ("version", "delete")
+      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND Esql.version_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.version_id, "|",
-    CASE(Esql.stage == "version" AND Esql.is_admin == true, "admin", "other")))
-| INLINE STATS Esql.history_values = VALUES(Esql.record),
-    Esql.versions_values = VALUES(Esql.version_record)
+      CASE(Esql.stage == "version" AND Esql.is_admin == true, "admin", "other"))),
+    Esql.activation_record = CASE(
+    aws.cloudtrail.user_identity.access_key_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND Esql.version_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND Esql_priv.actor_role RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+      AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
+      AND (Esql.stage == "activate"
+        OR (Esql.stage == "version"
+          AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "setAsDefault") == "true"
+          AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "policyVersion.isDefaultVersion") == "true")),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|",
+      aws.cloudtrail.user_identity.access_key_id, "|", Esql_priv.actor_role, "|", Esql.version_id, "|", Esql.stage))
+| STATS Esql.history_values = VALUES(Esql.attachment_record),
+    Esql.versions_values = VALUES(Esql.version_record),
+    Esql.activation_values = VALUES(Esql.activation_record)
     BY aws.cloudtrail.recipient_account_id,
     Esql.policy_arn
-| WHERE aws.cloudtrail.user_identity.access_key_id IS NOT NULL AND (Esql.stage == "activate"
-    OR (Esql.stage == "version" AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "setAsDefault") == "true" AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "policyVersion.isDefaultVersion") == "true"))
-    AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
+| MV_EXPAND Esql.activation_values
+| DISSECT Esql.activation_values "%{Esql.activation_ms}|%{Esql.activation_request}|%{Esql.activation_access_key}|%{Esql_priv.activation_actor_role}|%{Esql.activation_version}|%{Esql.activation_stage}"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.activation_ms)),
+    aws.cloudtrail.request_id = Esql.activation_request,
+    aws.cloudtrail.user_identity.access_key_id = Esql.activation_access_key,
+    Esql_priv.actor_role = Esql_priv.activation_actor_role,
+    Esql.version_id = Esql.activation_version
 | EVAL Esql.role_name = REPLACE(Esql_priv.actor_role, "^.*/", "")
 | MV_EXPAND Esql.versions_values
 | DISSECT Esql.versions_values "%{Esql.version_ms}|%{Esql.version_request}|%{Esql.observed_version}|%{Esql.version_kind}"
 | EVAL Esql.version_time = TO_DATETIME(TO_LONG(Esql.version_ms))
 | WHERE Esql.observed_version == Esql.version_id AND (
-    (Esql.stage == "activate" AND Esql.version_time < @timestamp)
-    OR (Esql.stage == "version" AND Esql.version_request == aws.cloudtrail.request_id))
+    (Esql.activation_stage == "activate" AND Esql.version_time < @timestamp)
+    OR (Esql.activation_stage == "version" AND Esql.version_request == aws.cloudtrail.request_id))
 | STATS Esql.admin_version_created_at = MAX(CASE(Esql.version_kind == "admin", Esql.version_time)),
     Esql.version_invalidated_at = MAX(CASE(Esql.version_kind == "other", Esql.version_time)),
     Esql.version_creation_requests_values = VALUES(Esql.version_request),
-    Esql.history_values = VALUES(Esql.history_values),
-    Esql.source_ip_values = VALUES(source.ip)
+    Esql.history_values = VALUES(Esql.history_values)
     BY aws.cloudtrail.recipient_account_id,
     aws.cloudtrail.user_identity.access_key_id,
     aws.cloudtrail.request_id,
@@ -150,7 +173,6 @@ FROM logs-aws.cloudtrail-*
 | STATS Esql.attached_at = MAX(CASE(Esql.attachment_stage == "attach", Esql.attachment_time)),
     Esql.detached_at = MAX(CASE(Esql.attachment_stage == "detach", Esql.attachment_time)),
     Esql.source_request_ids_values = VALUES(Esql.attachment_request),
-    Esql.source_ip_values = VALUES(Esql.source_ip_values),
     Esql.version_creation_requests_values = VALUES(Esql.version_creation_requests_values)
     BY aws.cloudtrail.recipient_account_id,
     aws.cloudtrail.user_identity.access_key_id,
@@ -161,7 +183,8 @@ FROM logs-aws.cloudtrail-*
     Esql.version_id,
     Esql.admin_version_created_at
 | WHERE Esql.attached_at IS NOT NULL AND (Esql.detached_at IS NULL OR Esql.detached_at < Esql.attached_at)
-| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.request_id, aws.cloudtrail.user_identity.access_key_id
 '''
 
 

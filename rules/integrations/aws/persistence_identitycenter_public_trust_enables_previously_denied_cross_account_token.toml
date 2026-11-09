@@ -2,7 +2,7 @@
 creation_date = "2026/09/08"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3. Verified on 9.6.0."
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
 min_stack_version = "9.6.0"
 updated_date = "2026/09/08"
 
@@ -35,7 +35,7 @@ Detects an IAM principal from another AWS account being denied CreateTokenWithIA
 
 ### Possible investigation steps
 
-- Inspect the application ARN, foreign caller ARN, denial request, trust-change requests and successful token request. Assumed-role callers are correlated using their native session-issuer ARN, while IAM users use their ARN. The caller account must differ from the account encoded in the application ARN; source-IP novelty is not used.
+- Inspect the application ARN, foreign caller ARN, denial request, trust-change requests and successful token request. Assumed-role callers are correlated using their native session-issuer ARN, while IAM users use their ARN. The caller account must differ from the account encoded in the application ARN; source-IP novelty is not used. The alert intentionally retains correlation fields rather than arbitrary event-level values, so use `Esql.denied_requests_values`, `Esql.config_requests_values` and `aws.cloudtrail.request_id` to recover source IP, user agent and full actor context from the original CloudTrail events.
 - The policy check accepts only an Allow for the exact CreateTokenWithIAM action, Resource *, and wildcard principal. Because flattened mappings lose statement boundaries, it deliberately rejects mixed effect/action/resource/principal sets and any Condition or Not* policy element across the statement set. It does not combine an Allow from one constrained statement with a wildcard from another and call that unrestricted access. More complex policies are outside this rule's scope.
 - Validate whether an integration deliberately opened token-caller trust. A specific broker principal or conditioned wildcard policy is a silent control. Token service success does not prove access to an AWS role or a downstream application resource. Review the JWT issuer, assignment requirements, scopes and application logs. If the trust expansion is unexplained, restrict the actor policy, investigate both the changing credential and external caller, and assess issued sessions and downstream access.
 
@@ -98,7 +98,7 @@ FROM logs-aws.cloudtrail-*
     Esql.policy_principal = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal.AWS"), FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal")),
     Esql.parameters = TO_STRING(aws.cloudtrail.flattened.request_parameters)
 | WHERE Esql.application_arn IS NOT NULL
-| GROK Esql.application_arn "^arn:[^:]+:sso::(?<Esql.application_account>[0-9]{12}):application/.*$"
+| DISSECT Esql.application_arn "arn:%{Esql.application_partition}:sso::%{Esql.application_account}:application/%{Esql.application_id}"
 | EVAL Esql.public_trust = MV_COUNT(Esql.policy_effect) == 1
     AND MV_FIRST(Esql.policy_effect) == "Allow"
     AND MV_COUNT(Esql.policy_action) == 1
@@ -118,48 +118,58 @@ FROM logs-aws.cloudtrail-*
     event.action == "CreateTokenWithIAM" AND event.outcome == "success"
     AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType") == "urn:ietf:params:oauth:grant-type:jwt-bearer"
     AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "tokenType") == "Bearer", "issued", "ignore")
-| EVAL Esql.record = CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage)
-| INLINE STATS Esql.config_history_values = VALUES(CASE((Esql.stage == "public" OR Esql.stage == "closed"), Esql.record))
+| EVAL Esql.config_record = CASE(
+    Esql.stage IN ("public", "closed")
+      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage)),
+    Esql.denial_record = CASE(
+      Esql.stage == "denied"
+        AND Esql_priv.caller_arn RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+        AND cloud.account.id RLIKE "[0-9]{12}"
+        AND cloud.account.id != Esql.application_account
+        AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql_priv.caller_arn)),
+    Esql.issued_record = CASE(
+      Esql.stage == "issued"
+        AND Esql_priv.caller_arn RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+        AND cloud.account.id RLIKE "[0-9]{12}"
+        AND cloud.account.id != Esql.application_account
+        AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql_priv.caller_arn, "|", cloud.account.id))
+| STATS Esql.config_history_values = VALUES(Esql.config_record),
+    Esql.denial_history_values = VALUES(Esql.denial_record),
+    Esql.issued_history_values = VALUES(Esql.issued_record)
     BY Esql.application_arn
-| WHERE Esql.stage IN ("denied", "issued")
-    AND Esql_priv.caller_arn IS NOT NULL
-    AND Esql.application_account IS NOT NULL
-    AND cloud.account.id != Esql.application_account
-| INLINE STATS Esql.denial_history_values = VALUES(CASE(Esql.stage == "denied", Esql.record))
-    BY Esql.application_arn,
-    Esql_priv.caller_arn
-| WHERE Esql.stage == "issued"
+| MV_EXPAND Esql.issued_history_values
+| DISSECT Esql.issued_history_values "%{Esql.issued_ms}|%{Esql.issued_request}|%{Esql_priv.caller_arn}|%{Esql.caller_account}"
+| EVAL Esql.issued_time = TO_DATETIME(TO_LONG(Esql.issued_ms))
 | MV_EXPAND Esql.denial_history_values
-| DISSECT Esql.denial_history_values "%{Esql.denied_ms}|%{Esql.denied_request}|%{Esql.denied_stage}"
+| DISSECT Esql.denial_history_values "%{Esql.denied_ms}|%{Esql.denied_request}|%{Esql.denied_caller}"
 | EVAL Esql.denied_time = TO_DATETIME(TO_LONG(Esql.denied_ms))
-| WHERE Esql.denied_time < @timestamp AND Esql.denied_time >= @timestamp - 30 minutes
-| STATS Esql.denied_at = MAX(Esql.denied_time),
-    Esql.denied_requests_values = VALUES(Esql.denied_request),
-    Esql.config_history_values = VALUES(Esql.config_history_values),
-    Esql.source_ip_values = VALUES(source.ip)
-    BY Esql.application_arn,
-    Esql_priv.caller_arn,
-    cloud.account.id,
-    aws.cloudtrail.request_id,
-    @timestamp
+| WHERE Esql.denied_caller == Esql_priv.caller_arn
+    AND Esql.denied_time < Esql.issued_time
+    AND Esql.denied_time >= Esql.issued_time - 30 minutes
 | MV_EXPAND Esql.config_history_values
 | DISSECT Esql.config_history_values "%{Esql.config_ms}|%{Esql.config_request}|%{Esql.config_stage}"
 | EVAL Esql.config_time = TO_DATETIME(TO_LONG(Esql.config_ms))
-| WHERE Esql.config_time > Esql.denied_at AND Esql.config_time < @timestamp
+| WHERE Esql.config_time > Esql.denied_time
+    AND Esql.config_time < Esql.issued_time
 | STATS Esql.public_trust_at = MAX(CASE(Esql.config_stage == "public", Esql.config_time)),
     Esql.closed_trust_at = MAX(CASE(Esql.config_stage == "closed", Esql.config_time)),
     Esql.config_requests_values = VALUES(Esql.config_request),
-    Esql.denied_requests_values = VALUES(Esql.denied_requests_values),
-    Esql.source_ip_values = VALUES(Esql.source_ip_values)
+    Esql.denied_at = MAX(Esql.denied_time),
+    Esql.denied_requests_values = VALUES(Esql.denied_request)
     BY Esql.application_arn,
     Esql_priv.caller_arn,
-    cloud.account.id,
-    aws.cloudtrail.request_id,
-    @timestamp,
-    Esql.denied_at
+    Esql.caller_account,
+    Esql.issued_request,
+    Esql.issued_time
 | WHERE Esql.public_trust_at IS NOT NULL
     AND (Esql.closed_trust_at IS NULL OR Esql.closed_trust_at < Esql.public_trust_at)
-| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*, cloud.account.id
+| EVAL @timestamp = Esql.issued_time,
+    aws.cloudtrail.request_id = Esql.issued_request,
+    cloud.account.id = Esql.caller_account
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.request_id, cloud.account.id
 '''
 
 
@@ -191,7 +201,6 @@ field_names = [
     "Esql.public_trust_at",
     "Esql.denied_requests_values",
     "Esql.config_requests_values",
-    "Esql.source_ip_values",
 ]
 
 [rule.alert_suppression.duration]

@@ -2,8 +2,8 @@
 creation_date = "2026/09/08"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/09/08"
 
 [rule]
@@ -96,18 +96,18 @@ FROM logs-aws.cloudtrail-*
     OR (event.provider == "sso.amazonaws.com" AND event.action IN (
     "AttachManagedPolicyToPermissionSet", "DetachManagedPolicyFromPermissionSet", "DeletePermissionSet",
     "CreateAccountAssignment", "DeleteAccountAssignment")))
-| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permission_set_arn}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?groupId=%{DATA:Esql.gk_group_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalId=%{DATA:Esql.gk_principal_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetId=%{DATA:Esql.gk_target_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?managedPolicyArn=%{DATA:Esql.gk_managed_policy_arn}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?memberId=\[?\{[^{}]*?userId=%{DATA:Esql.gk_member_user_id}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?member=\[?\{[^{}]*?memberId=%{DATA:Esql.gk_member_id}[,}\]]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?principalType=%{DATA:Esql.gk_principal_type}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?targetType=%{DATA:Esql.gk_target_type}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentCreationStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_assignment_creation_status}[,}\]]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentDeletionStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_assignment_deletion_status}[,}\]]"""
+| EVAL Esql.gk_permission_set_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.gk_group_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "groupId"),
+    Esql.gk_principal_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalId"),
+    Esql.gk_target_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetId"),
+    Esql.gk_managed_policy_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "managedPolicyArn"),
+    Esql.gk_member_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "memberId.userId"),
+    Esql.gk_member_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "member.memberId"),
+    Esql.gk_identity_store_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "identityStoreId"),
+    Esql.gk_principal_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalType"),
+    Esql.gk_target_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetType"),
+    Esql.gk_assignment_creation_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status"),
+    Esql.gk_assignment_deletion_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentDeletionStatus.status")
 | EVAL Esql.ps = Esql.gk_permission_set_arn,
     Esql.group = COALESCE(Esql.gk_group_id, Esql.gk_principal_id),
     Esql.target_account = Esql.gk_target_id,
@@ -123,19 +123,39 @@ FROM logs-aws.cloudtrail-*
     AND Esql.gk_assignment_creation_status IN ("IN_PROGRESS", "SUCCEEDED"), "assign",
     event.action == "DeleteAccountAssignment" AND Esql.gk_principal_type == "GROUP" AND Esql.gk_target_type == "AWS_ACCOUNT"
     AND Esql.gk_assignment_deletion_status IN ("IN_PROGRESS", "SUCCEEDED"), "revoke", "ignore")
+| EVAL Esql.actor_subject = COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id,
+    CASE(aws.cloudtrail.user_identity.type == "IdentityCenterUser", user.id))
 | EVAL Esql.ps_record = CASE(Esql.stage IN ("admin", "detach", "delete"),
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.ps)),
     Esql.group_record = CASE(Esql.stage IN ("assign", "revoke"),
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.ps, "|", Esql.group, "|", Esql.target_account))
-| INLINE STATS Esql.ps_history_values = VALUES(Esql.ps_record),
-    Esql.group_history_values = VALUES(Esql.group_record)
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.ps, "|", Esql.group, "|", Esql.target_account)),
+    Esql.member_record = CASE(Esql.stage == "member"
+        AND Esql.user IS NOT NULL
+        AND Esql.user == Esql.actor_subject
+        AND ((aws.cloudtrail.user_identity.access_key_id IS NOT NULL
+            AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL
+            AND Esql.store == REPLACE(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn,
+                "^arn:[^:]+:identitystore::[0-9]{12}:identitystore/", ""))
+        OR (aws.cloudtrail.user_identity.type == "IdentityCenterUser"
+            AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NULL)),
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|",
+            COALESCE(aws.cloudtrail.user_identity.access_key_id, "none"), "|", Esql.group, "|", Esql.user, "|",
+            COALESCE(Esql.store, "none"), "|", COALESCE(aws.cloudtrail.user_identity.arn, "none"), "|",
+            COALESCE(TO_STRING(source.ip), "none")))
+| STATS Esql.ps_history_values = VALUES(Esql.ps_record),
+    Esql.group_history_values = VALUES(Esql.group_record),
+    Esql.member_values = VALUES(Esql.member_record)
     BY aws.cloudtrail.recipient_account_id
-| EVAL Esql.actor_subject = COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id,
-    CASE(aws.cloudtrail.user_identity.type == "IdentityCenterUser", user.id))
-| WHERE Esql.stage == "member"
-    AND Esql.user IS NOT NULL
-    AND Esql.user == Esql.actor_subject
-    AND ( (aws.cloudtrail.user_identity.access_key_id IS NOT NULL AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL AND Esql.store == REPLACE(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "^arn:[^:]+:identitystore::[0-9]{12}:identitystore/", "")) OR (aws.cloudtrail.user_identity.type == "IdentityCenterUser" AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NULL))
+| MV_EXPAND Esql.member_values
+| DISSECT Esql.member_values "%{Esql.member_ms}|%{Esql.member_request}|%{Esql.member_access_key}|%{Esql.member_group}|%{Esql.member_user}|%{Esql.member_store}|%{Esql.member_actor_arn}|%{Esql.member_source_ip}"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.member_ms)),
+    aws.cloudtrail.request_id = Esql.member_request,
+    aws.cloudtrail.user_identity.access_key_id = CASE(Esql.member_access_key != "none", Esql.member_access_key),
+    Esql.group = Esql.member_group,
+    Esql.user = Esql.member_user,
+    Esql.store = CASE(Esql.member_store != "none", Esql.member_store),
+    aws.cloudtrail.user_identity.arn = CASE(Esql.member_actor_arn != "none", Esql.member_actor_arn),
+    source.ip = CASE(Esql.member_source_ip != "none", TO_IP(Esql.member_source_ip))
 | MV_EXPAND Esql.group_history_values
 | DISSECT Esql.group_history_values "%{Esql.assignment_ms}|%{Esql.assignment_request}|%{Esql.assignment_stage}|%{Esql.permission_set_arn}|%{Esql.assigned_group}|%{Esql.assigned_account}"
 | EVAL Esql.assignment_time = TO_DATETIME(TO_LONG(Esql.assignment_ms))

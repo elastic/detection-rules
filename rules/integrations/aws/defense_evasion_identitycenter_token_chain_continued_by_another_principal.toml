@@ -2,8 +2,8 @@
 creation_date = "2026/09/10"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/09/10"
 
 [rule]
@@ -23,8 +23,8 @@ false_positives = [
     """
     An architecture that deliberately separates token acquisition from token use, for example a broker component that
     performs the jwt-bearer exchange and hands the refresh token to a separate worker role, produces this pattern by
-    design. Confirm whether the two reported principals belong to the same application, and if the split is intended,
-    exempt that specific pair of role ARNs rather than the behavior. Passing refresh tokens between principals is worth
+    design. Confirm whether the reported establishing and continuing principal lists belong to the same application,
+    and if the split is intended, exempt those specific principal sets rather than the behavior. Passing refresh tokens between principals is worth
     reviewing regardless, because it widens the set of identities that can act as the user.
     """,
     """
@@ -49,13 +49,13 @@ Detects an IAM Identity Center token chain established by one IAM principal bein
 
 - Start with the two principals. The alert names the principal that established the token chain with a real identity-provider assertion and the principal that continued it without one. If the continuing principal is not part of the same application's architecture, the token material reached it by some path worth establishing: a leaked configuration value, a shared secret store, a compromised role, or a log.
 - Understand why the continuation needs no authentication. The `jwt-bearer` grant validates a signed assertion from the trusted token issuer. The `refresh_token` and `token-exchange` grants validate only the token presented. Whoever holds that token can therefore act as the Identity Store subject named in the alert for as long as the token remains valid, and each refresh issues a fresh token, so the access renews itself.
-- Read the token types. `Esql.issued_token_type` of `refresh_token` means the continuation obtained new long-lived material and can self-renew; `access_token` means a shorter-lived credential was minted. A `token-exchange` whose `requested_token_type` is a refresh token is an escalation from a short-lived credential to a durable one.
+- Read `Esql.continuation_grants_values` to determine whether the other principal used a `refresh_token` or token-exchange grant, then inspect the underlying `CreateTokenWithIAM` events for the requested, subject and issued token types.
 - Establish what the tokens reached. Pivot on the reported subject and application to `sso.amazonaws.com` `GetRoleCredentials`, then to the resulting role sessions and their activity. The Identity Store subject is the identity the access was exercised as, which is not the same as the principal that made the call.
 - Check the interval. A continuation seconds after establishment is consistent with an automated handoff; one much later suggests token material was retained and reused.
 
 ### False positive analysis
 
-- An architecture that deliberately separates token acquisition from token use, for example a broker component that performs the jwt-bearer exchange and hands the refresh token to a separate worker role, produces this pattern by design. Confirm whether the two reported principals belong to the same application, and if the split is intended, exempt that specific pair of role ARNs rather than the behavior. Passing refresh tokens between principals is worth reviewing regardless, because it widens the set of identities that can act as the user.
+- An architecture that deliberately separates token acquisition from token use, for example a broker component that performs the jwt-bearer exchange and hands the refresh token to a separate worker role, produces this pattern by design. Confirm whether the reported establishing and continuing principal lists belong to the same application, and if the split is intended, exempt those specific principal sets rather than the behavior. Passing refresh tokens between principals is worth reviewing regardless, because it widens the set of identities that can act as the user.
 - If the establishing jwt-bearer exchange falls outside the lookback, a legitimate same-principal refresh can appear to have no matching establishment. The rule requires at least one establishment by a different principal inside the window before alerting, so this manifests as a missed detection rather than a false positive, but it does mean a long-lived refresh cycle is only partially covered.
 
 ### Response and remediation
@@ -109,62 +109,82 @@ FROM logs-aws.cloudtrail-*
     AND event.provider == "sso-oauth.amazonaws.com"
     AND event.action == "CreateTokenWithIAM"
     AND event.outcome == "success"
-| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_client_id}[,}]"""
-| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_additional_user_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?grantType=%{DATA:Esql.gk_grant_type}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?requestedTokenType=%{DATA:Esql.gk_requested_token_type}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?subjectTokenType=%{DATA:Esql.gk_subject_token_type}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?issuedTokenType=%{DATA:Esql.gk_issued_token_type}[,}]"""
+| EVAL Esql.gk_client_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "clientId"),
+    Esql.gk_additional_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitystore:UserId"),
+    Esql.gk_grant_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType")
 | EVAL Esql.app = Esql.gk_client_id,
     Esql.subject = Esql.gk_additional_user_id,
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.grant = Esql.gk_grant_type,
-    Esql.requested_token_type = Esql.gk_requested_token_type,
-    Esql.subject_token_type = Esql.gk_subject_token_type,
-    Esql.issued_token_type = Esql.gk_issued_token_type
+    Esql.grant = Esql.gk_grant_type
+| WHERE Esql.app IS NOT NULL AND Esql.subject IS NOT NULL
 | EVAL Esql.stage = CASE(
     Esql.grant == "urn:ietf:params:oauth:grant-type:jwt-bearer", "established",
     Esql.grant IN ("refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"), "continued", "ignore")
-| EVAL Esql.chain_record = CASE(Esql.stage == "established",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.app, "~", COALESCE(Esql.subject, "none"), "~", Esql_priv.actor))
-| INLINE STATS Esql.chain_history_values = VALUES(Esql.chain_record)
-| WHERE Esql.stage == "continued" AND Esql.app IS NOT NULL AND Esql.subject IS NOT NULL
-| MV_EXPAND Esql.chain_history_values
-| DISSECT Esql.chain_history_values "%{Esql.e_ms}~%{Esql.e_app}~%{Esql.e_subject}~%{Esql_priv.e_actor}"
+| WHERE Esql.stage != "ignore"
+| EVAL Esql.establishment_record = CASE(
+        Esql.stage == "established"
+        AND Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql_priv.actor)),
+    Esql.continuation_record = CASE(
+        Esql.stage == "continued"
+        AND Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+        AND Esql.grant RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql_priv.actor, "|", Esql.grant, "|",
+            CASE(aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
+                aws.cloudtrail.request_id, "none")))
+| STATS
+    Esql.establishment_values = VALUES(Esql.establishment_record),
+    Esql.continuation_values = VALUES(Esql.continuation_record)
+    BY Esql.app,
+    Esql.subject
+| WHERE Esql.establishment_values IS NOT NULL AND Esql.continuation_values IS NOT NULL
+| MV_EXPAND Esql.continuation_values
+| DISSECT Esql.continuation_values "%{Esql.c_ms}|%{Esql_priv.c_actor}|%{Esql.c_grant}|%{Esql.c_request}"
+| EVAL Esql.c_time = TO_DATETIME(TO_LONG(Esql.c_ms))
+| MV_EXPAND Esql.establishment_values
+| DISSECT Esql.establishment_values "%{Esql.e_ms}|%{Esql_priv.e_actor}"
 | EVAL Esql.e_time = TO_DATETIME(TO_LONG(Esql.e_ms))
-| WHERE Esql.e_app == Esql.app AND Esql.e_subject == Esql.subject AND Esql.e_time < @timestamp
-| STATS Esql.established_at = MAX(Esql.e_time),
-    Esql_priv.establishing_principals_values = VALUES(Esql_priv.e_actor),
-    Esql.own_chains_count = COUNT(CASE(Esql_priv.e_actor == Esql_priv.actor, 1)),
-    Esql.other_chains_count = COUNT(CASE(Esql_priv.e_actor != Esql_priv.actor, 1))
+| WHERE Esql.e_time < Esql.c_time
+| STATS Esql.candidate_established_at = MAX(
+        CASE(Esql_priv.e_actor != Esql_priv.c_actor, Esql.e_time)),
+    Esql_priv.candidate_establishing_principals_values = VALUES(
+        CASE(Esql_priv.e_actor != Esql_priv.c_actor, Esql_priv.e_actor)),
+    Esql.prior_same_actor_establishments_count = COUNT(
+        CASE(Esql_priv.e_actor == Esql_priv.c_actor, 1))
     BY Esql.app,
     Esql.subject,
-    Esql_priv.actor,
-    Esql.grant,
-    Esql.requested_token_type,
-    Esql.subject_token_type,
-    Esql.issued_token_type,
-    Esql.continued_at = @timestamp,
-    aws.cloudtrail.request_id,
-    user.name,
-    cloud.region,
-    event.outcome,
-    user_agent.original,
-    event.action,
-    event.provider,
-    cloud.account.id
-| WHERE Esql.own_chains_count == 0 AND Esql.other_chains_count > 0
+    Esql.c_time,
+    Esql_priv.c_actor,
+    Esql.c_grant,
+    Esql.c_request
+| WHERE Esql.candidate_established_at IS NOT NULL
+    AND Esql.prior_same_actor_establishments_count == 0
+| STATS Esql.established_at = MIN(Esql.candidate_established_at),
+    Esql.continued_at = MAX(Esql.c_time),
+    Esql_priv.establishing_principals_values = VALUES(
+        Esql_priv.candidate_establishing_principals_values),
+    Esql_priv.continuing_principals_values = VALUES(Esql_priv.c_actor),
+    Esql.continuation_grants_values = VALUES(Esql.c_grant),
+    Esql.continuation_request_ids_values = VALUES(
+        CASE(Esql.c_request != "none", Esql.c_request)),
+    Esql.continuation_events_count = COUNT(*)
+    BY Esql.app,
+    Esql.subject,
+    Esql.c_time,
+    Esql_priv.c_actor,
+    Esql.c_grant,
+    Esql.c_request
 | EVAL Esql.seconds_from_establish_to_continue = DATE_DIFF("seconds", Esql.established_at, Esql.continued_at)
-| KEEP Esql.*,
-    Esql_priv.*,
-    aws.cloudtrail.request_id,
-    user.name,
-    cloud.region,
-    event.outcome,
-    user_agent.original,
-    event.action,
-    event.provider,
-    cloud.account.id
+| KEEP Esql.app,
+    Esql.subject,
+    Esql.established_at,
+    Esql.continued_at,
+    Esql.continuation_grants_values,
+    Esql.continuation_request_ids_values,
+    Esql.continuation_events_count,
+    Esql.seconds_from_establish_to_continue,
+    Esql_priv.establishing_principals_values,
+    Esql_priv.continuing_principals_values
 '''
 
 
@@ -199,20 +219,18 @@ name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.alert_suppression]
-group_by = ["Esql.subject", "Esql_priv.actor", "Esql.grant"]
+group_by = ["Esql.app", "Esql.subject"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
-    "aws.cloudtrail.request_id",
     "Esql.app",
     "Esql.subject",
-    "Esql_priv.actor",
     "Esql_priv.establishing_principals_values",
-    "Esql.grant",
-    "Esql.requested_token_type",
-    "Esql.subject_token_type",
-    "Esql.issued_token_type",
+    "Esql_priv.continuing_principals_values",
+    "Esql.continuation_grants_values",
+    "Esql.continuation_request_ids_values",
+    "Esql.continuation_events_count",
     "Esql.established_at",
     "Esql.continued_at",
     "Esql.seconds_from_establish_to_continue",

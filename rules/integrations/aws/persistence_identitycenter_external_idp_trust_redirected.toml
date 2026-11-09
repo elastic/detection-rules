@@ -2,8 +2,8 @@
 creation_date = "2026/10/01"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "Non-aggregating ES|QL query; 9.4.0 kept for consistency with the Identity Center ruleset baseline."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/10/01"
 
 [rule]
@@ -110,9 +110,9 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
     "CreateExternalIdPConfigurationForDirectory", "UpdateExternalIdPConfigurationForDirectory",
     "EnableExternalIdPConfigurationForDirectory", "DisableExternalIdPConfigurationForDirectory",
     "AssociateDirectory", "DisassociateDirectory")
-| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directory_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identity_store_id}[,}]"""
-| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_nested_directory_id}[,}\]]"""
+| EVAL Esql.gk_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "directoryId"),
+    Esql.gk_identity_store_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "identityStoreId"),
+    Esql.gk_nested_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "user.directoryId")
 | EVAL Esql.directory = COALESCE(
     Esql.gk_directory_id,
     Esql.gk_identity_store_id,

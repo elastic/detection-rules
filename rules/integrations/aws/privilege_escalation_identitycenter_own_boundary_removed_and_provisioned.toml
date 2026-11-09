@@ -2,8 +2,8 @@
 creation_date = "2026/09/08"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
-min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
 updated_date = "2026/09/08"
 
 [rule]
@@ -94,8 +94,8 @@ FROM logs-aws.cloudtrail-*
     AND aws.cloudtrail.request_id IS NOT NULL
     AND ((event.provider == "sso.amazonaws.com" AND event.action == "DeletePermissionsBoundaryFromPermissionSet")
       OR (event.provider == "iam.amazonaws.com" AND event.action == "CreateUser"))
-| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permission_set_arn}[,}]"""
-| GROK aws.cloudtrail.response_elements """[{,] ?user=\[?\{[^{}]*?arn=%{DATA:Esql.gk_user_arn}[,}\]]"""
+| EVAL Esql.gk_permission_set_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.gk_user_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.arn")
 | EVAL Esql_priv.actor = aws.cloudtrail.user_identity.arn,
     Esql_priv.actor_role = aws.cloudtrail.user_identity.session_context.session_issuer.arn,
     Esql.ps = Esql.gk_permission_set_arn,
@@ -105,15 +105,31 @@ FROM logs-aws.cloudtrail-*
     event.action == "DeletePermissionsBoundaryFromPermissionSet", "elevate",
     event.action == "CreateUser", "use", "ignore")
 | EVAL Esql.elevate_record = CASE(Esql.stage == "elevate",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.ps, "|", Esql.identity))
-| INLINE STATS Esql.elevate_history_values = VALUES(Esql.elevate_record)
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.ps, "|", Esql.identity)),
+    Esql.use_record = CASE(Esql.stage == "use"
+        AND Esql_priv.target_user RLIKE "[-A-Za-z0-9+=,.@_:/]+"
+        AND aws.cloudtrail.user_identity.access_key_id IS NOT NULL
+        AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NOT NULL
+        AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL
+        AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}",
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.user_identity.access_key_id, "|",
+            aws.cloudtrail.request_id, "|", Esql_priv.actor, "|", Esql_priv.actor_role, "|",
+            aws.cloudtrail.user_identity.on_behalf_of.user_id, "|",
+            aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "|", Esql_priv.target_user, "|",
+            COALESCE(TO_STRING(source.ip), "none")))
+| STATS Esql.elevate_history_values = VALUES(Esql.elevate_record),
+    Esql.use_values = VALUES(Esql.use_record)
     BY aws.cloudtrail.recipient_account_id
-| WHERE Esql.stage == "use"
-    AND Esql_priv.target_user IS NOT NULL
-    AND aws.cloudtrail.user_identity.access_key_id IS NOT NULL
-    AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NOT NULL
-    AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL
-    AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
+| MV_EXPAND Esql.use_values
+| DISSECT Esql.use_values "%{Esql.use_ms}|%{Esql.use_access_key}|%{Esql.use_request}|%{Esql_priv.use_actor}|%{Esql_priv.use_actor_role}|%{Esql.use_user}|%{Esql.use_store}|%{Esql_priv.use_target_user}|%{Esql.use_source_ip}"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.use_ms)),
+    aws.cloudtrail.user_identity.access_key_id = Esql.use_access_key,
+    aws.cloudtrail.request_id = Esql.use_request,
+    Esql_priv.actor = Esql_priv.use_actor,
+    Esql_priv.actor_role = Esql_priv.use_actor_role,
+    aws.cloudtrail.user_identity.on_behalf_of.user_id = Esql.use_user,
+    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn = Esql.use_store,
+    Esql_priv.target_user = Esql_priv.use_target_user
 | MV_EXPAND Esql.elevate_history_values
 | DISSECT Esql.elevate_history_values "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.permission_set_arn}|%{Esql_priv.change_actor}|%{Esql.change_issuer}|%{Esql.change_user}|%{Esql.change_store}"
 | EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms)),
@@ -124,7 +140,7 @@ FROM logs-aws.cloudtrail-*
 | WHERE Esql.change_time < @timestamp AND Esql.change_time >= @timestamp - 30 minutes AND Esql.same_changer == true
 | STATS Esql.elevated_at = MAX(Esql.change_time),
     Esql.source_request_ids_values = VALUES(Esql.change_request),
-    Esql.source_ip_values = VALUES(source.ip)
+    Esql.source_ip_values = VALUES(CASE(Esql.use_source_ip != "none", Esql.use_source_ip))
     BY aws.cloudtrail.recipient_account_id,
     aws.cloudtrail.user_identity.access_key_id,
     aws.cloudtrail.request_id,
