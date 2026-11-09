@@ -120,7 +120,7 @@ FROM logs-aws.cloudtrail-*
     event.action == "CreateAccountAssignment" AND Esql.principal_type == "GROUP" AND Esql.target_type == "AWS_ACCOUNT"
     AND Esql.assignment_creation_status IN ("IN_PROGRESS", "SUCCEEDED"), "assign",
     event.action == "DeleteAccountAssignment" AND Esql.principal_type == "GROUP" AND Esql.target_type == "AWS_ACCOUNT"
-    AND Esql.assignment_deletion_status IN ("IN_PROGRESS", "SUCCEEDED"), "revoke", "ignore")
+    AND Esql.assignment_deletion_status IN ("IN_PROGRESS", "SUCCEEDED"), "revoke")
 | EVAL Esql.ps_record = CASE(Esql.stage IN ("admin", "detach", "delete"),
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|", Esql.ps)),
     Esql.group_record = CASE(Esql.stage IN ("assign", "revoke"),

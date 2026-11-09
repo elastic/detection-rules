@@ -116,15 +116,12 @@ FROM logs-aws.cloudtrail-*
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|", Esql.attached_role)),
     Esql.version_record = CASE(
     Esql.stage IN ("version", "delete")
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
       AND Esql.version_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
     CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.version_id, "|",
       CASE(Esql.stage == "version" AND Esql.is_admin == true, "admin", "other"))),
     Esql.activation_record = CASE(
     aws.cloudtrail.user_identity.access_key_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
       AND Esql.version_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor_role RLIKE "[-A-Za-z0-9+=,.@_:/]+"
       AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
       AND (Esql.stage == "activate"
         OR (Esql.stage == "version"
@@ -176,10 +173,9 @@ FROM logs-aws.cloudtrail-*
     @timestamp,
     Esql.policy_arn,
     Esql_priv.actor_role,
-    Esql.version_id,
-    Esql.admin_version_created_at
+    Esql.version_id
 | WHERE Esql.attached_at IS NOT NULL AND (Esql.detached_at IS NULL OR Esql.detached_at < Esql.attached_at)
-| KEEP @timestamp, aws.cloudtrail.recipient_account_id, aws.cloudtrail.request_id,
+| KEEP @timestamp, aws.cloudtrail.request_id,
     aws.cloudtrail.user_identity.access_key_id, Esql.policy_arn, Esql_priv.actor_role,
     Esql.version_id
 '''

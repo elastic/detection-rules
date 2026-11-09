@@ -110,7 +110,7 @@ FROM logs-aws.cloudtrail-*
 | EVAL Esql.stage = CASE(
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "false", "opened",
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "true", "closed",
-    event.action == "CreateTokenWithIAM", "token", "ignore")
+    event.action == "CreateTokenWithIAM", "token")
 | EVAL Esql.cfg_record = CASE(
       Esql.stage IN ("opened", "closed")
         AND Esql.app IS NOT NULL
@@ -143,7 +143,7 @@ FROM logs-aws.cloudtrail-*
     Esql.subject,
     Esql_priv.token_caller
 | WHERE Esql.opened_at IS NOT NULL AND (Esql.closed_at IS NULL OR Esql.closed_at < Esql.opened_at)
-| DISSECT Esql.opened_record "%{Esql.o_ms}~%{Esql.o_stage}~%{Esql.configuration_request_id}~%{Esql_priv.configuration_actor}"
+| DISSECT Esql.opened_record "%{}~%{}~%{Esql.configuration_request_id}~%{Esql_priv.configuration_actor}"
 | KEEP @timestamp, aws.cloudtrail.request_id, Esql.app, Esql.subject, Esql.opened_at,
     Esql.configuration_request_id, Esql_priv.configuration_actor, Esql_priv.token_caller
 '''

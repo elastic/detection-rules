@@ -98,7 +98,7 @@ FROM logs-aws.cloudtrail-*
     Esql.policy_principal = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal.AWS"), FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal")),
     Esql.parameters = TO_STRING(aws.cloudtrail.flattened.request_parameters)
 | WHERE Esql.application_arn IS NOT NULL
-| DISSECT Esql.application_arn "arn:%{Esql.application_partition}:sso::%{Esql.application_account}:application/%{Esql.application_id}"
+| DISSECT Esql.application_arn "arn:%{}:sso::%{Esql.application_account}:application/%{}"
 | EVAL Esql.public_trust = MV_COUNT(Esql.policy_effect) == 1
     AND MV_FIRST(Esql.policy_effect) == "Allow"
     AND MV_COUNT(Esql.policy_action) == 1
@@ -150,7 +150,7 @@ FROM logs-aws.cloudtrail-*
     AND Esql.denied_time < Esql.issued_time
     AND Esql.denied_time >= Esql.issued_time - 30 minutes
 | MV_EXPAND Esql.config_history_values
-| DISSECT Esql.config_history_values "%{Esql.config_ms}|%{Esql.config_request}|%{Esql.config_stage}"
+| DISSECT Esql.config_history_values "%{Esql.config_ms}|%{}|%{Esql.config_stage}"
 | EVAL Esql.config_time = TO_DATETIME(TO_LONG(Esql.config_ms))
 | WHERE Esql.config_time > Esql.denied_time
     AND Esql.config_time < Esql.issued_time
@@ -165,8 +165,8 @@ FROM logs-aws.cloudtrail-*
     Esql.issued_time
 | WHERE Esql.public_trust_at IS NOT NULL
     AND (Esql.closed_trust_at IS NULL OR Esql.closed_trust_at < Esql.public_trust_at)
-| DISSECT Esql.denied_record "%{Esql.denied_ms}|%{Esql.denied_request}|%{Esql.denied_caller}"
-| DISSECT Esql.public_trust_record "%{Esql.public_ms}|%{Esql.public_trust_request}|%{Esql.public_stage}"
+| DISSECT Esql.denied_record "%{Esql.denied_ms}|%{Esql.denied_request}|%{}"
+| DISSECT Esql.public_trust_record "%{}|%{Esql.public_trust_request}|%{}"
 | EVAL @timestamp = Esql.issued_time,
     aws.cloudtrail.request_id = Esql.issued_request,
     cloud.account.id = Esql.caller_account,

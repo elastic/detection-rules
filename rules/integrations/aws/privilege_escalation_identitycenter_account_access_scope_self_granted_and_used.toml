@@ -108,7 +108,7 @@ FROM logs-aws.cloudtrail-*
     event.action == "DeleteApplication", "scope_off",
     event.action == "CreateTokenWithIAM" AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType") == "urn:ietf:params:oauth:grant-type:jwt-bearer"
     AND Esql.scope_val LIKE "*sso:account:access*" AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "tokenType") == "Bearer", "token",
-    event.action == "GetRoleCredentials", "use", "ignore")
+    event.action == "GetRoleCredentials", "use")
 | EVAL Esql.scope_record = CASE(
     Esql.stage IN ("scope_on", "scope_off")
       AND Esql.app RLIKE "[-A-Za-z0-9+=,.@_:/]+"

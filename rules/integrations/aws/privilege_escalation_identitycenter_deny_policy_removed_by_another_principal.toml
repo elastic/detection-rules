@@ -126,7 +126,7 @@ FROM logs-aws.cloudtrail-*
 | MV_EXPAND Esql.remove_values
 | DISSECT Esql.remove_values "%{Esql.remove_ms}|%{Esql.remove_request}|%{Esql.removed_by}"
 | MV_EXPAND Esql.ps_history_values
-| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
+| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_stage}|%{}"
 | EVAL Esql.p_time = TO_DATETIME(TO_LONG(Esql.p_ms)),
     Esql.removed_at = TO_DATETIME(TO_LONG(Esql.remove_ms))
 | STATS Esql.deny_set_at = MAX(CASE(Esql.p_stage == "restrict" AND Esql.p_time < Esql.removed_at, Esql.p_time)),

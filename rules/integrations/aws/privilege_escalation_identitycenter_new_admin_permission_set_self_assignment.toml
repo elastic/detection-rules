@@ -103,7 +103,7 @@ FROM logs-aws.cloudtrail-*
 | EVAL Esql.stage = CASE(
     event.action == "AttachManagedPolicyToPermissionSet" AND Esql.gk_managed_policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "admin",
     event.action == "DetachManagedPolicyFromPermissionSet" AND Esql.gk_managed_policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "detach",
-    event.action == "CreateAccountAssignment", "assign", "ignore")
+    event.action == "CreateAccountAssignment", "assign")
 | EVAL Esql.record = CASE(Esql.stage IN ("admin", "detach"),
         CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|",
             COALESCE(aws.cloudtrail.user_identity.access_key_id, "unknown"))),
@@ -127,8 +127,7 @@ FROM logs-aws.cloudtrail-*
     Esql.permission_set_arn = Esql.gk_permission_set_arn
 | MV_EXPAND Esql.assignment_values
 | DISSECT Esql.assignment_values "%{Esql.assignment_ms}|%{aws.cloudtrail.request_id}|%{aws.cloudtrail.user_identity.access_key_id}|%{Esql.target_account}|%{Esql.principal_id}|%{Esql.identity_store_arn}"
-| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.assignment_ms)),
-    Esql.principal_type = "USER"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.assignment_ms))
 | MV_EXPAND Esql.ps_history_values
 | DISSECT Esql.ps_history_values "%{Esql.change_ms}|%{Esql.change_stage}|%{Esql.change_key}"
 | EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms))
@@ -140,7 +139,6 @@ FROM logs-aws.cloudtrail-*
     Esql.permission_set_arn,
     Esql.target_account,
     Esql.principal_id,
-    Esql.principal_type,
     Esql.identity_store_arn,
     aws.cloudtrail.request_id,
     @timestamp
