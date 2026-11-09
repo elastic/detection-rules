@@ -35,7 +35,7 @@ Detects an IAM principal from another AWS account being denied CreateTokenWithIA
 
 ### Possible investigation steps
 
-- Inspect the application ARN, foreign caller ARN, denial request, trust-change requests and successful token request. Assumed-role callers are correlated using their native session-issuer ARN, while IAM users use their ARN. The caller account must differ from the account encoded in the application ARN; source-IP novelty is not used. The alert intentionally retains correlation fields rather than arbitrary event-level values, so use `Esql.denied_requests_values`, `Esql.config_requests_values` and `aws.cloudtrail.request_id` to recover source IP, user agent and full actor context from the original CloudTrail events.
+- Inspect the application ARN, foreign caller ARN, denial request, trust-change request and successful token request. Assumed-role callers are correlated using their native session-issuer ARN, while IAM users use their ARN. The caller account must differ from the account encoded in the application ARN; source-IP novelty is not used. Use the reported request IDs to recover source IP, user agent and full actor context from the original CloudTrail events.
 - The policy check accepts only an Allow for the exact CreateTokenWithIAM action, Resource *, and wildcard principal. Because flattened mappings lose statement boundaries, it deliberately rejects mixed effect/action/resource/principal sets and any Condition or Not* policy element across the statement set. It does not combine an Allow from one constrained statement with a wildcard from another and call that unrestricted access. More complex policies are outside this rule's scope.
 - Validate whether an integration deliberately opened token-caller trust. A specific broker principal or conditioned wildcard policy is a silent control. Token service success does not prove access to an AWS role or a downstream application resource. Review the JWT issuer, assignment requirements, scopes and application logs. If the trust expansion is unexplained, restrict the actor policy, investigate both the changing credential and external caller, and assess issued sessions and downstream access.
 
@@ -156,9 +156,8 @@ FROM logs-aws.cloudtrail-*
     AND Esql.config_time < Esql.issued_time
 | STATS Esql.public_trust_at = MAX(CASE(Esql.config_stage == "public", Esql.config_time)),
     Esql.closed_trust_at = MAX(CASE(Esql.config_stage == "closed", Esql.config_time)),
-    Esql.config_requests_values = VALUES(Esql.config_request),
-    Esql.denied_at = MAX(Esql.denied_time),
-    Esql.denied_requests_values = VALUES(Esql.denied_request)
+    Esql.denied_record = MAX(Esql.denial_history_values),
+    Esql.public_trust_record = MAX(CASE(Esql.config_stage == "public", Esql.config_history_values))
     BY Esql.application_arn,
     Esql_priv.caller_arn,
     Esql.caller_account,
@@ -166,10 +165,15 @@ FROM logs-aws.cloudtrail-*
     Esql.issued_time
 | WHERE Esql.public_trust_at IS NOT NULL
     AND (Esql.closed_trust_at IS NULL OR Esql.closed_trust_at < Esql.public_trust_at)
+| DISSECT Esql.denied_record "%{Esql.denied_ms}|%{Esql.denied_request}|%{Esql.denied_caller}"
+| DISSECT Esql.public_trust_record "%{Esql.public_ms}|%{Esql.public_trust_request}|%{Esql.public_stage}"
 | EVAL @timestamp = Esql.issued_time,
     aws.cloudtrail.request_id = Esql.issued_request,
-    cloud.account.id = Esql.caller_account
-| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.request_id, cloud.account.id
+    cloud.account.id = Esql.caller_account,
+    Esql.denied_at = TO_DATETIME(TO_LONG(Esql.denied_ms))
+| KEEP @timestamp, aws.cloudtrail.request_id, cloud.account.id, Esql.application_arn,
+    Esql_priv.caller_arn, Esql.denied_at, Esql.denied_request, Esql.public_trust_at,
+    Esql.public_trust_request
 '''
 
 
@@ -198,9 +202,9 @@ field_names = [
     "Esql.application_arn",
     "Esql_priv.caller_arn",
     "Esql.denied_at",
+    "Esql.denied_request",
     "Esql.public_trust_at",
-    "Esql.denied_requests_values",
-    "Esql.config_requests_values",
+    "Esql.public_trust_request",
 ]
 
 [rule.alert_suppression.duration]

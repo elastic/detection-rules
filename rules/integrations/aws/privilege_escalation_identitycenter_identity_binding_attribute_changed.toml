@@ -2,8 +2,6 @@
 creation_date = "2026/09/17"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
-min_stack_version = "9.6.0"
 updated_date = "2026/09/17"
 
 [rule]
@@ -30,8 +28,9 @@ false_positives = [
     """,
 ]
 from = "now-15m"
+index = ["logs-aws.cloudtrail-*"]
 interval = "10m"
-language = "esql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Identity Center Federated Identity Attribute Rebound"
 note = """## Triage and analysis
@@ -85,37 +84,28 @@ tags = [
     "Service: AWS IAM Identity Center",
     "Tactic: Privilege Escalation",
     "Tactic: Persistence",
-    "Rule Type: ES|QL",
+    "Rule Type: Custom Query (KQL)",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Profile: Beta",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
-| WHERE data_stream.dataset == "aws.cloudtrail"
-    AND event.outcome == "success"
-    AND event.provider IN ("identitystore.amazonaws.com", "sso-directory.amazonaws.com")
-    AND event.action IN ("UpdateUser", "UpdateUserName")
-| EVAL Esql.gk_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "userId"),
-    Esql.gk_nested_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "user.userId"),
-    Esql.gk_identity_store_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "identityStoreId"),
-    Esql.gk_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "directoryId"),
-    Esql.gk_nested_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "user.directoryId"),
-    Esql.gk_attribute_path = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "operations.attributePath")
-| EVAL Esql.changed_at = @timestamp,
-    Esql.target_user = COALESCE(Esql.gk_user_id, Esql.gk_nested_user_id),
-    Esql.identity_store = COALESCE(Esql.gk_identity_store_id, Esql.gk_directory_id, Esql.gk_nested_directory_id),
-    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
-| EVAL Esql.attribute_path = CASE(
-    event.action == "UpdateUserName", "userName",
-    MV_CONCAT(Esql.gk_attribute_path, ","))
-| EVAL Esql.binding_attribute = TO_LOWER(Esql.attribute_path) RLIKE ".*(username|emails|externalid).*"
-| WHERE Esql.binding_attribute AND Esql.target_user IS NOT NULL
-| KEEP _id, _version, _index, @timestamp, Esql.*, Esql_priv.*, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
+data_stream.dataset: "aws.cloudtrail" and
+event.outcome: "success" and
+event.provider: ("identitystore.amazonaws.com" or "sso-directory.amazonaws.com") and
+(
+    event.action: "UpdateUserName" or
+    (
+        event.action: "UpdateUser" and
+        aws.cloudtrail.request_parameters: (
+            *userName* or *emails* or *externalId*
+        )
+    )
+)
 '''
 
 
@@ -150,17 +140,17 @@ name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.alert_suppression]
-group_by = ["Esql.target_user", "Esql.attribute_path"]
+group_by = ["aws.cloudtrail.request_id"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.changed_at",
-    "Esql.attribute_path",
-    "Esql.target_user",
-    "Esql_priv.actor",
-    "Esql.identity_store",
+    "@timestamp",
+    "event.action",
     "aws.cloudtrail.request_id",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
 ]
 
 [rule.alert_suppression.duration]

@@ -2,8 +2,6 @@
 creation_date = "2026/10/01"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
-min_stack_version = "9.6.0"
 updated_date = "2026/10/01"
 
 [rule]
@@ -32,8 +30,9 @@ false_positives = [
     """,
 ]
 from = "now-125m"
+index = ["logs-aws.cloudtrail-*"]
 interval = "10m"
-language = "esql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Identity Center Identity Source Changed"
 note = """## Triage and analysis
@@ -91,51 +90,29 @@ tags = [
     "Service: AWS IAM Identity Center",
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
-    "Rule Type: ES|QL",
+    "Rule Type: Custom Query (KQL)",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Profile: Beta",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
-| WHERE data_stream.dataset == "aws.cloudtrail"
-    AND event.outcome == "success"
-    AND event.provider IN ("sso-directory.amazonaws.com", "sso.amazonaws.com")
-    AND event.action IN (
-    "ImportExternalIdPCertificate", "DeleteExternalIdPCertificate",
-    "CreateExternalIdPConfigurationForDirectory", "UpdateExternalIdPConfigurationForDirectory",
-    "EnableExternalIdPConfigurationForDirectory", "DisableExternalIdPConfigurationForDirectory",
-    "AssociateDirectory", "DisassociateDirectory")
-| EVAL Esql.gk_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "directoryId"),
-    Esql.gk_identity_store_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "identityStoreId"),
-    Esql.gk_nested_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "user.directoryId")
-| EVAL Esql.directory = COALESCE(
-    Esql.gk_directory_id,
-    Esql.gk_identity_store_id,
-    Esql.gk_nested_directory_id,
-    "unknown"),
-    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.subject = COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id,
-    CASE(aws.cloudtrail.user_identity.type == "IdentityCenterUser", user.id))
-| KEEP _id,
-    _version,
-    _index,
-    Esql.*,
-    Esql_priv.*,
-    @timestamp,
-    event.action,
-    aws.cloudtrail.request_id,
-    cloud.account.id,
-    source.ip,
-    user.name,
-    cloud.region,
-    event.outcome,
-    user_agent.original,
-    event.provider
+data_stream.dataset: "aws.cloudtrail" and
+event.outcome: "success" and
+event.provider: ("sso-directory.amazonaws.com" or "sso.amazonaws.com") and
+event.action: (
+    "ImportExternalIdPCertificate" or
+    "DeleteExternalIdPCertificate" or
+    "CreateExternalIdPConfigurationForDirectory" or
+    "UpdateExternalIdPConfigurationForDirectory" or
+    "EnableExternalIdPConfigurationForDirectory" or
+    "DisableExternalIdPConfigurationForDirectory" or
+    "AssociateDirectory" or
+    "DisassociateDirectory"
+)
 '''
 
 
@@ -175,16 +152,19 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.alert_suppression]
-group_by = ["Esql.directory", "event.action"]
+group_by = ["aws.cloudtrail.request_id"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
+    "@timestamp",
     "event.action",
-    "Esql.directory",
-    "Esql_priv.actor",
-    "Esql.subject",
     "aws.cloudtrail.request_id",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.user_identity.on_behalf_of.user_id",
+    "aws.cloudtrail.flattened.request_parameters.directoryId",
+    "aws.cloudtrail.flattened.request_parameters.identityStoreId",
     "cloud.account.id",
     "source.ip",
 ]

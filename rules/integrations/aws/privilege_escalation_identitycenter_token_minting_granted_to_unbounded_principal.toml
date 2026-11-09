@@ -90,44 +90,32 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-*
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | WHERE data_stream.dataset == "aws.cloudtrail"
     AND event.provider == "sso.amazonaws.com"
     AND event.action == "PutApplicationAuthenticationMethod"
     AND event.outcome == "success"
 | EVAL Esql.app = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"),
-    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
-    Esql.method_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethodType"),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn),
     Esql.principals = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal.AWS"),
-    Esql.granted_actions = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Action"), ","),
-    Esql.effect = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Effect"), ",")
-| WHERE Esql.method_type == "IAM" AND Esql.app IS NOT NULL AND Esql.effect LIKE "*Allow*"
+    Esql.effect = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Effect"), ","),
+    Esql.actions = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Action"), ",")
+| WHERE FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethodType") == "IAM"
+    AND Esql.app IS NOT NULL
+    AND Esql.effect LIKE "*Allow*"
+    AND (Esql.actions == "*" OR Esql.actions LIKE ("*sso-oauth:CreateTokenWithIAM*", "*sso-oauth:**"))
 | EVAL Esql.app_account = REPLACE(Esql.app, "^arn:aws[a-z-]*:sso::([0-9]{12}):.*$", "$1")
 | MV_EXPAND Esql.principals
-| EVAL Esql.is_arn = Esql.principals RLIKE "arn:aws[a-z-]*:(iam|sts)::[0-9]{12}:.+"
-| EVAL Esql.principal_account = CASE(Esql.is_arn, REPLACE(Esql.principals, "^arn:aws[a-z-]*:(?:iam|sts)::([0-9]{12}):.*$", "$1"))
 | EVAL Esql.exposure = CASE(
     Esql.principals == "*", "any_aws_principal",
     Esql.principals RLIKE "arn:aws[a-z-]*:iam::[0-9]{12}:root", "entire_account",
-    Esql.is_arn AND Esql.principal_account != Esql.app_account, "cross_account",
+    Esql.principals RLIKE "arn:aws[a-z-]*:(iam|sts)::[0-9]{12}:.+"
+      AND REPLACE(Esql.principals, "^arn:aws[a-z-]*:(?:iam|sts)::([0-9]{12}):.*$", "$1") != Esql.app_account,
+      "cross_account",
     "scoped")
 | WHERE Esql.exposure != "scoped"
-| STATS Esql.granted_at = MAX(@timestamp),
-    Esql.grants_count = COUNT(*),
-    Esql_priv.granting_principals_values = VALUES(Esql_priv.actor),
-    Esql.token_actions_granted_values = VALUES(Esql.granted_actions),
-    Esql.source_ip_values = VALUES(source.ip),
-    Esql.user_agent_original_values = VALUES(user_agent.original)
-    BY Esql.app,
-    Esql.principals,
-    Esql.exposure,
-    Esql.app_account,
-    event.outcome,
-    event.action,
-    event.provider,
-    cloud.account.id,
-    cloud.region
-| KEEP Esql.*, Esql_priv.*, event.outcome, event.action, event.provider, cloud.account.id, cloud.region
+| KEEP @timestamp, _id, _version, _index, Esql.*, Esql_priv.*, event.*,
+    aws.cloudtrail.*, cloud.account.id, cloud.region, source.ip, user_agent.original
 '''
 
 
@@ -155,16 +143,16 @@ missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
+    "@timestamp",
     "Esql.app",
     "Esql.principals",
     "Esql.exposure",
-    "Esql.granted_at",
-    "Esql_priv.granting_principals_values",
-    "Esql.token_actions_granted_values",
+    "Esql_priv.actor",
     "Esql.app_account",
-    "Esql.grants_count",
     "cloud.region",
     "cloud.account.id",
+    "source.ip",
+    "user_agent.original",
 ]
 
 [rule.alert_suppression.duration]

@@ -2,8 +2,6 @@
 creation_date = "2026/10/01"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
-min_stack_version = "9.6.0"
 updated_date = "2026/10/01"
 
 [rule]
@@ -25,8 +23,9 @@ false_positives = [
     """,
 ]
 from = "now-15m"
+index = ["logs-aws.cloudtrail-*"]
 interval = "10m"
-language = "esql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Identity Center SCIM Provisioning Token Created"
 note = """## Triage and analysis
@@ -79,31 +78,20 @@ tags = [
     "Service: AWS IAM Identity Center",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
-    "Rule Type: ES|QL",
+    "Rule Type: Custom Query (KQL)",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Profile: Beta",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
-| WHERE data_stream.dataset == "aws.cloudtrail"
-    AND event.outcome == "success"
-    AND event.provider == "sso-directory.amazonaws.com"
-    AND event.action IN ("CreateBearerToken", "CreateProvisioningTenant")
-| EVAL Esql.gk_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "directoryId"),
-    Esql.gk_identity_store_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "identityStoreId"),
-    Esql.gk_nested_directory_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "user.directoryId"),
-    Esql.gk_tenant_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "tenantId"),
-    Esql.gk_provisioning_tenant_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "provisioningTenantId")
-| EVAL Esql.created_at = @timestamp,
-    Esql.directory = COALESCE(Esql.gk_directory_id, Esql.gk_identity_store_id, Esql.gk_nested_directory_id),
-    Esql.tenant = COALESCE( Esql.gk_tenant_id, Esql.gk_provisioning_tenant_id),
-    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
-| KEEP _id, _version, _index, @timestamp, Esql.*, Esql_priv.*, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
+data_stream.dataset: "aws.cloudtrail" and
+event.outcome: "success" and
+event.provider: "sso-directory.amazonaws.com" and
+event.action: ("CreateBearerToken" or "CreateProvisioningTenant")
 '''
 
 
@@ -153,17 +141,20 @@ name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
 [rule.alert_suppression]
-group_by = ["Esql.directory", "event.action"]
+group_by = ["aws.cloudtrail.request_id"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.created_at",
+    "@timestamp",
     "event.action",
-    "Esql.directory",
-    "Esql.tenant",
-    "Esql_priv.actor",
     "aws.cloudtrail.request_id",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.flattened.request_parameters.directoryId",
+    "aws.cloudtrail.flattened.request_parameters.identityStoreId",
+    "aws.cloudtrail.flattened.request_parameters.tenantId",
+    "aws.cloudtrail.flattened.request_parameters.provisioningTenantId",
     "source.ip",
 ]
 

@@ -13,9 +13,8 @@ Detects the assignment requirement being disabled on an IAM Identity Center appl
 token being minted through that application. When assignmentRequired is true, only users and groups explicitly assigned
 to the application may use it. Setting it to false removes that gate, so every identity in the Identity Store becomes
 eligible, and the application's own entitlements apply to all of them. Pairing the configuration change with subsequent
-token issuance establishes that the widened application was actually used rather than merely reconfigured. The causal
-ordering is resolved per token, so the reported interval between the change and each token is always the true elapsed
-time, and an application whose assignment requirement was re-enabled before the token was minted does not match.
+token issuance establishes that the widened application was actually used rather than merely reconfigured. An
+application whose assignment requirement was re-enabled before the token was minted does not match.
 """
 false_positives = [
     """
@@ -44,9 +43,8 @@ Detects the assignment requirement being disabled on an IAM Identity Center appl
 ### Possible investigation steps
 
 - Establish the blast radius. With the assignment requirement disabled, the application is no longer limited to its assigned users and groups; every identity in the Identity Store is eligible to use it. Whatever the application is entitled to reach therefore becomes reachable on behalf of any directory identity.
-- Compare `Esql_priv.configuration_actors_values` with `Esql_priv.token_callers_values`. The same operator doing both is consistent with someone widening an application in order to use it; a directory administrator disabling it while an unrelated workload mints tokens is more likely to be an onboarding change. Use `Esql.configuration_request_ids_values` and `Esql.token_request_ids_values` to recover the complete source events.
-- Check the interval. The reported minimum and maximum seconds between the change and each token show how tightly the two are coupled. Token issuance seconds after the change indicates the change was made in order to enable it.
-- Identify the identities the tokens were minted for. The alert reports the Identity Store subject of each token. Compare those subjects with the principals in the recovered token events to determine whether the widened application was used to act as other users.
+- Compare `Esql_priv.configuration_actor` with `Esql_priv.token_caller`. The same operator doing both is consistent with someone widening an application in order to use it; a directory administrator disabling it while an unrelated workload mints tokens is more likely to be an onboarding change. Use the configuration and token request IDs to recover the complete source events.
+- Identify the identity the token was minted for. Compare the reported Identity Store subject with the principals in the recovered token event to determine whether the widened application was used to act as another user.
 - Trace the downstream access. Pivot from the application ARN and each token subject to `GetRoleCredentials` and the subsequent role sessions to determine what the tokens reached.
 
 ### False positive analysis
@@ -101,13 +99,11 @@ FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
     (event.provider == "sso.amazonaws.com" AND event.action == "PutApplicationAssignmentConfiguration")
     OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM"))
-| EVAL Esql.gk_application_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"),
-    Esql.gk_client_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "clientId"),
-    Esql.gk_assignment_required = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "assignmentRequired"),
-    Esql.gk_additional_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitystore:UserId")
-| EVAL Esql.app = COALESCE(Esql.gk_application_arn, Esql.gk_client_id),
-    Esql.assignment_required = Esql.gk_assignment_required,
-    Esql.subject = Esql.gk_additional_user_id,
+| EVAL Esql.app = COALESCE(
+        FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"),
+        FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "clientId")),
+    Esql.assignment_required = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "assignmentRequired"),
+    Esql.subject = FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitystore:UserId"),
     Esql_priv.actor = COALESCE(
         aws.cloudtrail.user_identity.session_context.session_issuer.arn,
         aws.cloudtrail.user_identity.arn)
@@ -115,64 +111,41 @@ FROM logs-aws.cloudtrail-*
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "false", "opened",
     event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "true", "closed",
     event.action == "CreateTokenWithIAM", "token", "ignore")
-| EVAL Esql.serial_actor = CASE(
-        Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+", Esql_priv.actor, "unknown"),
-    Esql.serial_request = CASE(
-        aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-        aws.cloudtrail.request_id, "unknown"),
-    Esql.serial_subject = CASE(
-        Esql.subject RLIKE "[-A-Za-z0-9+=,.@_:/]+", Esql.subject, "none"),
-    Esql.serial_account = CASE(
-        cloud.account.id RLIKE "[-A-Za-z0-9+=,.@_:/]+", cloud.account.id, "none")
 | EVAL Esql.cfg_record = CASE(
       Esql.stage IN ("opened", "closed")
-        AND Esql.app RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-      CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.stage, "~", Esql.app, "~",
-        Esql.serial_request, "~", Esql.serial_actor)),
+        AND Esql.app IS NOT NULL
+        AND aws.cloudtrail.request_id IS NOT NULL,
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.stage, "~",
+        aws.cloudtrail.request_id, "~", COALESCE(Esql_priv.actor, "unknown"))),
     Esql.token_record = CASE(
       Esql.stage == "token"
-        AND Esql.app RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-      CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.serial_account, "~",
-        Esql.serial_request, "~", Esql.serial_subject, "~", Esql.serial_actor))
+        AND Esql.app IS NOT NULL
+        AND aws.cloudtrail.request_id IS NOT NULL,
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", aws.cloudtrail.request_id, "~",
+        COALESCE(Esql.subject, "none"), "~", COALESCE(Esql_priv.actor, "unknown")))
 | STATS Esql.cfg_history_values = VALUES(Esql.cfg_record),
     Esql.token_values = VALUES(Esql.token_record)
     BY Esql.app
 | MV_EXPAND Esql.token_values
-| DISSECT Esql.token_values "%{Esql.t_ms}~%{Esql.t_account_id}~%{Esql.t_request_id}~%{Esql.t_subject}~%{Esql_priv.t_caller}"
+| DISSECT Esql.token_values "%{Esql.t_ms}~%{aws.cloudtrail.request_id}~%{Esql.t_subject}~%{Esql_priv.token_caller}"
 | EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.t_ms)),
-    cloud.account.id = CASE(Esql.t_account_id != "none", Esql.t_account_id),
-    aws.cloudtrail.request_id = Esql.t_request_id,
     Esql.subject = CASE(Esql.t_subject != "none", Esql.t_subject)
 | MV_EXPAND Esql.cfg_history_values
-| DISSECT Esql.cfg_history_values "%{Esql.c_ms}~%{Esql.c_stage}~%{Esql.c_app}~%{Esql.c_request_id}~%{Esql_priv.c_actor}"
+| DISSECT Esql.cfg_history_values "%{Esql.c_ms}~%{Esql.c_stage}~%{Esql.c_request_id}~%{Esql_priv.c_actor}"
 | EVAL Esql.c_time = TO_DATETIME(TO_LONG(Esql.c_ms))
-| WHERE Esql.c_app == Esql.app AND Esql.c_time < @timestamp
+| WHERE Esql.c_time < @timestamp
 | STATS Esql.opened_at = MAX(CASE(Esql.c_stage == "opened", Esql.c_time)),
     Esql.opened_record = MAX(CASE(Esql.c_stage == "opened", Esql.cfg_history_values)),
     Esql.closed_at = MAX(CASE(Esql.c_stage == "closed", Esql.c_time))
     BY Esql.app,
-    cloud.account.id,
-    Esql.token_at = @timestamp,
     aws.cloudtrail.request_id,
+    @timestamp,
     Esql.subject,
-    Esql_priv.t_caller
+    Esql_priv.token_caller
 | WHERE Esql.opened_at IS NOT NULL AND (Esql.closed_at IS NULL OR Esql.closed_at < Esql.opened_at)
-| DISSECT Esql.opened_record "%{Esql.o_ms}~%{Esql.o_stage}~%{Esql.o_app}~%{Esql.configuration_request_id}~%{Esql_priv.configuration_actor}"
-| EVAL Esql.gap = DATE_DIFF("seconds", Esql.opened_at, Esql.token_at)
-| STATS Esql.assignment_disabled_at = MIN(Esql.opened_at),
-    Esql.first_token_at = MIN(Esql.token_at),
-    Esql.last_token_at = MAX(Esql.token_at),
-    Esql.tokens_count = COUNT(*),
-    Esql.min_seconds_open_before_token = MIN(Esql.gap),
-    Esql.max_seconds_open_before_token = MAX(Esql.gap),
-    Esql.token_subjects_values = VALUES(Esql.subject),
-    Esql.configuration_request_ids_values = VALUES(Esql.configuration_request_id),
-    Esql.token_request_ids_values = VALUES(aws.cloudtrail.request_id),
-    Esql_priv.configuration_actors_values = VALUES(Esql_priv.configuration_actor),
-    Esql_priv.token_callers_values = VALUES(Esql_priv.t_caller),
-    Esql.cloud_account_ids_values = VALUES(cloud.account.id)
-    BY Esql.app
-| KEEP Esql.*, Esql_priv.*
+| DISSECT Esql.opened_record "%{Esql.o_ms}~%{Esql.o_stage}~%{Esql.configuration_request_id}~%{Esql_priv.configuration_actor}"
+| KEEP @timestamp, aws.cloudtrail.request_id, Esql.app, Esql.subject, Esql.opened_at,
+    Esql.configuration_request_id, Esql_priv.configuration_actor, Esql_priv.token_caller
 '''
 
 
@@ -200,18 +173,14 @@ missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
     "Esql.app",
-    "Esql.assignment_disabled_at",
-    "Esql.first_token_at",
-    "Esql.tokens_count",
-    "Esql.min_seconds_open_before_token",
-    "Esql.max_seconds_open_before_token",
-    "Esql.token_subjects_values",
-    "Esql.configuration_request_ids_values",
-    "Esql.token_request_ids_values",
-    "Esql_priv.configuration_actors_values",
-    "Esql_priv.token_callers_values",
-    "Esql.cloud_account_ids_values",
+    "Esql.subject",
+    "Esql.opened_at",
+    "Esql.configuration_request_id",
+    "Esql_priv.configuration_actor",
+    "Esql_priv.token_caller",
 ]
 
 [rule.alert_suppression.duration]

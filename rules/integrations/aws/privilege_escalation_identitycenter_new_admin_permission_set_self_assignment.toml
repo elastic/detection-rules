@@ -36,7 +36,7 @@ Detects one AWS credential attaching the exact AWS AdministratorAccess managed p
 ### Possible investigation steps
 
 - The same access key must attach AdministratorAccess and submit the self-assignment. Review the permission-set ARN, target account, principal ID, actor identity-store ARN and source request IDs. Correlate the immutable onBehalfOf identity with the Identity Center instance; do not infer the user from a role-session name.
-- Aggregated alerts do not retain each event's `user.name` or `user_agent.original`. Inspect the source CloudTrail events for `aws.cloudtrail.request_id` and `Esql.source_request_ids_values` to recover those values.
+- Inspect the source CloudTrail events for the assignment request ID and permission-set ARN to recover complete actor and request context.
 - A successful CreateAccountAssignment can return IN_PROGRESS. Check DescribeAccountAssignmentCreationStatus and the member-account role before concluding that access became usable. This read operation can omit its response from CloudTrail, so the detection deliberately ends at the accepted assignment request. SCPs, permissions boundaries and explicit Deny policies can constrain the attached administrator policy.
 
 ### False positive analysis
@@ -99,95 +99,56 @@ FROM logs-aws.cloudtrail-*
     Esql.gk_principal_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalType"),
     Esql.gk_target_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetId"),
     Esql.gk_target_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetType"),
-    Esql.gk_assignment_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status")
-| EVAL Esql.permission_set_arn = Esql.gk_permission_set_arn,
-    Esql.policy_arn = Esql.gk_managed_policy_arn,
-    Esql.principal_id = Esql.gk_principal_id,
-    Esql.principal_type = Esql.gk_principal_type,
-    Esql.target_account = Esql.gk_target_id,
-    Esql.target_type = Esql.gk_target_type,
-    Esql.assignment_status = Esql.gk_assignment_status
+    Esql.assignment_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status")
 | EVAL Esql.stage = CASE(
-    event.action == "AttachManagedPolicyToPermissionSet" AND Esql.policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "admin",
-    event.action == "DetachManagedPolicyFromPermissionSet" AND Esql.policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "detach",
+    event.action == "AttachManagedPolicyToPermissionSet" AND Esql.gk_managed_policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "admin",
+    event.action == "DetachManagedPolicyFromPermissionSet" AND Esql.gk_managed_policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "detach",
     event.action == "CreateAccountAssignment", "assign", "ignore")
 | EVAL Esql.record = CASE(Esql.stage IN ("admin", "detach"),
-        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|",
+        CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|",
             COALESCE(aws.cloudtrail.user_identity.access_key_id, "unknown"))),
     Esql.assignment_record = CASE(Esql.stage == "assign"
         AND aws.cloudtrail.user_identity.access_key_id IS NOT NULL
-        AND Esql.permission_set_arn IS NOT NULL
-        AND Esql.target_type == "AWS_ACCOUNT"
-        AND Esql.target_account IS NOT NULL
-        AND Esql.principal_id IS NOT NULL
+        AND Esql.gk_permission_set_arn IS NOT NULL
+        AND Esql.gk_target_type == "AWS_ACCOUNT"
+        AND Esql.gk_target_id IS NOT NULL
+        AND Esql.gk_principal_id IS NOT NULL
         AND Esql.assignment_status IN ("IN_PROGRESS", "SUCCEEDED")
-        AND Esql.principal_type == "USER"
+        AND Esql.gk_principal_type == "USER"
         AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NOT NULL
         AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL
-        AND Esql.principal_id == aws.cloudtrail.user_identity.on_behalf_of.user_id,
+        AND Esql.gk_principal_id == aws.cloudtrail.user_identity.on_behalf_of.user_id,
         CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|",
-            aws.cloudtrail.user_identity.access_key_id, "|", Esql.target_account, "|", Esql.principal_id, "|",
-            COALESCE(aws.cloudtrail.user_identity.arn, "none"), "|",
-            aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "|",
-            COALESCE(TO_STRING(source.ip), "none"), "|", COALESCE(cloud.region, "none"), "|",
-            COALESCE(cloud.account.id, "none")))
+            aws.cloudtrail.user_identity.access_key_id, "|", Esql.gk_target_id, "|", Esql.gk_principal_id, "|",
+            aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn))
 | STATS Esql.ps_history_values = VALUES(Esql.record),
     Esql.assignment_values = VALUES(Esql.assignment_record)
     BY aws.cloudtrail.recipient_account_id,
-    Esql.permission_set_arn
+    Esql.permission_set_arn = Esql.gk_permission_set_arn
 | MV_EXPAND Esql.assignment_values
-| DISSECT Esql.assignment_values "%{Esql.assignment_ms}|%{Esql.assignment_request}|%{Esql.assignment_access_key}|%{Esql.assignment_account}|%{Esql.assignment_principal}|%{Esql_priv.assignment_actor_arn}|%{Esql.assignment_store}|%{Esql.assignment_source_ip}|%{Esql.assignment_region}|%{Esql.assignment_cloud_account}"
+| DISSECT Esql.assignment_values "%{Esql.assignment_ms}|%{aws.cloudtrail.request_id}|%{aws.cloudtrail.user_identity.access_key_id}|%{Esql.target_account}|%{Esql.principal_id}|%{Esql.identity_store_arn}"
 | EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.assignment_ms)),
-    aws.cloudtrail.request_id = Esql.assignment_request,
-    aws.cloudtrail.user_identity.access_key_id = Esql.assignment_access_key,
-    Esql.target_account = Esql.assignment_account,
-    Esql.principal_id = Esql.assignment_principal,
-    Esql.principal_type = "USER",
-    aws.cloudtrail.user_identity.arn = CASE(Esql_priv.assignment_actor_arn != "none", Esql_priv.assignment_actor_arn),
-    aws.cloudtrail.user_identity.on_behalf_of.user_id = Esql.assignment_principal,
-    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn = Esql.assignment_store,
-    source.ip = CASE(Esql.assignment_source_ip != "none", TO_IP(Esql.assignment_source_ip)),
-    cloud.region = CASE(Esql.assignment_region != "none", Esql.assignment_region),
-    cloud.account.id = CASE(Esql.assignment_cloud_account != "none", Esql.assignment_cloud_account),
-    event.outcome = "success",
-    event.action = "CreateAccountAssignment",
-    event.provider = "sso.amazonaws.com"
+    Esql.principal_type = "USER"
 | MV_EXPAND Esql.ps_history_values
-| DISSECT Esql.ps_history_values "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.change_stage}|%{Esql.change_key}"
+| DISSECT Esql.ps_history_values "%{Esql.change_ms}|%{Esql.change_stage}|%{Esql.change_key}"
 | EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms))
 | WHERE Esql.change_time < @timestamp AND Esql.change_time >= @timestamp - 30 minutes
 | STATS Esql.admin_attached_at = MAX(CASE(Esql.change_stage == "admin" AND Esql.change_key == aws.cloudtrail.user_identity.access_key_id, Esql.change_time)),
-    Esql.admin_detached_at = MAX(CASE(Esql.change_stage == "detach", Esql.change_time)),
-    Esql.source_request_ids_values = VALUES(Esql.change_request),
-    Esql_priv.actor_arns_values = VALUES(aws.cloudtrail.user_identity.arn),
-    Esql.actor_user_ids_values = VALUES(aws.cloudtrail.user_identity.on_behalf_of.user_id),
-    Esql.actor_identity_stores_values = VALUES(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn),
-    Esql.source_ip_values = VALUES(source.ip)
+    Esql.admin_detached_at = MAX(CASE(Esql.change_stage == "detach", Esql.change_time))
     BY aws.cloudtrail.recipient_account_id,
     aws.cloudtrail.user_identity.access_key_id,
     Esql.permission_set_arn,
     Esql.target_account,
     Esql.principal_id,
     Esql.principal_type,
+    Esql.identity_store_arn,
     aws.cloudtrail.request_id,
-    @timestamp,
-    cloud.region,
-    event.outcome,
-    event.action,
-    event.provider,
-    cloud.account.id
+    @timestamp
 | WHERE Esql.admin_attached_at IS NOT NULL
-    AND Esql.admin_attached_at < @timestamp
     AND (Esql.admin_detached_at IS NULL OR Esql.admin_detached_at < Esql.admin_attached_at)
-| KEEP Esql.*,
-    Esql_priv.*,
-    @timestamp,
-    aws.cloudtrail.*,
-    cloud.region,
-    event.outcome,
-    event.action,
-    event.provider,
-    cloud.account.id
+| KEEP @timestamp, aws.cloudtrail.request_id, aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id, Esql.permission_set_arn, Esql.target_account,
+    Esql.principal_id, Esql.identity_store_arn, Esql.admin_attached_at
 '''
 
 
@@ -222,11 +183,8 @@ field_names = [
     "Esql.permission_set_arn",
     "Esql.target_account",
     "Esql.principal_id",
-    "Esql_priv.actor_arns_values",
-    "Esql.actor_user_ids_values",
-    "Esql.actor_identity_stores_values",
+    "Esql.identity_store_arn",
     "Esql.admin_attached_at",
-    "Esql.source_request_ids_values",
 ]
 
 [rule.alert_suppression.duration]

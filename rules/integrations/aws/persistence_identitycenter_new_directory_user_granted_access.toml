@@ -35,7 +35,7 @@ Detects an Identity Store user being created and then assigned access to an AWS 
 
 - Start with the acting principal, reported as the actor on both stages. The rule requires the same principal to create the user and grant the access, so the question is whether that identity is an onboarding automation, a human administrator, or something that should not be administering the directory at all. If it is automation, this is almost certainly routine and the principal should be excluded by name.
 - Look at how the access was granted. This rule matches direct user assignments, not group membership. Most organizations onboard through groups, so a direct per-user assignment to a brand new identity is already unusual and is the quieter path for an intruder, because per-user assignments are reviewed far less often than group entitlements.
-- Check what the permission set grants. The alert reports the permission set ARN and the target account but does not evaluate the policies attached to it. Resolve it with `aws sso-admin describe-permission-set` and `list-managed-policies-in-permission-set`; an administrator or broadly scoped permission set makes this urgent, a narrowly scoped one makes it ordinary onboarding.
+- Check what the permission set grants. Resolve the permission-set ARN with `aws sso-admin describe-permission-set` and `list-managed-policies-in-permission-set`; an administrator or broadly scoped permission set makes this urgent, a narrowly scoped one makes it ordinary onboarding.
 - Confirm the user against the joiner record. The created user's display name, emails and name are masked in CloudTrail as `HIDDEN_DUE_TO_SECURITY_REASONS`, so the user id is the only identifier in the event. Resolve it with `aws identitystore describe-user --user-id` and check it against HR or the ticket that should have requested the account.
 - Check for what followed. A backdoor identity is created to be used. Look for `GetRoleCredentials` or portal authentication for that user id after the grant, and for other rules in this set firing on the same subject.
 
@@ -93,74 +93,44 @@ FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
     (event.provider IN ("identitystore.amazonaws.com", "sso-directory.amazonaws.com") AND event.action == "CreateUser")
     OR (event.provider == "sso.amazonaws.com" AND event.action == "CreateAccountAssignment"))
-| EVAL Esql.gk_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "userId"),
-    Esql.gk_nested_user_id = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.userId"),
-    Esql.gk_principal_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalId"),
-    Esql.gk_principal_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalType"),
-    Esql.gk_permission_set_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
-    Esql.gk_target_id = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetId"),
-    Esql.gk_target_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetType"),
-    Esql.gk_assignment_creation_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status")
-| EVAL Esql.created_user = COALESCE( Esql.gk_user_id, Esql.gk_nested_user_id),
-    Esql.principal = Esql.gk_principal_id,
-    Esql.principal_type = Esql.gk_principal_type,
-    Esql.permission_set = Esql.gk_permission_set_arn,
-    Esql.target_account = Esql.gk_target_id,
+| EVAL Esql.created_user = COALESCE(
+        FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "userId"),
+        FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.userId")),
+    Esql.principal = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalId"),
+    Esql.principal_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "principalType"),
+    Esql.permission_set = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.target_account = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetId"),
+    Esql.target_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "targetType"),
+    Esql.assignment_status = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "accountAssignmentCreationStatus.status"),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
-| EVAL Esql.stage = CASE(
-    event.action == "CreateUser" AND Esql.created_user IS NOT NULL, "created",
-    event.action == "CreateAccountAssignment" AND Esql.principal_type == "USER"
-    AND Esql.gk_target_type == "AWS_ACCOUNT"
-    AND Esql.gk_assignment_creation_status IN ("IN_PROGRESS", "SUCCEEDED"), "granted",
-    "ignore")
 | EVAL Esql.correlation_user = COALESCE(Esql.created_user, Esql.principal),
-    Esql.creation_record = CASE(Esql.stage == "created",
-        CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.created_user)),
-    Esql.grant_record = CASE(Esql.stage == "granted" AND Esql.principal IS NOT NULL,
+    Esql.creation_record = CASE(
+        event.action == "CreateUser" AND Esql.created_user IS NOT NULL,
+        TO_STRING(TO_LONG(@timestamp))),
+    Esql.grant_record = CASE(
+        event.action == "CreateAccountAssignment"
+            AND Esql.principal IS NOT NULL
+            AND Esql.principal_type == "USER"
+            AND Esql.target_type == "AWS_ACCOUNT"
+            AND Esql.assignment_status IN ("IN_PROGRESS", "SUCCEEDED"),
         CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.permission_set, "~", Esql.target_account, "~",
-            aws.cloudtrail.request_id, "~", COALESCE(cloud.account.id, "none"), "~",
-            COALESCE(cloud.region, "none"), "~", event.outcome, "~", event.action, "~", event.provider))
+            aws.cloudtrail.request_id))
 | STATS Esql.creations_values = VALUES(Esql.creation_record),
     Esql.grants_values = VALUES(Esql.grant_record)
     BY Esql.correlation_user,
     Esql_priv.actor
 | MV_EXPAND Esql.grants_values
-| DISSECT Esql.grants_values "%{Esql.g_ms}~%{Esql.g_permission_set}~%{Esql.g_target_account}~%{Esql.g_request_id}~%{Esql.g_account_id}~%{Esql.g_region}~%{Esql.g_outcome}~%{Esql.g_action}~%{Esql.g_provider}"
+| DISSECT Esql.grants_values "%{Esql.g_ms}~%{Esql.permission_set}~%{Esql.target_account}~%{aws.cloudtrail.request_id}"
 | EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.g_ms)),
-    Esql.principal = Esql.correlation_user,
-    Esql.permission_set = Esql.g_permission_set,
-    Esql.target_account = Esql.g_target_account,
-    aws.cloudtrail.request_id = Esql.g_request_id,
-    cloud.account.id = CASE(Esql.g_account_id != "none", Esql.g_account_id),
-    cloud.region = CASE(Esql.g_region != "none", Esql.g_region),
-    event.outcome = Esql.g_outcome,
-    event.action = Esql.g_action,
-    event.provider = Esql.g_provider
+    Esql.principal = Esql.correlation_user
 | MV_EXPAND Esql.creations_values
-| DISSECT Esql.creations_values "%{Esql.c_ms}~%{Esql.c_user}"
-| EVAL Esql.c_time = TO_DATETIME(TO_LONG(Esql.c_ms))
-| WHERE Esql.c_user == Esql.principal AND Esql.c_time < @timestamp AND Esql_priv.actor != "unknown"
-| STATS Esql.created_at = MAX(Esql.c_time)
-    BY Esql.granted_at = @timestamp,
-    Esql.principal,
-    Esql_priv.actor,
-    Esql.permission_set,
-    Esql.target_account,
-    aws.cloudtrail.request_id,
-    cloud.account.id,
-    cloud.region,
-    event.outcome,
-    event.action,
-    event.provider
-| EVAL Esql.seconds_from_creation_to_grant = DATE_DIFF("seconds", Esql.created_at, Esql.granted_at)
-| KEEP Esql.*,
-    Esql_priv.*,
-    aws.cloudtrail.request_id,
-    cloud.account.id,
-    cloud.region,
-    event.outcome,
-    event.action,
-    event.provider
+| EVAL Esql.created_at = TO_DATETIME(TO_LONG(Esql.creations_values))
+| WHERE Esql.created_at < @timestamp AND Esql_priv.actor != "unknown"
+| STATS Esql.created_at = MAX(Esql.created_at)
+    BY @timestamp, aws.cloudtrail.request_id, Esql.principal, Esql_priv.actor,
+    Esql.permission_set, Esql.target_account
+| KEEP @timestamp, aws.cloudtrail.request_id, Esql.principal, Esql_priv.actor,
+    Esql.permission_set, Esql.target_account, Esql.created_at
 '''
 
 
@@ -205,15 +175,13 @@ missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
+    "@timestamp",
     "aws.cloudtrail.request_id",
-    "cloud.account.id",
     "Esql.principal",
     "Esql_priv.actor",
     "Esql.permission_set",
     "Esql.target_account",
     "Esql.created_at",
-    "Esql.granted_at",
-    "Esql.seconds_from_creation_to_grant",
 ]
 
 [rule.alert_suppression.duration]

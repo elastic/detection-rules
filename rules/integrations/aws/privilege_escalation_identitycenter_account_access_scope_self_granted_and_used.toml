@@ -36,7 +36,7 @@ Detects an IAM Identity Center user enabling the sso:account:access scope on an 
 
 ### Possible investigation steps
 
-- Inspect the application ARN, the enabling actor, the token subject and the retrieved target account and role. The rule requires that the `sso:account:access` scope was enabled by an identity whose `on_behalf_of.user_id` equals the subject the token was later issued for; scope changes made by a different administrator are treated as ordinary onboarding and are not matched. The alert intentionally retains correlation fields rather than arbitrary event-level values; use `Esql.scope_requests_values`, `Esql.token_request` and `aws.cloudtrail.request_id` to recover source IP, user agent and full actor context from the original CloudTrail events.
+- Inspect the application ARN, token subject, and retrieved target account and role. The rule requires that the `sso:account:access` scope was enabled by an identity whose `on_behalf_of.user_id` equals the subject the token was later issued for; scope changes made by a different administrator are treated as ordinary onboarding and are not matched. Use `Esql.token_request` and `aws.cloudtrail.request_id` to recover the token and role-credential events.
 - Token-to-credential linkage is exact rather than inferred. The Identity Center credential ID is read from `additional_eventdata` on `CreateTokenWithIAM` and matched to `user_identity.credential_id` on `GetRoleCredentials`, so the alert names the specific token that produced the AWS credentials.
 - Confirm whether the same principal is expected to administer application scope and consume its tokens. Separation of those two roles is the control this behavior removes. A prior `DeleteApplicationAccessScope` immediately before the self-enablement is a strong signal that an administrator had deliberately closed the scope.
 - Review the target account and permission-set role from `service_event_details`. Successful credential retrieval does not by itself prove downstream access; pivot to activity performed under that role session.
@@ -100,22 +100,22 @@ FROM logs-aws.cloudtrail-*
     Esql.scope_val = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "scope"), ","),
     Esql.subject = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitystore:UserId"), aws.cloudtrail.user_identity.on_behalf_of.user_id),
     Esql_priv.credential = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitycenter:CredentialId"), aws.cloudtrail.user_identity.credential_id),
-    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn)
+    Esql.target_account_raw = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "account_id"),
+    Esql.role_name_raw = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "role_name")
 | EVAL Esql.stage = CASE(
     event.action == "PutApplicationAccessScope" AND Esql.scope_val == "sso:account:access", "scope_on",
-    event.action IN ("DeleteApplicationAccessScope", "DeleteApplication"), "scope_off",
+    event.action == "DeleteApplicationAccessScope" AND Esql.scope_val == "sso:account:access", "scope_off",
+    event.action == "DeleteApplication", "scope_off",
     event.action == "CreateTokenWithIAM" AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType") == "urn:ietf:params:oauth:grant-type:jwt-bearer"
     AND Esql.scope_val LIKE "*sso:account:access*" AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "tokenType") == "Bearer", "token",
     event.action == "GetRoleCredentials", "use", "ignore")
-| EVAL Esql.scope_actor = CASE(Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+", Esql_priv.actor, "unknown"),
-    Esql.scope_subject = CASE(aws.cloudtrail.user_identity.on_behalf_of.user_id RLIKE "[-A-Za-z0-9+=,.@_:/]+", aws.cloudtrail.user_identity.on_behalf_of.user_id, "unknown"),
-    Esql.target_account_raw = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "account_id"),
-    Esql.role_name_raw = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "role_name")
 | EVAL Esql.scope_record = CASE(
     Esql.stage IN ("scope_on", "scope_off")
       AND Esql.app RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.app, "|", Esql.scope_actor, "|", Esql.scope_subject)),
+      AND (Esql.stage == "scope_off"
+        OR aws.cloudtrail.user_identity.on_behalf_of.user_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|", Esql.app, "|",
+      CASE(Esql.stage == "scope_on", aws.cloudtrail.user_identity.on_behalf_of.user_id, "-"))),
     Esql.token_record = CASE(
       Esql.stage == "token"
         AND Esql.app RLIKE "[-A-Za-z0-9+=,.@_:/]+"
@@ -143,16 +143,13 @@ FROM logs-aws.cloudtrail-*
     AND Esql.token_time <= Esql.use_time
     AND Esql.token_time >= Esql.use_time - 30 minutes
 | MV_EXPAND Esql.scope_history_values
-| DISSECT Esql.scope_history_values "%{Esql.sc_ms}|%{Esql.sc_request}|%{Esql.sc_stage}|%{Esql.sc_app}|%{Esql_priv.sc_actor}|%{Esql.sc_subject}"
+| DISSECT Esql.scope_history_values "%{Esql.sc_ms}|%{Esql.sc_stage}|%{Esql.sc_app}|%{Esql.sc_subject}"
 | EVAL Esql.sc_time = TO_DATETIME(TO_LONG(Esql.sc_ms))
 | WHERE Esql.sc_app == Esql.token_app
     AND Esql.sc_time < Esql.token_time
     AND Esql.sc_time >= Esql.use_time - 30 minutes
-| STATS Esql.scope_enabled_at = MAX(CASE(Esql.sc_stage == "scope_on", Esql.sc_time)),
-    Esql.scope_removed_at = MAX(CASE(Esql.sc_stage == "scope_off", Esql.sc_time)),
-    Esql.self_enabled_at = MAX(CASE(Esql.sc_stage == "scope_on" AND Esql.sc_subject == Esql.token_subject, Esql.sc_time)),
-    Esql_priv.scope_actors_values = VALUES(Esql_priv.sc_actor),
-    Esql.scope_requests_values = VALUES(Esql.sc_request)
+| STATS Esql.scope_removed_at = MAX(CASE(Esql.sc_stage == "scope_off", Esql.sc_time)),
+    Esql.self_enabled_at = MAX(CASE(Esql.sc_stage == "scope_on" AND Esql.sc_subject == Esql.token_subject, Esql.sc_time))
     BY Esql.token_app,
     Esql.token_subject,
     Esql_priv.credential,
@@ -166,7 +163,9 @@ FROM logs-aws.cloudtrail-*
     AND (Esql.scope_removed_at IS NULL OR Esql.scope_removed_at < Esql.self_enabled_at)
 | EVAL @timestamp = Esql.use_time,
     aws.cloudtrail.request_id = Esql.use_request
-| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*
+| KEEP @timestamp, aws.cloudtrail.request_id, Esql.token_app, Esql.token_subject,
+    Esql_priv.credential, Esql.target_account, Esql.role_name, Esql.self_enabled_at,
+    Esql.token_request
 '''
 
 
@@ -202,8 +201,6 @@ field_names = [
     "Esql.target_account",
     "Esql.role_name",
     "Esql.self_enabled_at",
-    "Esql_priv.scope_actors_values",
-    "Esql.scope_requests_values",
     "Esql.token_request",
 ]
 

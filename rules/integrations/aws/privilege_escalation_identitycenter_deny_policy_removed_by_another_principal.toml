@@ -43,7 +43,7 @@ Detects an inline policy containing an explicit Deny statement being removed fro
 - Read the permission set, the principal that set the Deny, the principal that removed it, and the Deny lifetime. The rule only fires when those two principals differ, because a policy set and removed by the same operator is ordinarily authoring rather than a control being lifted.
 - Recover the removed document from the preceding `PutInlinePolicyToPermissionSet` on the same permission set. The rule requires an `Effect` of `Deny` to be present, matched with tolerance for whitespace around the JSON colon, but it does not evaluate which actions or resources were denied. Read the document to establish what the Deny actually restricted before concluding privileges expanded.
 - Confirm the provisioning timestamp. Removing an inline policy from a permission set changes the definition; provisioning is what rewrites the `AWSReservedSSO_*` role in each assigned account. The alert requires provisioning after the removal, so the change has reached the accounts. A Deny re-added after removal but before provisioning cancels the signal because the guardrail was restored before the reserved roles were rewritten.
-- Aggregated alerts retain correlation fields rather than arbitrary event-level values. Use `aws.cloudtrail.request_id` for the removal and `Esql.source_request_ids_values` for the Deny-setting and provisioning events to recover source IP, user agent and actor context from the original CloudTrail records.
+- Use `aws.cloudtrail.request_id` to recover the removal event. The alert also retains the Deny setter, remover, and provisioning time.
 - Identify every account and principal assigned to the permission set. All of them gained whatever the Deny previously withheld.
 - This rule detects removal of an inline Deny only. Detaching a managed policy that carried a Deny, or removing a permissions boundary, are separate paths; the boundary path is covered by the dedicated own-boundary rule.
 
@@ -102,20 +102,19 @@ FROM logs-aws.cloudtrail-*
     AND event.outcome == "success"
     AND event.action IN ("PutInlinePolicyToPermissionSet", "DeleteInlinePolicyFromPermissionSet", "ProvisionPermissionSet")
 | EVAL Esql.ps = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
-    Esql.document = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "inlinePolicy"),
     Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn)
-| EVAL Esql.restricting = Esql.document RLIKE """.*\"Effect\" *: *\"Deny\".*"""
 | EVAL Esql.stage = CASE(
-    event.action == "PutInlinePolicyToPermissionSet" AND Esql.restricting, "restrict",
+    event.action == "PutInlinePolicyToPermissionSet"
+      AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "inlinePolicy") RLIKE """.*\"Effect\" *: *\"Deny\".*""",
+      "restrict",
     event.action == "PutInlinePolicyToPermissionSet", "replace",
     event.action == "DeleteInlinePolicyFromPermissionSet", "remove",
-    event.action == "ProvisionPermissionSet", "provision", "ignore")
+    "provision")
 | EVAL Esql.ps_record = CASE(
     Esql.stage IN ("restrict", "replace", "provision")
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
       AND (Esql.stage != "restrict" OR Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+"),
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|",
-      CASE(Esql.stage == "restrict", Esql_priv.actor, "none"))),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|",
+      CASE(Esql.stage == "restrict", Esql_priv.actor, "-"))),
     Esql.remove_record = CASE(
     Esql.stage == "remove"
       AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
@@ -126,45 +125,39 @@ FROM logs-aws.cloudtrail-*
     BY Esql.ps
 | MV_EXPAND Esql.remove_values
 | DISSECT Esql.remove_values "%{Esql.remove_ms}|%{Esql.remove_request}|%{Esql.removed_by}"
-| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.remove_ms)),
-    aws.cloudtrail.request_id = Esql.remove_request
 | MV_EXPAND Esql.ps_history_values
-| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_request}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
-| EVAL Esql.p_time = TO_DATETIME(TO_LONG(Esql.p_ms))
-| STATS Esql.deny_set_at = MAX(CASE(Esql.p_stage == "restrict" AND Esql.p_time < @timestamp, Esql.p_time)),
-    Esql.replaced_at = MAX(CASE(Esql.p_stage == "replace" AND Esql.p_time < @timestamp, Esql.p_time)),
-    Esql.provisioned_after_removal_at = MIN(CASE(Esql.p_stage == "provision" AND Esql.p_time > @timestamp, Esql.p_time)),
-    Esql.cancelled_after_removal_at = MIN(CASE(Esql.p_stage == "restrict" AND Esql.p_time > @timestamp, Esql.p_time)),
+| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
+| EVAL Esql.p_time = TO_DATETIME(TO_LONG(Esql.p_ms)),
+    Esql.removed_at = TO_DATETIME(TO_LONG(Esql.remove_ms))
+| STATS Esql.deny_set_at = MAX(CASE(Esql.p_stage == "restrict" AND Esql.p_time < Esql.removed_at, Esql.p_time)),
+    Esql.replaced_at = MAX(CASE(Esql.p_stage == "replace" AND Esql.p_time < Esql.removed_at, Esql.p_time)),
+    Esql.provisioned_at = MIN(CASE(Esql.p_stage == "provision" AND Esql.p_time > Esql.removed_at, Esql.p_time)),
+    Esql.restored_at = MIN(CASE(Esql.p_stage == "restrict" AND Esql.p_time > Esql.removed_at, Esql.p_time)),
     Esql.ps_history_values = VALUES(Esql.ps_history_values)
     BY Esql.ps,
-    aws.cloudtrail.request_id,
-    @timestamp,
+    Esql.remove_request,
+    Esql.removed_at,
     Esql.removed_by
 | WHERE Esql.deny_set_at IS NOT NULL
     AND (Esql.replaced_at IS NULL OR Esql.replaced_at < Esql.deny_set_at)
-    AND Esql.provisioned_after_removal_at IS NOT NULL
-    AND (Esql.cancelled_after_removal_at IS NULL OR Esql.provisioned_after_removal_at < Esql.cancelled_after_removal_at)
+    AND Esql.provisioned_at IS NOT NULL
+    AND (Esql.restored_at IS NULL OR Esql.provisioned_at < Esql.restored_at)
 | MV_EXPAND Esql.ps_history_values
-| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_request}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
+| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
 | EVAL Esql.p_time = TO_DATETIME(TO_LONG(Esql.p_ms))
-| WHERE (Esql.p_stage == "restrict" AND Esql.p_time == Esql.deny_set_at)
-    OR (Esql.p_stage == "provision" AND Esql.p_time == Esql.provisioned_after_removal_at)
-| STATS Esql_priv.deny_setters_values = VALUES(CASE(Esql.p_stage == "restrict", Esql_priv.p_actor)),
-    Esql.source_request_ids_values = VALUES(Esql.p_request)
+| WHERE Esql.p_stage == "restrict" AND Esql.p_time == Esql.deny_set_at
+| STATS Esql_priv.deny_setters_values = VALUES(Esql_priv.p_actor)
     BY Esql.ps,
-    aws.cloudtrail.request_id,
-    @timestamp,
+    Esql.remove_request,
+    Esql.removed_at,
     Esql.removed_by,
     Esql.deny_set_at,
-    Esql.replaced_at,
-    Esql.provisioned_after_removal_at,
-    Esql.cancelled_after_removal_at
+    Esql.provisioned_at
 | WHERE NOT MV_CONTAINS(Esql_priv.deny_setters_values, Esql.removed_by)
-| EVAL Esql.deny_lifetime_seconds = DATE_DIFF("seconds", Esql.deny_set_at, @timestamp)
-| KEEP Esql.*,
-    Esql_priv.*,
-    @timestamp,
-    aws.cloudtrail.request_id
+| EVAL @timestamp = Esql.removed_at,
+    aws.cloudtrail.request_id = Esql.remove_request
+| KEEP @timestamp, aws.cloudtrail.request_id, Esql.ps, Esql.removed_by,
+    Esql.deny_set_at, Esql.provisioned_at, Esql_priv.deny_setters_values
 '''
 
 
@@ -207,13 +200,10 @@ field_names = [
     "@timestamp",
     "aws.cloudtrail.request_id",
     "Esql.ps",
-    "Esql.deny_set_at",
-    "Esql.deny_lifetime_seconds",
-    "Esql.provisioned_after_removal_at",
-    "Esql.cancelled_after_removal_at",
     "Esql.removed_by",
     "Esql_priv.deny_setters_values",
-    "Esql.source_request_ids_values",
+    "Esql.deny_set_at",
+    "Esql.provisioned_at",
 ]
 
 [rule.alert_suppression.duration]

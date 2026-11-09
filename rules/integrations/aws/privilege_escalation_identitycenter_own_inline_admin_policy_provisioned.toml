@@ -35,10 +35,10 @@ Detects an IAM Identity Center permission-set session writing an unconditional a
 
 ### Possible investigation steps
 
-- Recover the `PutInlinePolicyToPermissionSet` that wrote the administrator inline policy and the subsequent `CreateUser`, using the source request IDs. Confirm the inline document is a single flat Allow on Action * and Resource *; JSON parsing rejects conditions, NotAction/NotResource and mixed statements, so a match means an unconditional administrator grant.
+- Recover the `PutInlinePolicyToPermissionSet` that wrote the administrator inline policy and the subsequent `CreateUser`, using `Esql.change_request` and `aws.cloudtrail.request_id`. Confirm the inline document is a single flat Allow on Action * and Resource *; JSON parsing rejects conditions, NotAction/NotResource and mixed statements, so a match means an unconditional administrator grant.
 - Confirm both actions share the same identity. The native session ARN, reserved-role issuer, onBehalfOf user and identity store must match, and both must land in the same recipient account; AWS forwarding can change the access-key ID, so attribution relies on the preserved identity tuple rather than the key. An administrator widening a permission set for someone else, who then creates the user, is a different scenario worth noting.
-- Aggregated alerts retain the correlation fields rather than arbitrary event-level values. Use `aws.cloudtrail.request_id` for the `CreateUser` event and `Esql.source_request_ids_values` for the inline-policy event to recover source IP, user agent and any additional context from the original CloudTrail records.
-- Review the created IAM user (`Esql_priv.target_user`) and whether access keys, a login profile or policies were attached to it afterward. The inline administrator policy on the permission set means the session already holds all-actions access; the new IAM user is standalone persistence outside the Identity Center model.
+- Use `aws.cloudtrail.request_id` for the `CreateUser` event and `Esql.change_request` for the inline-policy event to recover source IP, user agent and any additional context from the original CloudTrail records.
+- Review the created IAM user (`Esql.target_user`) and whether access keys, a login profile or policies were attached to it afterward. The inline administrator policy on the permission set means the session already holds all-actions access; the new IAM user is standalone persistence outside the Identity Center model.
 - Verify the actor's authority and any approved change record. Authorized emergency self-escalation or security testing can match. The 30-minute behavior window and AWS event-time ordering mean late or missing CloudTrail delivery can cause a missed detection; account for delivery latency when investigating.
 
 ### False positive analysis
@@ -97,84 +97,48 @@ FROM logs-aws.cloudtrail-*
       OR (event.provider == "iam.amazonaws.com" AND event.action == "CreateUser"))
 | EVAL Esql_priv.actor = aws.cloudtrail.user_identity.arn,
     Esql_priv.actor_role = aws.cloudtrail.user_identity.session_context.session_issuer.arn,
-    Esql.ps = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
-    Esql_priv.target_user = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.arn")
-| EVAL Esql.document = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "inlinePolicy")
+    Esql.permission_set = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.target_user = FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "user.arn"),
+    Esql.document = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "inlinePolicy"),
+    Esql.user_id = aws.cloudtrail.user_identity.on_behalf_of.user_id,
+    Esql.identity_store = aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn
 | EVAL Esql.statements = JSON_EXTRACT(Esql.document, "Statement")
-| EVAL Esql.statement = CASE(STARTS_WITH(Esql.statements, "["),
-    CASE(Esql.statements RLIKE "\\[ *\\{[^{}]*\\} *\\]", JSON_EXTRACT(Esql.statements, "[0]")),
-    CASE(Esql.statements RLIKE "\\{[^{}]*\\}", Esql.statements))
+| EVAL Esql.statement = CASE(
+    Esql.statements RLIKE "\\[ *\\{[^{}]*\\} *\\]", JSON_EXTRACT(Esql.statements, "[0]"),
+    Esql.statements RLIKE "\\{[^{}]*\\}", Esql.statements)
 | EVAL Esql.is_admin = JSON_EXTRACT(Esql.statement, "Effect") == "Allow"
     AND JSON_EXTRACT(Esql.statement, "Action") == "*"
     AND JSON_EXTRACT(Esql.statement, "Resource") == "*"
     AND NOT Esql.statement LIKE "*NotAction*"
     AND NOT Esql.statement LIKE "*NotResource*"
     AND NOT Esql.statement LIKE "*Condition*"
-| EVAL Esql.identity = CONCAT(COALESCE(Esql_priv.actor, "unknown"), "|", COALESCE(Esql_priv.actor_role, "unknown"), "|", COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id, "unknown"), "|", COALESCE(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "unknown"))
-| EVAL Esql.stage = CASE(
-    event.action == "PutInlinePolicyToPermissionSet" AND Esql.is_admin == true, "elevate",
-    event.action == "CreateUser", "use", "ignore")
-| EVAL Esql.elevate_record = CASE(
-    Esql.stage == "elevate"
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql.ps RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor_role RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.user_identity.on_behalf_of.user_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.ps, "|", Esql.identity)),
-    Esql.use_record = CASE(
-    Esql.stage == "use"
-      AND Esql_priv.target_user RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.user_identity.access_key_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.request_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor_role RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
-      AND aws.cloudtrail.user_identity.on_behalf_of.user_id RLIKE "[-A-Za-z0-9+=,.@_:/]+"
-      AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn RLIKE "[-A-Za-z0-9+=,.@_:/]+",
-    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.user_identity.access_key_id, "|",
-      aws.cloudtrail.request_id, "|", Esql_priv.actor, "|", Esql_priv.actor_role, "|",
-      aws.cloudtrail.user_identity.on_behalf_of.user_id, "|",
-      aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "|", Esql_priv.target_user))
-| STATS Esql.elevate_history_values = VALUES(Esql.elevate_record),
-    Esql.use_values = VALUES(Esql.use_record)
+| EVAL Esql.change = CASE(event.action == "PutInlinePolicyToPermissionSet" AND Esql.is_admin == true
+        AND Esql.permission_set IS NOT NULL AND Esql_priv.actor IS NOT NULL
+        AND Esql_priv.actor_role IS NOT NULL AND Esql.user_id IS NOT NULL AND Esql.identity_store IS NOT NULL,
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.permission_set, "|",
+        Esql_priv.actor, "|", Esql_priv.actor_role, "|", Esql.user_id, "|", Esql.identity_store)),
+    Esql.use = CASE(event.action == "CreateUser" AND Esql.target_user IS NOT NULL
+        AND Esql_priv.actor IS NOT NULL AND Esql.user_id IS NOT NULL AND Esql.identity_store IS NOT NULL
+        AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}",
+      CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.target_user, "|",
+        Esql_priv.actor, "|", Esql_priv.actor_role, "|", Esql.user_id, "|", Esql.identity_store))
+| STATS Esql.changes = VALUES(Esql.change), Esql.uses = VALUES(Esql.use)
     BY aws.cloudtrail.recipient_account_id
-| MV_EXPAND Esql.use_values
-| DISSECT Esql.use_values "%{Esql.use_ms}|%{Esql.use_access_key}|%{Esql.use_request}|%{Esql_priv.use_actor}|%{Esql_priv.use_actor_role}|%{Esql.use_user}|%{Esql.use_store}|%{Esql_priv.use_target_user}"
-| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.use_ms)),
-    aws.cloudtrail.user_identity.access_key_id = Esql.use_access_key,
-    aws.cloudtrail.request_id = Esql.use_request,
-    Esql_priv.actor = Esql_priv.use_actor,
-    Esql_priv.actor_role = Esql_priv.use_actor_role,
-    aws.cloudtrail.user_identity.on_behalf_of.user_id = Esql.use_user,
-    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn = Esql.use_store,
-    Esql_priv.target_user = Esql_priv.use_target_user
-| MV_EXPAND Esql.elevate_history_values
-| DISSECT Esql.elevate_history_values "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.permission_set_arn}|%{Esql_priv.change_actor}|%{Esql.change_issuer}|%{Esql.change_user}|%{Esql.change_store}"
-| EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms)),
-    Esql.same_changer = Esql_priv.change_actor == Esql_priv.actor
-    AND Esql.change_issuer == Esql_priv.actor_role
-    AND Esql.change_user == aws.cloudtrail.user_identity.on_behalf_of.user_id
-    AND Esql.change_store == aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn
-| WHERE Esql.change_time < @timestamp AND Esql.change_time >= @timestamp - 30 minutes AND Esql.same_changer == true
-| STATS Esql.elevated_at = MAX(Esql.change_time),
-    Esql.source_request_ids_values = VALUES(Esql.change_request)
-    BY aws.cloudtrail.recipient_account_id,
-    aws.cloudtrail.user_identity.access_key_id,
-    aws.cloudtrail.request_id,
-    @timestamp,
-    Esql_priv.actor,
-    Esql_priv.actor_role,
-    aws.cloudtrail.user_identity.on_behalf_of.user_id,
-    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn,
-    Esql.permission_set_arn,
-    Esql_priv.target_user
-| WHERE Esql.elevated_at IS NOT NULL AND Esql.elevated_at < @timestamp
-| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.recipient_account_id,
-    aws.cloudtrail.request_id, aws.cloudtrail.user_identity.access_key_id,
-    aws.cloudtrail.user_identity.on_behalf_of.user_id,
-    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn
+| MV_EXPAND Esql.uses
+| DISSECT Esql.uses "%{Esql.use_ms}|%{Esql.use_request}|%{Esql.target_user}|%{Esql_priv.actor}|%{Esql_priv.actor_role}|%{Esql.user_id}|%{Esql.identity_store}"
+| EVAL @timestamp = TO_DATETIME(TO_LONG(Esql.use_ms))
+| MV_EXPAND Esql.changes
+| DISSECT Esql.changes "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.permission_set_arn}|%{Esql_priv.change_actor}|%{Esql.change_role}|%{Esql.change_user}|%{Esql.change_store}"
+| EVAL Esql.changed_at = TO_DATETIME(TO_LONG(Esql.change_ms))
+| WHERE Esql.changed_at < @timestamp AND Esql.changed_at >= @timestamp - 30 minutes
+    AND Esql_priv.change_actor == Esql_priv.actor
+    AND Esql.change_role == Esql_priv.actor_role
+    AND Esql.change_user == Esql.user_id
+    AND Esql.change_store == Esql.identity_store
+| EVAL aws.cloudtrail.request_id = Esql.use_request
+| KEEP @timestamp, aws.cloudtrail.recipient_account_id, aws.cloudtrail.request_id,
+    Esql.permission_set_arn, Esql.target_user, Esql.changed_at, Esql.change_request,
+    Esql.user_id, Esql.identity_store, Esql_priv.actor, Esql_priv.actor_role
 '''
 
 
@@ -204,12 +168,11 @@ missing_fields_strategy = "doNotSuppress"
 field_names = [
     "@timestamp",
     "aws.cloudtrail.request_id",
-    "aws.cloudtrail.user_identity.access_key_id",
     "Esql.permission_set_arn",
     "Esql_priv.actor_role",
-    "Esql_priv.target_user",
-    "Esql.elevated_at",
-    "Esql.source_request_ids_values",
+    "Esql.target_user",
+    "Esql.changed_at",
+    "Esql.change_request",
 ]
 
 [rule.alert_suppression.duration]

@@ -2,8 +2,6 @@
 creation_date = "2026/09/10"
 integration = ["aws"]
 maturity = "production"
-min_stack_comments = "ES|QL FIELD_EXTRACT is in Technical Preview since 9.5, with no GA release. Verified on 9.6.0."
-min_stack_version = "9.6.0"
 updated_date = "2026/09/10"
 
 [rule]
@@ -14,19 +12,14 @@ configuration maps identity-source values into session tags which permission-set
 aws:PrincipalTag/<key>, so it decides what value every federated session presents to every policy condition built on
 those tags. Repointing an existing attribute at a different identity-source path changes the tag value for all sessions
 without altering a single policy document, which makes it a quiet way to satisfy a condition the actor should not
-satisfy. Because the change is instance-wide and rare, the rule reports every successful write and classifies it against
-the previous configuration when one is inside the lookback: attribute_redirected when the key set is unchanged but a
-source-set value changed, attribute_set_changed when keys were added or removed, and configuration_removed for a
-deletion. The query compares order-insensitive, fixed-width fingerprints of the current and preceding key and source
-sets; recover exact mappings from the source CloudTrail events. Reassociating existing sources among existing keys
-without changing either set is not distinguishable from no_change by these fingerprints.
+satisfy. Because the change is instance-wide and rare, the rule reports every successful write. Review the request
+parameters to determine which keys or identity-source paths changed.
 """
 false_positives = [
     """
     Initial onboarding of attribute-based access control produces a create followed by updates as the mapping is
-    refined, and appears as no_prior_configuration_in_window then attribute_set_changed. This is expected and
-    infrequent. Confirm the change appears in change management and that the source paths point at attributes your
-    identity provider actually supplies.
+    refined. This is expected and infrequent. Confirm the change appears in change management and that the source paths
+    point at attributes your identity provider actually supplies.
     """,
     """
     An organization that does not use attribute-based access control at all is unaffected in practice: with no
@@ -35,9 +28,10 @@ false_positives = [
     tag-conditioned policy.
     """,
 ]
-from = "now-125m"
+from = "now-15m"
+index = ["logs-aws.cloudtrail-*"]
 interval = "10m"
-language = "esql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Identity Center ABAC Attribute Mapping Changed"
 note = """## Triage and analysis
@@ -48,22 +42,20 @@ Detects the IAM Identity Center access-control attribute configuration being cre
 
 ### Possible investigation steps
 
-- Read the change classification first. `attribute_redirected` means the key-set fingerprint is unchanged while the source-set fingerprint changed, so at least one configured source path changed without adding or removing a key. `attribute_set_changed` means the key set changed. `configuration_removed` means attribute-based access control was switched off instance-wide. Because keys and sources are fingerprinted as independent sets, reassociating the same existing sources among the same existing keys is classified as `no_change`; inspect the source events to identify that edge case.
-- Compare the source CloudTrail write with the preceding configuration event identified by `Esql.previous_request_id`. The alert carries fixed-width key-set and source-set fingerprints for classification, but deliberately does not serialize arbitrary attribute names or source paths. Recover the exact current and prior mappings from those source events.
-- Aggregated alerts do not retain each event's `user.name` or `user_agent.original`. Inspect the source CloudTrail events for `aws.cloudtrail.request_id` and `Esql.previous_request_id` to recover those values.
-- Establish whether anything consumes these tags. Recover the exact current and prior keys from the CloudTrail events, then enumerate permission-set inline and managed policies for conditions on each corresponding `aws:PrincipalTag/<key>`. If no policy references them, the change altered no authorization outcome and is a precondition rather than an escalation. If a policy does reference them, determine what access the new source path grants and to whom.
+- Read the operation first. Create and update operations carry the configured attribute keys and identity-source paths in the request parameters; a delete operation removes ABAC configuration instance-wide.
+- Establish whether anything consumes these tags. Enumerate permission-set inline and managed policies for conditions on each corresponding `aws:PrincipalTag/<key>`. If no policy references them, the change altered no authorization outcome and is a precondition rather than an escalation. If a policy does reference them, determine what access the new source path grants and to whom.
 - Consider who controls the new source path. The impersonation logic is that whoever can set their own value for the attribute the mapping now reads can present whatever tag that policy requires. An attribute the user can edit on their own directory record is materially worse than one only an administrator can set.
-- Use `aws.cloudtrail.request_id` and `Esql.previous_request_id` to recover the current and preceding source events, then identify each actor and whether they are an Identity Center administrator by role. Actor ARNs are deliberately not packed into the correlation records because they are unconstrained source values. A permission-set session changing the attribute configuration that governs its own tags is a self-referential escalation.
+- Identify the actor and whether they are an Identity Center administrator by role. A permission-set session changing the attribute configuration that governs its own tags is a self-referential escalation.
 - Review sessions established after the change: pivot to `AssumeRoleWithSAML` and `GetRoleCredentials` for the window following the change and inspect what those sessions reached.
 
 ### False positive analysis
 
-- Initial onboarding of attribute-based access control produces a create followed by updates as the mapping is refined, and appears as no_prior_configuration_in_window then attribute_set_changed. This is expected and infrequent. Confirm the change appears in change management and that the source paths point at attributes your identity provider actually supplies.
+- Initial onboarding of attribute-based access control produces a create followed by updates as the mapping is refined. This is expected and infrequent. Confirm the change appears in change management and that the source paths point at attributes your identity provider actually supplies.
 - An organization that does not use attribute-based access control at all is unaffected in practice: with no permission-set policy referencing aws:PrincipalTag, changing the mapping alters no authorization outcome. The event is still worth reviewing, because the configuration is a precondition an attacker would establish before adding a tag-conditioned policy.
 
 ### Response and remediation
 
-- Recover and restore the previous attribute mapping from the CloudTrail event identified by `Esql.previous_request_id`, then confirm permission-set policies that consume `aws:PrincipalTag` evaluate as intended.
+- Recover the approved attribute mapping from configuration management, restore it, and confirm permission-set policies that consume `aws:PrincipalTag` evaluate as intended.
 - Review sessions established after the change: a redirected attribute alters which policy conditions a session satisfies, so access granted in that window may exceed what the entitlement intended.
 - Restrict `sso:UpdateInstanceAccessControlAttributeConfiguration` to a change-managed identity, since the configuration is instance-wide and affects every permission set using ABAC.
 """
@@ -83,10 +75,8 @@ This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-
 - Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
 - No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
 - Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
-- The attribute keys and source paths arrive as two parallel multi-value arrays. The query sorts each array independently before comparing SHA-256 fingerprints of its MV_CONCAT representation, making key-set and source-set comparison insensitive to element order without serializing unconstrained values into correlation records. Exact key-to-source mappings must be recovered from the source CloudTrail events.
 - These operations exist only on organization instances of Identity Center; account instances reject them.
-
-Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -97,77 +87,24 @@ tags = [
     "Service: AWS IAM Identity Center",
     "Tactic: Privilege Escalation",
     "Tactic: Defense Evasion",
-    "Rule Type: ES|QL",
+    "Rule Type: Custom Query (KQL)",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Profile: Beta",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-FROM logs-aws.cloudtrail-*
-| WHERE data_stream.dataset == "aws.cloudtrail" AND event.provider == "sso.amazonaws.com" AND event.outcome == "success"
-    AND event.action IN ("CreateInstanceAccessControlAttributeConfiguration",
-    "UpdateInstanceAccessControlAttributeConfiguration",
-    "DeleteInstanceAccessControlAttributeConfiguration")
-| EVAL Esql.instance = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceArn"),
-    Esql.attribute_keys = MV_CONCAT(MV_SORT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceAccessControlAttributeConfiguration.accessControlAttributes.key")), ","),
-    Esql.attribute_sources = MV_CONCAT(MV_SORT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "instanceAccessControlAttributeConfiguration.accessControlAttributes.value.source")), ",")
-| EVAL Esql.key_fingerprint = CASE(Esql.attribute_keys IS NOT NULL, SHA256(Esql.attribute_keys)),
-    Esql.source_fingerprint = CASE(Esql.attribute_sources IS NOT NULL, SHA256(Esql.attribute_sources))
-| EVAL Esql.history_record = CASE(Esql.key_fingerprint IS NOT NULL AND Esql.source_fingerprint IS NOT NULL,
-        CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.key_fingerprint, "~", Esql.source_fingerprint, "~",
-            COALESCE(aws.cloudtrail.request_id, "none"))),
-    Esql.change_record = CASE(Esql.instance IS NOT NULL,
-        CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", event.action, "~",
-            COALESCE(Esql.key_fingerprint, "none"), "~", COALESCE(Esql.source_fingerprint, "none"), "~",
-            COALESCE(aws.cloudtrail.request_id, "none"), "~",
-            COALESCE(cloud.account.id, "none"), "~", COALESCE(cloud.region, "none")))
-| STATS Esql.history_values = VALUES(Esql.history_record),
-    Esql.change_values = VALUES(Esql.change_record)
-    BY Esql.instance
-| MV_EXPAND Esql.change_values
-| DISSECT Esql.change_values "%{Esql.changed_ms}~%{Esql.change_action}~%{Esql.key_fingerprint}~%{Esql.source_fingerprint}~%{Esql.change_request_id}~%{Esql.change_account_id}~%{Esql.change_region}"
-| EVAL Esql.changed_at = TO_DATETIME(TO_LONG(Esql.changed_ms)),
-    event.action = Esql.change_action,
-    aws.cloudtrail.request_id = CASE(Esql.change_request_id != "none", Esql.change_request_id),
-    cloud.account.id = CASE(Esql.change_account_id != "none", Esql.change_account_id),
-    cloud.region = CASE(Esql.change_region != "none", Esql.change_region),
-    event.outcome = "success",
-    event.provider = "sso.amazonaws.com"
-| MV_EXPAND Esql.history_values
-| DISSECT Esql.history_values "%{Esql.h_ms}~%{Esql.h_key_fingerprint}~%{Esql.h_source_fingerprint}~%{Esql.h_request_id}"
-| EVAL Esql.h_prior = CASE(TO_DATETIME(TO_LONG(Esql.h_ms)) < Esql.changed_at, Esql.history_values)
-| STATS Esql.previous = MAX(Esql.h_prior)
-    BY Esql.instance,
-    event.action,
-    Esql.key_fingerprint,
-    Esql.source_fingerprint,
-    Esql.changed_at,
-    aws.cloudtrail.request_id,
-    cloud.region,
-    event.outcome,
-    event.provider,
-    cloud.account.id
-| DISSECT Esql.previous "%{Esql.p_ms}~%{Esql.previous_key_fingerprint}~%{Esql.previous_source_fingerprint}~%{Esql.previous_request_id}"
-| EVAL Esql.previous_at = TO_DATETIME(TO_LONG(Esql.p_ms)),
-    Esql.key_fingerprint = CASE(Esql.key_fingerprint != "none", Esql.key_fingerprint),
-    Esql.source_fingerprint = CASE(Esql.source_fingerprint != "none", Esql.source_fingerprint)
-| EVAL Esql.change = CASE(
-    event.action == "DeleteInstanceAccessControlAttributeConfiguration", "configuration_removed",
-    Esql.previous IS NULL, "no_prior_configuration_in_window",
-    Esql.previous_key_fingerprint == Esql.key_fingerprint
-        AND Esql.previous_source_fingerprint != Esql.source_fingerprint, "attribute_redirected",
-    Esql.previous_key_fingerprint != Esql.key_fingerprint, "attribute_set_changed", "no_change")
-| KEEP Esql.*,
-    aws.cloudtrail.request_id,
-    event.action,
-    cloud.region,
-    event.outcome,
-    event.provider,
-    cloud.account.id
+data_stream.dataset: "aws.cloudtrail" and
+event.provider: "sso.amazonaws.com" and
+event.outcome: "success" and
+event.action: (
+    "CreateInstanceAccessControlAttributeConfiguration" or
+    "UpdateInstanceAccessControlAttributeConfiguration" or
+    "DeleteInstanceAccessControlAttributeConfiguration"
+)
 '''
 
 
@@ -197,24 +134,23 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.alert_suppression]
-group_by = ["Esql.instance", "Esql.change"]
+group_by = ["aws.cloudtrail.request_id"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.changed_at",
-    "Esql.change",
-    "Esql.instance",
-    "Esql.key_fingerprint",
-    "Esql.source_fingerprint",
-    "Esql.previous_key_fingerprint",
-    "Esql.previous_source_fingerprint",
-    "Esql.previous_at",
+    "@timestamp",
+    "event.action",
     "aws.cloudtrail.request_id",
-    "Esql.previous_request_id",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.flattened.request_parameters.instanceArn",
+    "aws.cloudtrail.flattened.request_parameters.instanceAccessControlAttributeConfiguration.accessControlAttributes.key",
+    "aws.cloudtrail.flattened.request_parameters.instanceAccessControlAttributeConfiguration.accessControlAttributes.value.source",
+    "source.ip",
 ]
 
 [rule.alert_suppression.duration]
 unit = "m"
-value = 130
+value = 20
 
