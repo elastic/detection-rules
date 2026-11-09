@@ -74,8 +74,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}")) or
+process where host.os.type in ("linux", "macos") and event.type == "start" and event.action == "exec" and (
+  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s", "+xs", "u+xs", "g+xs", "ug+s") or process.args regex "[24][0-9]{3}")) or
   (process.name == "install" and process.args : "-m" and
   (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}"))
 ) and not (
