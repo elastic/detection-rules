@@ -2,7 +2,7 @@
 creation_date = "2025/03/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/09"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +80,9 @@ destination.domain : (*.team or *.lol or *.kr or *.ke or *.nu or *.space or
                           *.surf or *.tk or *.shop or *.club or *.icu or 
                           *.pw or *.ws or *.hair or *.mom or 
                           *.beauty or *.boats or *.fun or *.life or 
-                          *.store)
+                          *.store) and
+not (process.code_signature.subject_name : (*Mozilla* or *Google* or *Brave* or *Opera* or "Software Signing" or "macOS Software Signing" or *Browser*) and
+     process.code_signature.trusted : true)
 '''
 
 [[rule.threat]]
