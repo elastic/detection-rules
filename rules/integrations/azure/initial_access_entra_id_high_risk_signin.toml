@@ -2,7 +2,7 @@
 creation_date = "2021/01/04"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic", "Willem D'Haese"]
@@ -40,7 +40,7 @@ This rule detects high-risk sign-ins in Microsoft Entra ID as identified by Iden
 - Risky sign-ins may be triggered during legitimate travel, VPN use, or remote work scenarios from unusual locations.
 - In some cases, users switching devices or networks rapidly may trigger high-risk scores.
 - Automated scanners or penetration tests using known credentials may mimic high-risk login behavior.
-- Confirm whether the risk was remediated automatically by Microsoft Identity Protection before proceeding with escalations.
+- Sign-ins already marked `risk_state` as `remediated`, `dismissed`, or `confirmedSafe` by Microsoft Identity Protection are excluded; failed attempts with no aggregated risk and no active risk state are also excluded.
 
 ### Response and remediation
 
@@ -65,10 +65,14 @@ tags = [
     "Domain: Identity",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
-    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Initial Access",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Entra ID",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -80,7 +84,7 @@ data_stream.dataset:azure.signinlogs and
     azure.signinlogs.properties.risk_level_aggregated:high
   ) and
   not (event.outcome:failure and azure.signinlogs.properties.risk_level_aggregated:none and azure.signinlogs.properties.risk_state:none) and
-  not azure.signinlogs.properties.risk_state:(dismissed or confirmedSafe)
+  not azure.signinlogs.properties.risk_state:(remediated or dismissed or confirmedSafe)
 '''
 
 

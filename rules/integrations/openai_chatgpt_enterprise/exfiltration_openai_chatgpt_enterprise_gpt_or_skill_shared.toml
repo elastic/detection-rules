@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events that publish a GPT or update sharing for GPTs, skills, or projects
+(`gpt_publish`, `update_sharing`, `skill_share`, `project_update_sharing`). Broadening share scope can expose custom
+instructions, tools, or proprietary agent configurations beyond the original audience.
+"""
+false_positives = [
+    "Teams intentionally publish GPTs or skills for approved internal or partner use under change management.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Resources Sharing Updated"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Resources Sharing Updated
+
+A GPT was published or a GPT, skill, or project sharing setting changed. Broadening share scope can expose proprietary instructions, connectors, or data.
+
+Escalate when `shared_to.recipient_type` or related fields indicate a wider audience than policy allows, the asset includes sensitive instructions or connectors, or the publisher is unexpected. Close as a false positive for intentional publication under an approved release process.
+
+#### Possible investigation steps
+
+- Identify the actor and the GPT, skill, or project identifiers on the alert.
+- Review `openai_chatgpt_enterprise.audit_log.action_data.shared_to.recipient_type` and other share-scope fields when present.
+- Confirm whether store or broad visibility was enabled and whether that matches change management.
+- Look for related publish, share, or connector-link events from the same actor.
+
+### False positive analysis
+
+- Teams intentionally publish GPTs or skills for approved internal or partner use under change management.
+
+### Response and remediation
+
+- Restrict unauthorized shares, unpublish if needed, and inventory other published assets by the same actor.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "5dc8f0cd-afd3-473c-ba47-82f1f57a174d"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action in ("gpt_publish", "update_sharing", "skill_share", "project_update_sharing")
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.gpt_id,
+    openai_chatgpt_enterprise.audit_log.action_data.agent_id,
+    openai_chatgpt_enterprise.audit_log.action_data.skill_id,
+    openai_chatgpt_enterprise.audit_log.action_data.shared_to.recipient_type,
+    openai_chatgpt_enterprise.audit_log.action_data.third_party_gizmo_id,
+    openai_chatgpt_enterprise.audit_log.action_privilege, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.gpt_id",
+    "openai_chatgpt_enterprise.audit_log.action_data.skill_id",
+    "openai_chatgpt_enterprise.audit_log.action_data.shared_to.recipient_type",
+    "source.ip",
+]
+

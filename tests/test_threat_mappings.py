@@ -5,7 +5,10 @@
 
 """Tests for multi-version threat mappings (e.g. MITRE ATT&CK v18/v19) support."""
 
+import contextlib
+import importlib.util
 import os
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,6 +22,7 @@ from detection_rules.config import (
     THREAT_MAPPING_VERSION_ENV,
 )
 from detection_rules.rule_loader import RuleCollection
+from detection_rules.schemas import get_stack_schemas
 from detection_rules.stack_emit import MITRE_V19_MIN_STACK
 
 TACTIC = {
@@ -28,6 +32,28 @@ TACTIC = {
 }
 TECH_V18 = {"id": "T1078", "name": "Valid Accounts", "reference": "https://attack.mitre.org/techniques/T1078/"}
 TECH_V19 = {"id": "T1078", "name": "Valid Accounts (v19)", "reference": "https://attack.mitre.org/techniques/T1078/"}
+
+
+class TestAttackVersionInitialization(unittest.TestCase):
+    """Tests for deriving the baseline ATT&CK version during module initialization."""
+
+    def test_parent_path_with_version_delimiter(self) -> None:
+        """A parent directory containing `-v` must not affect ATT&CK filename parsing."""
+        attack_path = Path("test-v01/installed/detection_rules/etc/attack-v18.1.0.json.gz")
+        module_name = "detection_rules._attack_regression_test"
+        spec = importlib.util.spec_from_file_location(module_name, attack.__file__)
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+
+        with (
+            mock.patch("detection_rules.utils.get_etc_glob_path", return_value=[attack_path]),
+            mock.patch("detection_rules.utils.read_gzip", return_value='{"objects": []}'),
+            mock.patch.dict(sys.modules, {module_name: module}),
+        ):
+            spec.loader.exec_module(module)
+
+        self.assertEqual(module.CURRENT_ATTACK_VERSION, "18.1.0")
 
 
 def _metadata() -> dict[str, Any]:
@@ -61,12 +87,23 @@ def _rule(threat_mappings: list[dict[str, Any]] | None = None) -> dict[str, Any]
     return rule
 
 
+@contextlib.contextmanager
 def _pin_v19_stack() -> Any:
     """Pin the emit stack to the v19 gate so stack-gated transforms apply on release branches (< 9.5)."""
-    return mock.patch(
-        "detection_rules.rule.load_current_package_version",
-        return_value=str(MITRE_V19_MIN_STACK),
-    )
+    # `load_current_package_version` is imported by name into both the rule module and the schemas
+    # module. Pinning only the rule module makes `get_required_fields` ask `get_stack_schemas()` for a
+    # version the schemas module (still reading the real package) never lists on a < 9.5 branch. Pin
+    # both, and drop the memoized `get_stack_schemas` result so it is rebuilt for the pinned version.
+    pinned = str(MITRE_V19_MIN_STACK)
+    get_stack_schemas.clear()
+    try:
+        with (
+            mock.patch("detection_rules.rule.load_current_package_version", return_value=pinned),
+            mock.patch("detection_rules.schemas.load_current_package_version", return_value=pinned),
+        ):
+            yield
+    finally:
+        get_stack_schemas.clear()
 
 
 def _v19_block(technique: dict[str, Any] = TECH_V19) -> dict[str, Any]:
@@ -676,6 +713,37 @@ class TestIdentityScaffold(unittest.TestCase):
                     expected,
                     f"Scaffold technique {technique_id} has name '{entry['name']}' instead of v19 name '{expected}'",
                 )
+
+
+class TestBuildThreatMapEntry(unittest.TestCase):
+    """Threat entries built from technique IDs."""
+
+    def test_defense_evasion_name_resolves(self) -> None:
+        """The v18 tactic name still builds an entry after the v19 rename."""
+        entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+        self.assertEqual(entry["technique"][0]["id"], "T1055")
+
+    def test_defense_evasion_alias_when_baseline_is_v19(self) -> None:
+        """A v19-only dataset still accepts the v18 tactic name."""
+        tactic_id = attack.tactics_map["Defense Evasion"]
+        techniques = list(attack.matrix["Defense Evasion"])
+        with (
+            mock.patch.dict(attack.tactics_map, {"Stealth": tactic_id}, clear=True),
+            mock.patch.dict(attack.matrix, {"Stealth": techniques}, clear=True),
+        ):
+            entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+
+    def test_redirect_that_changes_tactic_keeps_original_id(self) -> None:
+        """A replacement filed under another tactic does not rewrite the baseline entry."""
+        entry = attack.build_threat_map_entry("Persistence", "T1547.011")
+        sub_ids = [sub["id"] for tech in entry["technique"] for sub in tech.get("subtechnique", [])]
+        self.assertIn("T1547.011", sub_ids)
+        self.assertNotIn("T1647", sub_ids)
+        self.assertEqual(entry["tactic"]["name"], "Persistence")
 
 
 if __name__ == "__main__":

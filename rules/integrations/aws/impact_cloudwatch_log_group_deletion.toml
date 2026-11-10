@@ -2,7 +2,7 @@
 creation_date = "2020/05/18"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -130,11 +130,16 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: Amazon CloudWatch",
-    "Use Case: Log Auditing",
-    "Resources: Investigation Guide",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS CloudWatch",
     "Tactic: Defense Evasion",
     "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -145,7 +150,7 @@ data_stream.dataset: "aws.cloudtrail"
   and event.action: "DeleteLogGroup" 
   and event.outcome: "success"
   and source.ip: * 
-  and not user_agent.original : "AWS Internal"
+  and not user_agent.original : ("AWS Internal" or *Terraform* or *Pulumi*)
 '''
 
 
