@@ -35,6 +35,14 @@ from detection_rules.integrations import (
 from detection_rules.rule_validators import KQLValidator
 from detection_rules.utils import clear_caches
 
+PACKAGE_STACK_VERSION = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+# On 8.x stacks Azure rules resolve to azure ^1.0.0, whose lowest version predates the events policy template (1.20.0),
+# and the Azure releases with aadgraphactivitylogs (1.37.0+) need a later 8.19 patch, so no events row is listed there
+skip_before_9x_azure_routing = unittest.skipIf(
+    PACKAGE_STACK_VERSION < Version.parse("9.0.0"),
+    "Azure events policy template rows are only resolved on 9.x stacks",
+)
+
 
 def _manifest(kibana_version: str) -> dict:
     """Build a minimal manifest dict with the given conditions.kibana.version string."""
@@ -291,6 +299,28 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
             required_fields = validator.get_required_fields([])
 
         self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
+
+    def test_required_fields_resolve_ecs_from_other_stack_pins(self):
+        """A field missing from this stack's ECS pin but present in another pin's ECS resolves as ECS."""
+        from detection_rules.schemas import get_stack_schemas as real_get_stack_schemas
+
+        field_name = "gen_ai.tool.name"  # added to ECS in 9.1.0
+        current_version = str(Version.parse(load_current_package_version(), optional_minor_and_patch=True))
+        pinned = dict(real_get_stack_schemas()[current_version], ecs="8.17.0")
+
+        def required(stack_map: dict) -> dict:
+            validator = KQLValidator(f"{field_name}:*")
+            with (
+                unittest.mock.patch("detection_rules.rule.get_stack_schemas", return_value={current_version: pinned}),
+                unittest.mock.patch("detection_rules.rule.load_stack_schema_map", return_value=stack_map),
+            ):
+                return {f["name"]: f for f in validator.get_required_fields([])}
+
+        only_old_pin = required({"8.19.0": {"ecs": "8.17.0"}})
+        self.assertEqual(only_old_pin[field_name], {"name": field_name, "type": "unknown", "ecs": False})
+
+        with_newer_pin = required({"8.19.0": {"ecs": "8.17.0"}, "9.4.0": {"ecs": "9.4.0"}})
+        self.assertEqual(with_newer_pin[field_name], {"name": field_name, "type": "keyword", "ecs": True})
 
     def test_non_esql_validation_uses_patch_floor_for_integration_schema(self):
         """Non-ES|QL schema validation resolves integration schemas using the inferred patch floor."""
@@ -590,6 +620,148 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
         )
 
 
+class TestRelatedIntegrationPolicyTemplates(unittest.TestCase):
+    """related_integrations.integration names the policy template that collects the queried data stream."""
+
+    def test_manifest_schema_keeps_policy_template_data_streams(self):
+        from marshmallow import EXCLUDE
+
+        from detection_rules.integrations import IntegrationManifestSchema
+
+        raw = {
+            "name": "azure",
+            "version": "1.0.0",
+            "release": "ga",
+            "description": "",
+            "download": "",
+            "conditions": {"kibana": {"version": "^8.0.0"}},
+            "policy_templates": [
+                {"name": "adlogs", "title": "Microsoft Entra ID", "data_streams": ["auditlogs", "signinlogs"]},
+                {"name": "activitylogs", "data_streams": ["activitylogs"]},
+                {"name": "no_streams"},
+            ],
+        }
+        loaded = IntegrationManifestSchema(unknown=EXCLUDE).load(raw)
+        self.assertEqual(loaded["policy_templates"], ["adlogs", "activitylogs", "no_streams"])
+        self.assertEqual(
+            loaded["policy_template_data_streams"],
+            {"adlogs": ["auditlogs", "signinlogs"], "activitylogs": ["activitylogs"]},
+        )
+
+    def test_get_policy_template_for_data_stream(self):
+        from detection_rules.integrations import get_policy_template_for_data_stream
+
+        manifest = {
+            "policy_templates": ["adlogs", "activitylogs"],
+            "policy_template_data_streams": {"adlogs": ["auditlogs", "signinlogs"], "activitylogs": ["activitylogs"]},
+        }
+        self.assertEqual(get_policy_template_for_data_stream(manifest, "activitylogs"), "activitylogs")
+        self.assertEqual(get_policy_template_for_data_stream(manifest, "signinlogs"), "adlogs")
+        self.assertIsNone(get_policy_template_for_data_stream(manifest, "unknown"))
+        # manifests built before data streams were kept only resolve policy template names
+        self.assertIsNone(get_policy_template_for_data_stream({"policy_templates": ["adlogs"]}, "signinlogs"))
+
+    def test_parse_version_routing_rules(self):
+        from detection_rules.integrations import parse_version_routing_rules
+
+        routing_rules = [
+            {
+                "source_dataset": "azure.events",
+                "rules": [
+                    {"target_dataset": "azure.signinlogs", "if": "ctx.event?.dataset == 'azure.signinlogs'"},
+                    {"target_dataset": "azure.activitylogs", "if": "ctx.event?.dataset == 'azure.activitylogs'"},
+                    # a templated target is resolved per document, another package has its own policy templates
+                    {"target_dataset": "{{event.dataset}}", "if": "true"},
+                    {"target_dataset": "aws.cloudtrail", "if": "true"},
+                    {"target_dataset": ["azure.auditlogs", "azure.events"], "if": "true"},
+                ],
+            }
+        ]
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zip_ref:
+            zip_ref.writestr("azure-1.0.0/data_stream/events/routing_rules.yml", yaml.safe_dump(routing_rules))
+            zip_ref.writestr("azure-1.0.0/data_stream/activitylogs/fields/fields.yml", "[]")
+        with zipfile.ZipFile(buffer) as zip_ref:
+            self.assertEqual(
+                parse_version_routing_rules(zip_ref, "azure"),
+                {"events": ["activitylogs", "auditlogs", "signinlogs"]},
+            )
+
+    def test_routing_rule_sources_and_targets_have_a_policy_template(self):
+        from detection_rules.integrations import (
+            get_policy_template_for_data_stream,
+            load_integrations_manifests,
+            load_integrations_routing_rules,
+        )
+
+        manifests = load_integrations_manifests()
+        routing_rules = load_integrations_routing_rules()
+        # azure.events reroutes every Azure log category; the rule build depends on this data
+        self.assertIn("azure", routing_rules)
+        for package, versions in routing_rules.items():
+            # An incremental build-schemas run records an empty map for a package whose versions it did not parse
+            common_versions = versions.keys() & manifests.get(package, {}).keys()
+            if not common_versions:
+                continue
+            latest = max(common_versions, key=Version.parse)
+            manifest = manifests[package][latest]
+            # the rule build only lists a rerouting policy template for a package with more than one
+            if len(manifest.get("policy_templates", [])) < 2:
+                continue
+            for source, targets in versions[latest].items():
+                with self.subTest(package=package, source=source):
+                    self.assertIsNotNone(get_policy_template_for_data_stream(manifest, source))
+                for target in targets:
+                    with self.subTest(package=package, target=target):
+                        self.assertIsNotNone(get_policy_template_for_data_stream(manifest, target))
+
+    def test_rerouting_policy_templates_from_routing_rules(self):
+        from detection_rules.rule import TOMLRuleContents
+
+        manifests = {
+            "pkg": {"1.0.0": {"policy_templates": ["router", "a"]}},
+            "single": {"1.0.0": {"policy_templates": ["entity"]}},
+        }
+        routing_rules = {"pkg": {"1.0.0": {"router": ["a"]}}, "single": {"1.0.0": {"entity": ["device"]}}}
+        with unittest.mock.patch("detection_rules.rule.load_integrations_routing_rules", return_value=routing_rules):
+            get_templates = TOMLRuleContents._get_rerouting_policy_templates  # noqa: SLF001
+            self.assertEqual(get_templates("pkg", "a", ["1.0.0"], manifests), ["router"])
+            self.assertEqual(get_templates("pkg", "b", ["1.0.0"], manifests), [])
+            self.assertEqual(get_templates("pkg", None, ["1.0.0"], manifests), [])
+            # a version without routing rules does not reroute
+            self.assertEqual(get_templates("pkg", "a", ["2.0.0"], manifests), [])
+            # Kibana matches the package row of a package with one policy template
+            self.assertEqual(get_templates("single", "device", ["1.0.0"], manifests), [])
+
+    def _azure_rows(self, path: str) -> list[dict]:
+        from pathlib import Path
+
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(Path(path))
+        rows = rule.contents.to_api_format()["related_integrations"]
+        return sorted((row for row in rows if row["package"] == "azure"), key=lambda row: row.get("integration", ""))
+
+    @skip_before_9x_azure_routing
+    def test_entra_id_data_stream_maps_to_adlogs_and_events(self):
+        rows = self._azure_rows("rules/cross-platform/initial_access_azure_o365_with_network_alert.toml")
+        self.assertEqual([row.get("integration") for row in rows], ["adlogs", "events"])
+        self.assertEqual(len({row["version"] for row in rows}), 1)
+
+    @skip_before_9x_azure_routing
+    def test_activitylogs_adds_events(self):
+        rows = self._azure_rows("rules/integrations/azure/credential_access_azure_storage_account_keys_accessed.toml")
+        self.assertEqual([row.get("integration") for row in rows], ["activitylogs", "events"])
+        self.assertEqual(rows[0]["version"], rows[1]["version"])
+
+    @skip_before_9x_azure_routing
+    def test_events_takes_highest_version_of_rerouted_data_streams(self):
+        rows = self._azure_rows("rules/integrations/azure/credential_access_device_code_signin_aad_graph_enum.toml")
+        by_template = {row.get("integration"): row["version"] for row in rows}
+        self.assertEqual(set(by_template), {"aadgraphactivitylogs", "adlogs", "events"})
+        self.assertEqual(by_template["events"], by_template["aadgraphactivitylogs"])
+
+
 class TestEsqlPackagedIntegrations(unittest.TestCase):
     """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
 
@@ -600,6 +772,89 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         self.assertFalse(_esql_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
         self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
         self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
+
+    def test_index_datasets_from_from_sources(self):
+        from detection_rules.esql import get_esql_query_index_datasets
+
+        schemas = {
+            "azure": {"1.0.0": {"activitylogs": {}, "signinlogs": {}}},
+            "endpoint": {"9.0.0": {"process": {}, "network": {}}},
+            "aws": {"8.0.0": {"cloudtrail": {}, "cloudtrail_otel": {}}, "8.9.0": {"eks_audit": {}}},
+            "apache_tomcat": {"1.0.0": {"catalina": {}}},
+            "system": {"1.0.0": {"security": {}, "auth": {}}},
+        }
+        query = (
+            "FROM logs-azure.activitylogs-*, logs-endpoint.events.process-*, remote:logs-aws.eks_audit-*, "
+            # several data streams, or none, match these patterns, so they name no single data stream
+            "logs-azure.*, logs-aws.cloudtrail*, logs-apache_tomcat.error-*, logs-*, metrics-* "
+            "METADATA _id, _version, _index | KEEP _id"
+        )
+        self.assertEqual(
+            [str(dataset) for dataset in get_esql_query_index_datasets(query, schemas)],
+            ["azure.activitylogs", "endpoint.process", "aws.eks_audit"],
+        )
+
+    def test_index_datasets_match_up_to_the_namespace_boundary(self):
+        from detection_rules.esql import get_esql_query_index_datasets
+
+        query = "FROM logs-aws.cloudtrail_otel-* METADATA _id, _version, _index | KEEP _id"
+        # an exact source names its own data stream, not a data stream whose name is a prefix of it
+        both = {"aws": {"8.0.0": {"cloudtrail": {}, "cloudtrail_otel": {}}}}
+        self.assertEqual(
+            [str(dataset) for dataset in get_esql_query_index_datasets(query, both)], ["aws.cloudtrail_otel"]
+        )
+        prefix_only = {"aws": {"8.0.0": {"cloudtrail": {}}}}
+        self.assertEqual(get_esql_query_index_datasets(query, prefix_only), [])
+
+    def _related_integrations(self, path: str) -> list[dict]:
+        from pathlib import Path
+
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(Path(path))
+        rows = rule.contents.to_api_format()["related_integrations"]
+        return sorted(rows, key=lambda row: (row["package"], row.get("integration", "")))
+
+    @skip_before_9x_azure_routing
+    def test_from_data_stream_resolves_policy_template(self):
+        # the query compares no dataset; FROM logs-azure.activitylogs-* names the data stream
+        rows = self._related_integrations(
+            "rules/cross-platform/execution_azure_vm_run_command_powershell_unrestricted_script.toml"
+        )
+        self.assertEqual(
+            [(row["package"], row.get("integration")) for row in rows],
+            [("azure", "activitylogs"), ("azure", "events"), ("endpoint", None)],
+        )
+
+    def test_from_unknown_data_stream_keeps_package_row(self):
+        rows = self._related_integrations(
+            "rules/cross-platform/reconnaissance_web_server_unusual_spike_in_error_logs.toml"
+        )
+        self.assertIn("apache_tomcat", [row["package"] for row in rows])
+
+    def test_compared_dataset_skips_from_data_streams_of_the_same_package(self):
+        # FROM data streams are only added for packages whose datasets the query does not compare. Merging them per
+        # data stream would also widen the ES|QL validation schema, so a compared dataset wins for the whole package.
+        import dataclasses
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.rule_loader import RuleCollection
+
+        rule = RuleCollection().load_file(
+            Path("rules/cross-platform/execution_azure_vm_run_command_powershell_unrestricted_script.toml")
+        )
+        data = dataclasses.replace(
+            rule.contents.data,
+            query=(
+                "FROM logs-azure.activitylogs-*, logs-azure.signinlogs-* METADATA _id, _version, _index "
+                '| WHERE event.dataset == "azure.signinlogs" | KEEP _id'
+            ),
+        )
+        rows = TOMLRuleContents.get_packaged_integrations(data, rule.contents.metadata, load_integrations_manifests())
+        azure_integrations = {row["integration"] for row in rows or [] if row["package"] == "azure"}
+        self.assertEqual(azure_integrations, {"signinlogs"})
 
 
 class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
