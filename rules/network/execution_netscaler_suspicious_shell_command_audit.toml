@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/10/27"
+integration = ["citrix_adc"]
+maturity = "production"
+updated_date = "2026/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects NetScaler CMD_EXECUTED audit records containing download-to-shell, configuration collection or upload,
+log-decoding execution, or selected startup/implant command patterns. Failed and missing-status records are retained as
+attempts. The audit record does not independently prove shell-side effects. Login payload strings do not match.
+"""
+false_positives = [
+    "Authorized backup, startup customization, troubleshooting, and administrator-run installer commands.",
+]
+from = "now-9m"
+index = ["logs-citrix_adc.log-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "NetScaler Suspicious Shell Command in Audit Event"
+note = """## Triage and analysis
+
+### Investigating NetScaler Suspicious Shell Command in Audit Event
+
+- Confirm the native CMD_EXECUTED class and inspect the status in the preserved source record. Failed or missing-status
+  records remain attempts. Validate command boundaries; quoted examples or comments can resemble shell instructions.
+- Identify the appliance using observer.hostname and the syslog source. Review the administrator and source IP where
+  present, and compare with approved maintenance. A collector host.name or agent.id can identify a different system.
+- Determine whether the command attempted configuration staging/upload, streamed code execution, a log-resident stage,
+  or startup modification. Success of the CLI operation does not prove a download, child command, or transfer succeeded.
+- Corroborate with file evidence, receiver logs, or independent network telemetry. Search 24–48 hours around poisoned
+  login records because delayed processing may separate the request and its effects.
+
+### False positive analysis
+
+Authorized configuration backup, startup customization, troubleshooting, and scripted maintenance can match. Narrow
+exceptions to reviewed actor/source/command combinations. Do not exclude the full CMD_EXECUTED event class.
+
+### Response and remediation
+
+Preserve remote logs and appliance evidence. Contain unauthorized activity and investigate configuration exposure and
+startup modifications. Do not fetch referenced URLs or execute encoded/embedded commands during triage."""
+references = ["https://www.elastic.co/docs/reference/integrations/citrix_adc"]
+risk_score = 73
+rule_id = "09929fd6-d50d-46d5-9fc1-afae60de9326"
+setup = """## Setup
+
+Forward NetScaler CLI audit syslog containing CMD_EXECUTED records through the Citrix ADC integration and preserve
+original events. The native ingest pipeline copies parsed command text to process.command_line; citrix.detail and
+citrix_adc.log.message provide compatibility fallbacks within the same audit class. The raw command field may be removed
+after parsing. The optional process.command_line reference accommodates mappings where that ECS field is absent.
+
+The rule intentionally retains failed and missing-status commands. Evaluate status during triage; an alert is not proof
+of execution. Validate which CLI operations and arguments the deployed build actually audits before enabling.
+Operating-system commands launched directly by ns_monuploadd_err.pl or an implant can bypass CLI auditing entirely.
+This rule is not a substitute for appliance process or file-integrity collection, and collector Endpoint events must not
+be attributed to the appliance. No match is not evidence of failed exploitation or absence of persistence."""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Resources: Investigation Guide",
+    "Data Source: Citrix ADC",
+    "Platform: Citrix",
+    "Tactic: Execution",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "citrix_adc.log" and citrix.name == "CMD_EXECUTED" and
+  (
+    ?process.command_line like~ (
+      "* curl*|*sh", "* curl*|*sh *", "* curl*|*sh\"*",
+      "* fetch*|*sh", "* fetch*|*sh *", "* fetch*|*sh\"*",
+      "* wget*|*sh", "* wget*|*sh *", "* wget*|*sh\"*",
+      "* tar *nsconfig*",
+      "* curl*--data*@*/nsconfig/*",
+      "* curl*--upload-file*/nsconfig/*",
+      "* curl* -T */nsconfig/*",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh *",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh\"*",
+      "* echo*>*/nsconfig/rc.netscaler*",
+      "* printf*>*/nsconfig/rc.netscaler*",
+      "* tee*/nsconfig/rc.netscaler*",
+      "* cp */nsconfig/rc.netscaler*",
+      "* mv */nsconfig/rc.netscaler*",
+      "* chmod*/flash/.nsvm/*",
+      "* nohup*/flash/.nsvm/*"
+    )
+    or citrix.detail like~ (
+      "* curl*|*sh", "* curl*|*sh *", "* curl*|*sh\"*",
+      "* fetch*|*sh", "* fetch*|*sh *", "* fetch*|*sh\"*",
+      "* wget*|*sh", "* wget*|*sh *", "* wget*|*sh\"*",
+      "* tar *nsconfig*",
+      "* curl*--data*@*/nsconfig/*",
+      "* curl*--upload-file*/nsconfig/*",
+      "* curl* -T */nsconfig/*",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh *",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh\"*",
+      "* echo*>*/nsconfig/rc.netscaler*",
+      "* printf*>*/nsconfig/rc.netscaler*",
+      "* tee*/nsconfig/rc.netscaler*",
+      "* cp */nsconfig/rc.netscaler*",
+      "* mv */nsconfig/rc.netscaler*",
+      "* chmod*/flash/.nsvm/*",
+      "* nohup*/flash/.nsvm/*"
+    )
+    or citrix_adc.log.message like~ (
+      "* curl*|*sh", "* curl*|*sh *", "* curl*|*sh\"*",
+      "* fetch*|*sh", "* fetch*|*sh *", "* fetch*|*sh\"*",
+      "* wget*|*sh", "* wget*|*sh *", "* wget*|*sh\"*",
+      "* tar *nsconfig*",
+      "* curl*--data*@*/nsconfig/*",
+      "* curl*--upload-file*/nsconfig/*",
+      "* curl* -T */nsconfig/*",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh *",
+      "* grep *INDEX:*/var/log/htt*base64*|*sh\"*",
+      "* echo*>*/nsconfig/rc.netscaler*",
+      "* printf*>*/nsconfig/rc.netscaler*",
+      "* tee*/nsconfig/rc.netscaler*",
+      "* cp */nsconfig/rc.netscaler*",
+      "* mv */nsconfig/rc.netscaler*",
+      "* chmod*/flash/.nsvm/*",
+      "* nohup*/flash/.nsvm/*"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
