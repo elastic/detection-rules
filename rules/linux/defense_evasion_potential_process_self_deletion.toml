@@ -17,6 +17,9 @@ license = "Elastic License v2"
 name = "Potential Process Self-Deletion"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Potential Process Self-Deletion
 
 This rule identifies a file deletion event where the deleted path matches the executable of the process responsible for
@@ -91,8 +94,20 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action == "deletion" and
 process.executable like (
-  "./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/boot/*", "/sys/*",
-  "/lost+found/*", "/proc/*", "/var/mail/*", "/var/www/*", "/home/*/*", "/root/*"
+  "./*",
+  "/tmp/*",
+  "/var/tmp/*",
+  "/dev/shm/*",
+  "/run/*",
+  "/var/run/*",
+  "/boot/*",
+  "/sys/*",
+  "/lost+found/*",
+  "/proc/*",
+  "/var/mail/*",
+  "/var/www/*",
+  "/home/*/*",
+  "/root/*"
 ) and
 startswith~(file.path, process.executable) and
 endswith~(file.path, process.executable)
@@ -101,16 +116,16 @@ endswith~(file.path, process.executable)
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.004"
 name = "File Deletion"
 reference = "https://attack.mitre.org/techniques/T1070/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0005"
