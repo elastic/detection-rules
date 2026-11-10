@@ -68,6 +68,31 @@ Because the baseline hash path strips `threat_mappings` and skips emit transform
 hashes. Package stacks that apply transforms record a separate `stack_emit` epoch in
 `version.lock.json` so 9.5+ can version independently of ≤9.4.
 
+## MITRE ATLAS
+
+ATLAS is a separate framework from ATT&CK. Author ATLAS mappings as additional
+`[[rule.threat_mappings]]` blocks (`framework = "MITRE ATLAS"`, `version` = the content
+version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** put ATLAS
+entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
+
+- **Stack < 9.6** (8.19 / 9.4 / 9.5 packages) — ATLAS entries are stripped and never
+  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. The strip
+  lives in `apply_emit_transforms`; the `mitre_atlas` emit transform is not applicable
+  below 9.6, so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
+- **Stack ≥ 9.6** — the `mitre_atlas` emit transform (`min_stack` 9.6) appends ATLAS
+  `threat_mappings` onto the shipped `threat` array alongside ATT&CK. That transform
+  opens a dedicated `stack_emit["9.6"]` epoch so 9.6 packages do not reuse a 9.5
+  `rule_id` + version with different threat content.
+
+Refresh ATLAS data the same way as ATT&CK:
+
+```bash
+python -m detection_rules dev atlas refresh-data
+```
+
+This writes `detection_rules/etc/atlas-v<content-version>.json.gz` from the MITRE ATLAS
+manifest (`dist/v6/ATLAS-*.yaml`) without deleting older versioned files.
+
 ## `stack_emit` (version lock)
 
 The shared, backported `version.lock.json` may include optional emit epochs per rule:
@@ -81,13 +106,19 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
       "sha256": "<hash of transformed package payload>",
       "version": 13,
       "transforms": ["mitre_attack_v19", "related_integrations_gte"]
+    },
+    "9.6": {
+      "sha256": "<hash including ATLAS when present>",
+      "version": 14,
+      "transforms": ["mitre_attack_v19", "related_integrations_gte", "mitre_atlas"]
     }
   }
 }
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- Building 9.6 with the same transforms **reuses** `stack_emit["9.5"]` — no new lock row.
+- 9.5 is the ATT&CK v19 epoch. 9.6 is the ATLAS epoch (`mitre_atlas`); packages on 9.6+
+  prefer `stack_emit["9.6"]` when locked, and inherit `9.5` only until that row exists.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 

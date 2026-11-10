@@ -6,7 +6,9 @@
 """Tests for multi-version threat mappings (e.g. MITRE ATT&CK v18/v19) support."""
 
 import contextlib
+import importlib.util
 import os
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -30,6 +32,28 @@ TACTIC = {
 }
 TECH_V18 = {"id": "T1078", "name": "Valid Accounts", "reference": "https://attack.mitre.org/techniques/T1078/"}
 TECH_V19 = {"id": "T1078", "name": "Valid Accounts (v19)", "reference": "https://attack.mitre.org/techniques/T1078/"}
+
+
+class TestAttackVersionInitialization(unittest.TestCase):
+    """Tests for deriving the baseline ATT&CK version during module initialization."""
+
+    def test_parent_path_with_version_delimiter(self) -> None:
+        """A parent directory containing `-v` must not affect ATT&CK filename parsing."""
+        attack_path = Path("test-v01/installed/detection_rules/etc/attack-v18.1.0.json.gz")
+        module_name = "detection_rules._attack_regression_test"
+        spec = importlib.util.spec_from_file_location(module_name, attack.__file__)
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+
+        with (
+            mock.patch("detection_rules.utils.get_etc_glob_path", return_value=[attack_path]),
+            mock.patch("detection_rules.utils.read_gzip", return_value='{"objects": []}'),
+            mock.patch.dict(sys.modules, {module_name: module}),
+        ):
+            spec.loader.exec_module(module)
+
+        self.assertEqual(module.CURRENT_ATTACK_VERSION, "18.1.0")
 
 
 def _metadata() -> dict[str, Any]:

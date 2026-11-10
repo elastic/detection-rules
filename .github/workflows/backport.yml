@@ -29,6 +29,12 @@ concurrency:
 jobs:
   get-branches:
     uses: ./.github/workflows/get-target-branches.yml
+    with:
+      # Pin by branch name, not SHA. On a merged PR the default github.sha is the
+      # merge_commit_sha, which actions/checkout v7 rejects for fork PRs under
+      # pull_request_target. main's tip already contains that merge commit (or
+      # newer), so the target-branch list is the same trusted source.
+      ref: main
 
   label:
     runs-on: ubuntu-latest
