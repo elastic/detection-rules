@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/11/10"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a Linux process deleting its own executable from a relative, temporary, shared-memory, system, web, or user
+directory. Adversaries may self-delete payloads after execution to remove artifacts and hinder forensic analysis.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Process Self-Deletion"
+note = """## Triage and analysis
+
+### Investigating Potential Process Self-Deletion
+
+This rule identifies a file deletion event where the deleted path matches the executable of the process responsible for
+the deletion. Self-deleting executables are often used by malware to remove payloads after execution and reduce forensic
+evidence.
+
+### Possible investigation steps
+
+- Review the process executable, command line, user, parent process, and ancestor chain to determine how the executable
+  was launched.
+- Examine the deleted file's hash, path, creation time, and any available file metadata, and search for the same artifact
+  on other hosts.
+- Correlate nearby process, file, network, and authentication events to identify payload delivery, persistence,
+  command-and-control, or lateral movement.
+- If the process is still running, preserve volatile evidence such as `/proc/<pid>/exe`, memory, open file descriptors,
+  and active network connections before containment.
+
+### False positive analysis
+
+- Legitimate installers, updaters, deployment tools, and temporary application launchers may remove their own executable
+  after completing. Validate the process lineage, user context, file hash, and change records before adding exceptions.
+- Software running from user-writable or temporary directories can produce this behavior during normal cleanup. Confirm
+  that the executable and its parent are trusted and that no suspicious follow-on activity occurred.
+
+### Response and remediation
+
+- Isolate the host when the executable or process lineage is untrusted, and preserve volatile evidence before terminating
+  the process.
+- Quarantine related artifacts, remove persistence, and block identified hashes, domains, IP addresses, or download
+  sources.
+- Determine the initial access vector, rotate exposed credentials, and hunt for the same executable, hash, or behavior
+  across the environment.
+- Reimage or restore the host from a known-good source if system integrity cannot be established.
+"""
+risk_score = 47
+rule_id = "1338f51a-b929-4595-8c93-c5d8e9f62290"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server, refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux system:
+- Go to the Kibana home page and select "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Select "Add Elastic Defend".
+- Configure the integration and select a policy that collects all events, such as "Complete EDR (Endpoint Detection and
+  Response)".
+- Save the integration and install Elastic Agent on the Linux hosts to monitor.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.action == "deletion" and
+process.executable like (
+  "./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/boot/*", "/sys/*",
+  "/lost+found/*", "/proc/*", "/var/mail/*", "/var/www/*", "/home/*/*", "/root/*"
+) and
+startswith~(file.path, process.executable) and
+endswith~(file.path, process.executable)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
