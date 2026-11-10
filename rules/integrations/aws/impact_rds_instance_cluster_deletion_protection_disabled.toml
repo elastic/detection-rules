@@ -2,7 +2,7 @@
 creation_date = "2024/06/28"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -105,10 +105,14 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS RDS",
-    "Resources: Investigation Guide",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS RDS",
     "Tactic: Impact",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -119,6 +123,7 @@ any where data_stream.dataset == "aws.cloudtrail"
     and event.action in ("ModifyDBInstance", "ModifyDBCluster")
     and event.outcome == "success"
     and stringContains(aws.cloudtrail.request_parameters, "deletionProtection=false")
+    and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 
