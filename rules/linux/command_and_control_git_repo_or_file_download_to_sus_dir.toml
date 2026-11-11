@@ -2,7 +2,7 @@
 creation_date = "2025/04/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -81,13 +81,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 Elastic Defend integration does not collect environment variable logging by default.
 In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
  #### To set up environment variable capture for an Elastic Agent policy:
-- Go to “Security → Manage → Policies”.
-- Select an “Elastic Agent policy”.
-- Click “Show advanced settings”.
-- Scroll down or search for “linux.advanced.capture_env_vars”.
+- Go to "Security → Manage → Policies".
+- Select an "Elastic Agent policy".
+- Click "Show advanced settings".
+- Scroll down or search for "linux.advanced.capture_env_vars".
 - Enter the names of environment variables you want to capture, separated by commas.
 - For this rule the linux.advanced.capture_env_vars variable should be set to "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY".
-- Click “Save”.
+- Click "Save".
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
 """
@@ -112,8 +112,10 @@ sequence by process.entity_id, host.id with maxspan=10s
      (process.name == "git" and process.args == "clone") or
      (process.name in ("wget", "curl") and process.command_line like~ "*github*")
   ) and not (
-    process.parent.name in ("git", "cmake") or
-     process.parent.args like "/root/.ansible/tmp/ansible*"
+    process.parent.name in ("git", "cmake", "gitea", "nvim") or
+     process.parent.args like "/root/.ansible/tmp/ansible*" or
+     process.parent.executable like~ ("/usr/local/renovate/*", "/opt/containerbase/*", "/opt/puppetlabs/*") or
+     process.parent.executable like~ "*/pluginsmanager"
   )]
   [file where host.os.type == "linux" and event.type == "creation" and file.path like ("/tmp/*", "/var/tmp/*", "/dev/shm/*")]
 '''
