@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra ID passkey (FIDO2) authentication-method registration, or a passkey creation-options
+request, initiated by a client application that is not one of the self-service registration experiences (the My Sign-Ins
+portal or the Microsoft App Access Panel). Legitimate passkey enrollment is user-driven through those portals;
+registration driven over the Microsoft Graph API by a command-line or scripting client is unusual and is the technique
+ROADtools `roadtx registerpasskey` uses to plant a durable, phishing-resistant authentication method on a compromised
+account. Because the Entra audit log does not expose the passkey AAGUID or device-bound/synced attributes, the
+initiating client is the durable observable. The passkey creation-options request is included so the attempt is caught
+even when the subsequent registration is blocked (for example by an MFA requirement).
+"""
+false_positives = [
+    """
+    Administrators or identity-governance tooling provisioning passkeys on behalf of users through the Microsoft Graph
+    API or Graph PowerShell (`Microsoft Graph Command Line Tools`). Validate the initiating client and operator; add
+    exceptions for sanctioned provisioning applications.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Passkey Registered via Non-Self-Service Client"
+note = """## Triage and analysis
+
+### Investigating Entra ID Passkey Registered via Non-Self-Service Client
+
+Entra ID passkey (FIDO2) enrollment is normally user-driven through the My Sign-Ins portal
+(`19db86c3-b2b9-44cc-b339-36da233a3be2`) or the Microsoft App Access Panel (`0000000c-0000-0000-c000-000000000000`).
+A passkey registration or creation-options request from any other client - especially a command-line client such as the
+Azure CLI (`04b07795-...`) or Microsoft Graph Command Line Tools (`14d82eec-...`) - indicates the method was driven over
+the Microsoft Graph API rather than through a self-service experience. ROADtools `roadtx registerpasskey` does exactly
+this to establish a durable, phishing-resistant authentication method on a compromised account.
+
+### Possible investigation steps
+
+- Identify the initiating client in `azure.auditlogs.properties.additional_details.value` (the `InitiatedFrom` value).
+Confirm whether a command-line or scripting client registering a passkey is expected for this user.
+- Identify the user via `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and the passkey display name in
+`azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value` (ROADtools defaults the name to
+`roadtx`).
+- Review the source IP / geolocation on the event and compare to the user's baseline.
+- Pivot to `logs-azure.signinlogs-*` for the same user and window to identify the token used to drive the registration
+(device-code, ROPC, or refresh-token redemption) and whether the session was risky.
+- Determine whether the event is a completed registration (`User registered security info` with a
+`Fido2AuthenticationMethod` property) or only a creation-options request (`Get passkey creation options`), which can
+indicate a blocked attempt.
+
+### Response and remediation
+
+- If unauthorized, remove the passkey via `DELETE /v1.0/users/{id}/authentication/fido2Methods/{id}`.
+- Revoke refresh tokens and active sessions for the user (`POST /v1.0/users/{id}/revokeSignInSessions`) and review other
+authentication methods added during the window.
+- Investigate the initiating client and the token that drove the registration for broader compromise.
+"""
+references = [
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/",
+    "https://unit42.paloaltonetworks.com/roadtools-cloud-attacks/",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-passwordless",
+]
+risk_score = 73
+rule_id = "8030b5cf-1e24-497b-bc2c-4956f0223256"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+(
+    (
+        event.action: "User registered security info" and
+        azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name: "Fido2AuthenticationMethod*"
+    ) or
+    event.action: "Get passkey creation options"
+) and
+azure.auditlogs.properties.additional_details.value: * and
+not azure.auditlogs.properties.additional_details.value: (
+    "*0000000c-0000-0000-c000-000000000000*" or
+    "*19db86c3-b2b9-44cc-b339-36da233a3be2*"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value",
+    "source.ip",
+]
+
