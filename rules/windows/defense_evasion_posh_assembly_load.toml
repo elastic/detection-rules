@@ -2,7 +2,7 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
@@ -150,6 +150,17 @@ negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[[rule.filters.query.bool.filter]]
+[rule.filters.query.bool.filter.wildcard."file.path"]
+case_insensitive = true
+value = "C:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\BcContainerHelper\\\\*\\\\HelperFunctions.ps1"
+[[rule.filters.query.bool.filter]]
+[rule.filters.query.bool.filter.match_phrase."powershell.file.script_block_text"]
+query = "function LoadDLL { Param( [string] $path ) $bytes = [System.IO.File]::ReadAllBytes($path) [System.Reflection.Assembly]::Load($bytes) | Out-Null }"
 
 
 [[rule.threat]]
