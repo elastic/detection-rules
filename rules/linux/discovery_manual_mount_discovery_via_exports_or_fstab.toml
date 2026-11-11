@@ -2,14 +2,14 @@
 creation_date = "2025/04/25"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects manual mount discovery via the /etc/exports or /etc/fstab file on Linux systems. These files are used
-by NFS (Network File System) to define which directories are shared with remote hosts. Attackers may access this
-file to gather information about shared directories and potential targets for further exploitation.
+Detects command-line utilities used to read Linux filesystem mount and NFS export configuration. Adversaries may inspect
+/etc/fstab to identify local or remote mount sources and targets, or inspect /etc/exports and export drop-ins to discover
+directories shared through NFS and the clients permitted to access them.
 """
 from = "now-9m"
 index = [
@@ -109,7 +109,10 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name in ("cat", "grep", "tail", "less", "more", "egrep", "fgrep", "awk") and
-process.command_line like ("/etc/exports", "/etc/fstab")
+(
+  process.args like ("/etc/fstab", "/etc/exports", "/etc/exports.d/*.exports") or
+  process.command_line like ("*/etc/fstab*", "*/etc/exports*")
+)
 '''
 
 [[rule.threat]]
