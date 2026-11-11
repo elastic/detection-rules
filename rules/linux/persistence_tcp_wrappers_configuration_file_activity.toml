@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving the TCP Wrappers access-control files hosts.allow and hosts.deny. On systems
+where a network service still uses libwrap, these files can change service access decisions and may support
+connection-triggered command execution through directives such as spawn or twist.
+"""
+false_positives = [
+    "Legitimate administration of access controls for services that use TCP Wrappers.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "TCP Wrappers Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating TCP Wrappers Configuration File Activity
+
+TCP Wrappers is a legacy host-based access-control mechanism. Compatible network services consult `/etc/hosts.allow`
+and `/etc/hosts.deny` when handling a connection. In implementations that support access-control options, rules can also
+invoke commands through directives such as `spawn` or `twist`. An unauthorized change can therefore alter network access
+or establish execution triggered by an incoming connection.
+
+Many modern services are not linked with libwrap and ignore these files. An alert establishes that a sensitive legacy
+configuration file changed, but investigators must determine whether any active service on the host consumes it.
+
+### Possible investigation steps
+
+- Review the affected file, operation, responsible process, parent process, user, timestamp, and process command line.
+- Retrieve the current file and any prior version, then identify new or changed daemon/client patterns and options.
+- Look for `spawn`, `twist`, shell metacharacters, interpreters, download utilities, temporary paths, or outbound network
+  commands.
+- Determine whether TCP Wrappers is installed and identify running or exposed services linked with libwrap.
+- Correlate the change with subsequent inbound connections, child processes of the wrapped service or `tcpd`, and
+  outbound connections initiated immediately afterward.
+- Compare the file with package metadata, configuration management, change records, and known-good hosts.
+
+### False positive analysis
+
+- Administrators may legitimately update these files on older systems that still rely on TCP Wrappers.
+- Package installation, system provisioning, and configuration-management workflows may create or replace default
+  access-control files. Validate the writer and contents before introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the modified files and related process and network telemetry.
+- Remove unauthorized rules or command-capable directives and restore the approved access policy.
+- Restrict or stop affected services while determining whether a malicious rule was triggered.
+- Review connections and process activity occurring after the change, and investigate any commands launched by wrapped
+  services.
+- Scope matching rules, commands, writers, and source addresses across systems that still use TCP Wrappers.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man5/hosts_access.5.html",
+    "https://man7.org/linux/man-pages/man5/hosts_options.5.html",
+]
+risk_score = 21
+rule_id = "9b1aea7e-9de2-400a-a096-d07b1e134f1d"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path in ("/etc/hosts.allow", "/etc/hosts.deny")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
