@@ -2,7 +2,7 @@
 creation_date = "2026/05/14"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ false_positives = [
     """
 ]
 from = "now-130m"
-index = ["logs-google_workspace.login*", "logs-google_workspace.token*"]
+index = ["logs-google_workspace.login*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
@@ -90,8 +90,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset: ("google_workspace.login" or "google_workspace.token") and
-    event.action: ("login_success" or "authorize") and
+data_stream.dataset: "google_workspace.login" and
+    event.action: "login_success" and
+    not google_workspace.login.type : "exchange" and
     source.as.number: * and
     user.email: *
 '''
@@ -151,6 +152,4 @@ field = "new_terms_fields"
 value = ["user.email", "source.as.number"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
-
-
+value = "now-14d"
