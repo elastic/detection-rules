@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.4.0"
 min_stack_comments = "The file.Ext.* fields for file events were introduced in 9.3.0, and are required for this rule to function."
-updated_date = "2026/11/03"
+updated_date = "2026/11/12"
 
 [rule]
 author = ["Elastic"]
@@ -124,6 +124,11 @@ file.Ext.header_bytes like "7f454c46*" and (
 file.path like (
   "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/var/mail/*",
   "*/www/html/*", "*/wp-content/*", "*/wp-includes/*", "*/wp-admin/*"
+) and not (
+  file.path like ("/var/tmp/mkinitramfs*", "/var/tmp/dracut.*", "/run/initramfs/*") or
+  file.path like "*/elastic_agent_install/elastic-agent*" or
+  process.name like "VeeamAgent*" or
+  file.path like ("/tmp/VeeamAgent*", "/tmp/VeeamApp*")
 )
 '''
 
