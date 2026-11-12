@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/10/27"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first destination IP observed receiving an HTTP/1.1 request that contains both Content-Length and
+Transfer-Encoding headers. Conflicting message-framing headers can cause front-end and back-end HTTP components to
+interpret request boundaries differently, a condition commonly used in HTTP request smuggling attacks. This signal does
+not prove exploitation because security testing and misconfigured clients or intermediaries can generate the same header
+combination.
+"""
+false_positives = [
+    """
+    Authorized vulnerability scanners, penetration tests, malformed synthetic monitoring traffic, and non-compliant
+    clients or proxies may send both framing headers. Confirm whether the source, destination, and test window are
+    expected before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.http*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential HTTP/1.1 Request Smuggling: Conflicting Framing Headers"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential HTTP/1.1 Request Smuggling: Conflicting Framing Headers
+
+HTTP/1.1 uses Content-Length and Transfer-Encoding to delimit message bodies. A request containing both headers is
+ambiguous and violates modern HTTP message-framing guidance. If a front-end proxy and a back-end server resolve the
+conflict differently, an attacker may be able to prepend a hidden request to another user's connection, bypass
+front-end controls, poison a cache, or reach an otherwise inaccessible route.
+
+This rule uses a 14-day new-terms history window on `destination.ip`. It alerts when a destination is first observed
+receiving this framing combination during that window. Subsequent matching requests to the same destination do not
+produce another alert until the destination becomes new again.
+
+### Possible investigation steps
+
+- Review `source.ip`, `destination.ip`, `destination.port`, `url.full`, `http.request.method`, `user_agent.original`,
+  and `network.community_id` to identify the client, target, and affected transaction.
+- Inspect the captured Content-Length and Transfer-Encoding values. Multiple Content-Length values, an invalid length,
+  an obfuscated or non-final `chunked` token, or unusual whitespace and casing increase suspicion.
+- Retrieve the raw request from an authorized packet capture or upstream proxy when available. Determine whether bytes
+  remain after the declared body and whether they form a second HTTP request.
+- Identify the complete HTTP path through CDNs, load balancers, reverse proxies, WAFs, and application servers. Compare
+  how each component prioritizes, normalizes, rejects, or forwards conflicting framing headers.
+- Search for additional requests from the source and for nearby parsing errors, unexpected 4xx/5xx responses, cache
+  anomalies, requests to sensitive routes, or another user's request receiving an unusual response.
+- Determine whether the source is an approved vulnerability scanner, penetration-testing system, or synthetic monitor.
+
+### False positive analysis
+
+- Security scanners commonly test conflicting Content-Length and Transfer-Encoding behavior.
+- Legacy or non-compliant clients and intermediaries can emit both headers without attempting exploitation.
+- Narrow exceptions to validated scanner source and destination pairs or controlled test infrastructure.
+
+### Response and remediation
+
+- Block or rate-limit the source when malicious probing is confirmed and preserve the raw HTTP exchange.
+- Configure the front-end component to reject ambiguous requests before forwarding them, and ensure every component in
+  the chain applies consistent HTTP parsing and normalization.
+- Patch affected proxies and application servers, then retest the entire request chain with an approved
+  request-smuggling assessment tool.
+- Investigate downstream effects such as cache poisoning, authentication bypass, unauthorized requests, or cross-user
+  response exposure.
+"""
+references = [
+    "https://portswigger.net/web-security/request-smuggling",
+    "https://www.rfc-editor.org/rfc/rfc9112.html#name-message-body-length",
+    "https://www.elastic.co/docs/reference/integrations/network_traffic",
+    "https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-http-options.html#_send_all_headers",
+]
+risk_score = 47
+rule_id = "563f90ea-e3f9-4a3c-84a3-59ee72fb0c5c"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the HTTP protocol analyzer enabled on the ports
+used by the monitored web services. The sensor must observe HTTP after TLS termination or receive decrypted traffic;
+encrypted HTTPS sessions do not expose request headers to the analyzer.
+
+By default, the integration does not export every HTTP header. Configure the HTTP stream to capture
+`Content-Length` and `Transfer-Encoding` with `send_headers`:
+
+```yaml
+- type: http
+  ports: [80, 8080]
+  send_headers:
+    - Content-Length
+    - Transfer-Encoding
+```
+
+Add every relevant plaintext or post-decryption HTTP port to `ports`. Alternatively, set `send_all_headers: true`.
+Capturing only the two required headers is preferred because exporting every header can collect credentials, cookies,
+tokens, and other sensitive data. Confirm that test events populate
+`http.request.headers.content-length` and `http.request.headers.transfer-encoding` before enabling the rule.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "network_traffic.http" and
+http.version: "1.1" and
+http.request.headers.content-length: * and
+http.request.headers.transfer-encoding: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "source.port",
+    "destination.ip",
+    "destination.port",
+    "http.version",
+    "http.request.method",
+    "http.request.headers.content-length",
+    "http.request.headers.transfer-encoding",
+    "url.full",
+    "user_agent.original",
+    "network.community_id",
+    "observer.name",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
