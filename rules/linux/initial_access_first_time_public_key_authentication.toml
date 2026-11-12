@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["system"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/12"
 
 [rule]
 author = ["Elastic"]
@@ -98,6 +98,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success and system.auth.ssh.method:publickey
+and not source.ip:("127.0.0.1" or "::1")
+and not user.name:("ansible" or "git" or "deploy" or "jenkins" or "gitlab-runner" or "terraform" or "packer" or "vagrant" or "puppet" or "chef" or "devops")
+and not user.name:sa_*
 '''
 
 [[rule.threat]]
@@ -141,4 +144,4 @@ value = ["system.auth.ssh.signature"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-5d"
+value = "now-14d"
