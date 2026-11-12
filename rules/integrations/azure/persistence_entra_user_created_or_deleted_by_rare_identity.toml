@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time, within a lookback window, a user-initiated principal creates or deletes an Entra ID user
+("Add user" / "Delete user"). Adversaries with compromised privileged identities create users for persistence or delete
+users for impact. This is a New Terms rule keyed on the initiating user principal; app/service-initiated lifecycle
+events (e.g. HR/SCIM provisioning) are intentionally out of scope.
+"""
+false_positives = [
+    """
+    IT administrators and IGA tooling create and delete users as part of normal operations. The New Terms logic baselines
+    known human initiators; a newly seen initiating user warrants review.
+    """,
+]
+from = "now-6m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID User Created or Deleted by Rare Identity"
+note = """## Triage and analysis
+
+### Investigating Entra ID User Created or Deleted by Rare Identity
+
+Creating or deleting directory users are high-impact identity operations: creation supports persistence (backdoor accounts), deletion supports impact/evasion. This rule flags the first time a given user principal performs either in the history window.
+
+### Possible investigation steps
+
+- Confirm the initiating principal (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) and whether user lifecycle management is expected for it.
+- Review the target user (`azure.auditlogs.properties.target_resources.0.user_principal_name`) and the modified properties.
+- Correlate with role assignments, credential additions, or sign-ins involving the created account.
+
+### False positive analysis
+
+- Human IT/IGA admins performing routine provisioning; add exceptions by initiator UPN. App/SCIM-initiated events are already excluded (they carry no initiator UPN).
+
+### Response and remediation
+
+- If unauthorized, disable/remove the created account or restore the deleted one, review follow-on activity, and rotate the initiator's credentials.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1136.003/T1136.003.md",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1531/T1531.md",
+]
+risk_score = 47
+rule_id = "0de31097-38c4-48df-9320-c39dc3253bb6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Domain: Identity",
+    "Platform: Azure",
+    "Tactic: Persistence",
+    "Tactic: Impact",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "azure.auditlogs"
+    and event.action: ("Add user" or "Delete user")
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.identity",
+    "azure.auditlogs.properties.target_resources.0.user_principal_name",
+    "event.action",
+    "event.outcome",
+    "source.ip",
+    "source.as.organization.name",
+    "cloud.account.id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
