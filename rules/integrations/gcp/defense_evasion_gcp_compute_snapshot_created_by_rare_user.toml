@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time, within a lookback window, a principal creates a snapshot of a Compute Engine persistent disk
+("v1.compute.disks.createSnapshot"). Adversaries create disk snapshots to stage data for exfiltration, copying or
+sharing the snapshot to an attacker-controlled project without reading the source VM directly. This is a New Terms rule
+keyed on the project and acting principal, excluding known cloud-provider egress networks.
+"""
+false_positives = [
+    """
+    Backup, disaster-recovery, and image-automation service accounts create snapshots routinely. Baseline known
+    automation principals by user.email and add exceptions; interactive or first-seen snapshot creation warrants review.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Compute Snapshot Created by Rare User"
+note = """## Triage and analysis
+
+### Investigating GCP Compute Snapshot Created by Rare User
+
+GCP persistent-disk snapshots are point-in-time copies of a disk. Adversaries snapshot a target disk and then copy or share it to an attacker-controlled project, enabling data theft without touching the source instance.
+
+### Possible investigation steps
+
+- Identify the acting principal (`user.email`) and whether snapshot creation is expected for it.
+- Review the source disk (`gcp.audit.resource_name`) and whether it holds sensitive data.
+- Review `source.ip` and `source.as.organization.name`; confirm the operation aligns with normal egress.
+- Correlate with follow-on snapshot copy/share or image creation in the same project or across projects.
+
+### False positive analysis
+
+- Backup/DR and image-bake automation; baseline those service-account principals and add exceptions by `user.email`.
+
+### Response and remediation
+
+- If unexpected, review any snapshot copy/share, revoke cross-project access, rotate the implicated principal's credentials, and tighten least privilege on `compute.disks.createSnapshot`.
+"""
+references = [
+    "https://cloud.google.com/compute/docs/disks/create-snapshots",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1578.001/T1578.001.md",
+]
+risk_score = 21
+rule_id = "ddf5265a-9b04-4d5c-9d28-12cbfed37136"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "gcp.audit"
+    and event.action: "v1.compute.disks.createSnapshot"
+    and not event.outcome: "failure"
+    and not source.as.organization.name: (
+        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.001"
+name = "Create Snapshot"
+reference = "https://attack.mitre.org/techniques/T1578/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "source.ip",
+    "source.as.organization.name",
+    "gcp.audit.resource_name",
+    "event.action",
+    "event.outcome",
+    "cloud.project.id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.project.id", "user.email"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+
