@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/11/11"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/11/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time, within a lookback window, an identity launches an EC2 instance that includes user data via
+the "RunInstances" API. Adversaries supply user data to execute code automatically on instance boot (cloud-init),
+enabling command execution, persistence, or credential theft from a newly created, attacker-controlled instance. This is
+a New Terms rule detecting a rare occurrence of the "cloud.account.id", "user.name", and "source.as.organization.name"
+tuple for instance launches carrying user data.
+"""
+false_positives = [
+    """
+    Infrastructure-as-code pipelines, auto scaling, and launch-template-driven deployments routinely launch instances
+    with user data. Terraform and service-invoked (Auto Scaling, CloudFormation) launches are excluded, but other
+    automation or administrators bootstrapping instances may generate first-seen matches that warrant review.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Instance Launched With User Data by Rare User"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Instance Launched With User Data by Rare User
+
+EC2 user data is a script or directive block executed by cloud-init on first boot. Adversaries with `ec2:RunInstances` embed user data to run commands as root on a freshly launched instance, which can be used for execution, persistence, mining, or to abuse the instance role credentials via IMDS.
+
+This rule uses [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) to detect when an identity launches a user-data-bearing instance from an account, principal, and network-origin combination not seen in the configured history window. CloudTrail redacts the user data value but preserves the `userData` request parameter key.
+
+### Possible investigation steps
+
+- Confirm who `user.name` and `aws.cloudtrail.user_identity.arn` represent and whether launching instances with bootstrap user data is expected for that principal.
+- Review `source.ip`, `source.as.organization.name`, and geolocation, and whether the call aligns with normal egress for that principal.
+- Inspect `aws.cloudtrail.request_parameters` for the `imageId`, instance profile (`iamInstanceProfile`), and networking; retrieve and review the instance user data from the EC2 console or `DescribeInstanceAttribute`.
+- Correlate with the launched instance's subsequent endpoint telemetry, IMDS credential use, and any follow-on API activity from the instance role.
+
+### False positive analysis
+
+- Documented deployment or platform roles launching instances with bootstrap user data; add exceptions by ARN or user agent if needed.
+- Golden-image or bake pipelines not covered by the Terraform/service exclusions; confirm the pipeline and operator.
+
+### Response and remediation
+
+- If unexpected, terminate or isolate the instance, capture the user data and instance role activity, rotate credentials for the implicated principal and the instance role, and tighten least privilege on `ec2:RunInstances` and `iam:PassRole`.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks)**
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html",
+    "https://hackingthe.cloud/aws/post_exploitation/run_shell_commands_on_ec2/",
+    "https://www.atomicredteam.io/docs/atomics/T1578.002",
+]
+risk_score = 47
+rule_id = "0b27bce3-363a-47cb-9684-1e35512cdb20"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
+    "Tactic: Defense Evasion",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: "RunInstances"
+    and event.outcome: "success"
+    and source.ip: *
+    and aws.cloudtrail.request_parameters: *userData*
+    and not source.as.organization.name: (
+        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    )
+    and not aws.cloudtrail.user_identity.invoked_by: ("autoscaling.amazonaws.com" or "cloudformation.amazonaws.com")
+    and not user_agent.original: (*Terraform*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.002"
+name = "Create Cloud Instance"
+reference = "https://attack.mitre.org/techniques/T1578/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "event.provider",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name", "source.as.organization.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
