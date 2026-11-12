@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["cisco_ise"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Cisco ISE configuration changes that disable local logging for a category, remove all assigned logging
+targets, delete a logging target, or set local log retention to one day or less. These changes can reduce evidence
+available during and after unauthorized administration.
+"""
+false_positives = [
+    """
+    Logging-target migrations, capacity management, retention-policy changes, and appliance maintenance can trigger this
+    rule. Confirm replacement targets and expected retention before closing the alert.
+    """,
+]
+from = "now-9m"
+index = ["logs-cisco_ise.log-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Cisco ISE Logging Configuration Impairment"
+note = """## Triage and analysis
+
+### Investigating Potential Cisco ISE Logging Configuration Impairment
+
+Cisco ISE administrative audit events `52001` and `52002` record configuration changes and deletions. This rule
+identifies category logging disablement, removal of all assigned targets, deletion of a logging target, and local
+retention reduced to one day or less.
+
+### Possible investigation steps
+
+- Review `cisco_ise.log.object.type`, `cisco_ise.log.object.name`, and `cisco_ise.log.config_change.data` to identify
+  the affected category, target, or retention setting.
+- Identify the administrator and management source using `client.user.name` and `client.ip`.
+- Verify whether a replacement remote target was added and is receiving events.
+- Determine whether security-relevant categories such as administrative audit, passed or failed authentication, TACACS
+  accounting, or alarms lost local or remote coverage.
+- Correlate nearby ISE configuration, administrator-login, identity-store, policy, backup, and process-management events.
+
+### False positive analysis
+
+- Collector migrations can delete a target after a replacement is operational. Confirm the sequence and receipt of
+  events at the replacement collector.
+- Retention can be reduced for capacity reasons, but one day or less should be explicitly approved and supported by
+  reliable remote collection.
+
+### Response and remediation
+
+- If unauthorized, restore local logging, required targets, and retention; validate end-to-end delivery to remote
+  collectors; and preserve available ISE and collector evidence.
+- Revoke the responsible session or credentials and review all changes made by the administrator.
+"""
+references = ["https://www.elastic.co/docs/reference/integrations/cisco_ise"]
+risk_score = 47
+rule_id = "dde6b02e-641a-4ca2-8207-82090d988a31"
+setup = """## Setup
+
+This rule requires Cisco ISE Administrative and Operational Audit logs collected by the Cisco ISE integration. Ensure
+events `52001` and `52002` are exported and the integration populates `cisco_ise.log.object.type`,
+`cisco_ise.log.object.name`, `cisco_ise.log.local_logging`, `cisco_ise.log.assigned_targets`,
+`cisco_ise.log.config_change.data`, `client.user.name`, and `client.ip`.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "cisco_ise.log" and
+  event.outcome == "success" and
+  (
+    (event.code == "52001" and
+      (
+        (cisco_ise.log.object.type == "UPSCategory" and
+          (
+            cisco_ise.log.local_logging like~ "disable" or
+            cisco_ise.log.config_change.data like~ "*Assigned Targets = {}*"
+          )
+        ) or
+        (cisco_ise.log.object.type == "UPSLogSettings" and
+          cisco_ise.log.config_change.data like~ (
+            "*Local Storage Period = 0 days*",
+            "*Local Storage Period = 1 days*"
+          )
+        )
+      )
+    ) or
+    (event.code == "52002" and cisco_ise.log.object.type == "UPSLogTarget")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "event.outcome",
+    "cisco_ise.log.object.type",
+    "cisco_ise.log.object.name",
+    "cisco_ise.log.local_logging",
+    "cisco_ise.log.assigned_targets",
+    "cisco_ise.log.config_change.data",
+    "client.user.name",
+    "client.ip",
+    "host.hostname",
+    "event.original",
+]

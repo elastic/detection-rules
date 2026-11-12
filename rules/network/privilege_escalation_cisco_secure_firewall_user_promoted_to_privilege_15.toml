@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["cisco_asa", "cisco_ftd"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Cisco Secure Firewall ASA or Threat Defense user whose privilege level was changed to level 15, excluding
+the documented synthetic `enable_15` identity. Privilege level 15 grants full administrative control of the appliance
+and an unexpected assignment can indicate account manipulation for persistence or privilege escalation.
+"""
+false_positives = [
+    """
+    Approved promotion of a network administrator or service account during a documented role change can trigger this
+    rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-cisco_asa.log-*", "logs-cisco_ftd.log-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Cisco Secure Firewall User Promoted to Privilege Level 15"
+note = """## Triage and analysis
+
+### Investigating Cisco Secure Firewall User Promoted to Privilege Level 15
+
+This rule identifies Cisco Secure Firewall message ID `502103` when a non-level-15 user is promoted to privilege level
+15 on an ASA or Threat Defense device. Level 15 grants full administrative control of the appliance. The documented
+synthetic `enable_15` identity is excluded.
+
+### Possible investigation steps
+
+- Review `server.user.name`, the old and new privilege values, and appliance identity. Correlate nearby administrative
+  events to establish the actor and management source.
+- Verify that the account and role change are covered by an approved change record.
+- Search for preceding account creation, unusual login, failed authentication, and subsequent configuration, logging,
+  VPN, firmware, or export activity.
+- Determine whether the promoted account authenticated through local, RADIUS, or TACACS+ identity stores.
+
+### False positive analysis
+
+- Validate approved administrator promotion, service-account changes, appliance deployment, and disaster-recovery
+  activity.
+
+### Response and remediation
+
+- If unauthorized, remove the privilege assignment, disable the account, rotate relevant secrets, terminate sessions,
+  and audit all appliance changes made by the identity.
+"""
+references = [
+    "https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/asa-syslog/syslog-messages-500000-to-520025.html",
+    "https://www.cisco.com/c/en/us/td/docs/security/firepower/Syslogs/fptd_syslog_guide/syslogs5.html",
+    "https://www.elastic.co/docs/reference/integrations/cisco_asa",
+    "https://www.elastic.co/docs/reference/integrations/cisco_ftd",
+]
+risk_score = 73
+rule_id = "703e11a7-8374-4ac6-948f-28395479245d"
+setup = """## Setup
+
+This rule requires Cisco Secure Firewall ASA or Threat Defense syslog collected by the Cisco ASA or Cisco Secure
+Firewall Threat Defense integration and message ID `502103`. Both parsers populate `server.user.name` and their
+respective `cisco.asa.privilege.*` or `cisco.ftd.privilege.*` fields. The message has Cisco severity 5, so the configured
+logging threshold must include notification-level messages. Enable preservation of the original event if raw-message
+review is required.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Data Source: Network Traffic",
+    "Data Source: Cisco FTD",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:("cisco_asa.log" or "cisco_ftd.log") and
+  event.code:"502103" and
+  (
+    (data_stream.dataset:"cisco_asa.log" and
+      cisco.asa.privilege.new:"15" and not cisco.asa.privilege.old:"15") or
+    (data_stream.dataset:"cisco_ftd.log" and
+      cisco.ftd.privilege.new:"15" and not cisco.ftd.privilege.old:"15")
+  ) and
+  not server.user.name:"enable_15"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "event.original",
+    "message",
+    "observer.name",
+    "observer.serial_number",
+    "server.user.name",
+    "cisco.asa.privilege.old",
+    "cisco.asa.privilege.new",
+    "cisco.ftd.privilege.old",
+    "cisco.ftd.privilege.new",
+]
