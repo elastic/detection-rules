@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of an Azure managed-disk snapshot ("Microsoft.Compute/snapshots/write"). Adversaries create
+snapshots of disks to stage data for exfiltration, copying or sharing the snapshot to an attacker-controlled scope
+without reading the source VM directly. This ES|QL rule normalizes the acting identity across user- and
+service-principal-initiated operations and excludes known cloud-provider egress networks.
+"""
+from = "now-10m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure Compute Snapshot Created by Unusual Identity"
+note = """## Triage and analysis
+
+### Investigating Azure Compute Snapshot Created by Unusual Identity
+
+Azure disk snapshots are point-in-time copies of managed disks. Adversaries create a snapshot of a target disk and then share or copy it to an attacker-controlled subscription or storage, enabling data theft without touching the source instance.
+
+### Possible investigation steps
+
+- Identify the actor (`Esql.actor`) and whether snapshot creation is expected for that principal.
+- Review the target disk/snapshot (`azure.resource.name`) and whether it holds sensitive data.
+- Review `source.as.organization.name` and the source IP for the operation; confirm it aligns with normal egress.
+- Correlate with follow-on `Microsoft.Compute/snapshots/beginGetAccess/action` (SAS export), `CopySnapshot`, or snapshot sharing in the same window.
+
+### False positive analysis
+
+- Backup, disaster-recovery, and image-bake automation create snapshots routinely; baseline known automation identities and add exceptions.
+
+### Response and remediation
+
+- If unexpected, revoke any snapshot SAS/export access, rotate the implicated principal's credentials, and tighten least privilege on `Microsoft.Compute/snapshots/*`.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/snapshot-copy-managed-disk",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1578.001/T1578.001.md",
+]
+risk_score = 21
+rule_id = "5505f93b-3f3d-4986-89c6-0ade2aa5db94"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Platform: Azure",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.activitylogs-* METADATA _id, _version, _index
+| WHERE event.dataset == "azure.activitylogs"
+    AND event.action == "MICROSOFT.COMPUTE/SNAPSHOTS/WRITE"
+    AND event.outcome == "success"
+    AND NOT COALESCE(source.as.organization.name, "none") IN
+        ("Google LLC", "Amazon.com, Inc.", "Microsoft Corporation", "GOOGLE-CLOUD-PLATFORM",
+         "MICROSOFT-CORP-MSN-AS-BLOCK", "AMAZON-AES", "AMAZON-02")
+| EVAL Esql.actor = COALESCE(user.name, azure.activitylogs.identity.authorization.evidence.principal_id)
+| KEEP _id, _version, _index, @timestamp, Esql.actor, cloud.account.id, azure.resource.name, source.as.organization.name, event.action
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.001"
+name = "Create Snapshot"
+reference = "https://attack.mitre.org/techniques/T1578/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
