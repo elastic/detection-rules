@@ -34,8 +34,8 @@ execution, create tunnel interfaces, or transfer configurations.
 ### Possible investigation steps
 
 - Review `cisco_ise.log.cmdset` to identify the exact command and determine which behavior matched.
-- Identify the administrator in `user.name`, the managed device in `cisco_ise.log.network_device_name` and
-  `client.ip`, and the remote address represented by `destination.address`.
+- Identify the administrator in `user.name`, the managed device name in `cisco_ise.log.network.device.name`, its
+  address in `client.ip`, and the remote address represented by `destination.address`.
 - Confirm the command was covered by an approved change, automation job, incident-response action, or maintenance
   window.
 - Correlate adjacent TACACS accounting events from the same user and device to reconstruct the administrative session.
@@ -65,7 +65,8 @@ setup = """## Setup
 
 This rule requires Cisco ISE logs collected by the Cisco ISE integration. Configure ISE to export TACACS+ accounting
 events and ensure managed devices use command accounting. The integration must populate event code `3300`,
-`cisco_ise.log.cmdset`, `cisco_ise.log.privilege.level`, `user.name`, `client.ip`, and the managed-device fields.
+`cisco_ise.log.cmdset`, `cisco_ise.log.privilege.level`, `user.name`, `cisco_ise.log.network.device.name`, `client.ip`,
+and `destination.address`.
 """
 severity = "high"
 tags = [
@@ -131,8 +132,7 @@ field_names = [
     "event.code",
     "cisco_ise.log.cmdset",
     "cisco_ise.log.privilege.level",
-    "cisco_ise.log.network_device_name",
-    "cisco_ise.log.network_device_ip",
+    "cisco_ise.log.network.device.name",
     "user.name",
     "client.ip",
     "destination.address",
