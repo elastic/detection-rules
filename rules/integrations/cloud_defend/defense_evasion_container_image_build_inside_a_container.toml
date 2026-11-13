@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/11/13"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/11/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a container image being built from inside a running container using a container build utility such as
+"docker build", "buildah", "buildctl", "img", or "nerdctl build". Building an image on the host (or inside a pod)
+bypasses defenses that monitor for the retrieval of malicious images from a public registry, allowing an adversary to
+assemble and run tooling without pulling a flagged image. Nested image builds inside a Kubernetes pod are rarely
+legitimate outside of dedicated CI/build namespaces.
+"""
+false_positives = [
+    """
+    CI/CD and image-build pipelines (for example Tekton, Argo Workflows, Jenkins, or Kaniko builders) legitimately build
+    images inside pods. Baseline the build namespaces and service accounts used for those pipelines and add exceptions
+    by "orchestrator.namespace".
+    """,
+]
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Container Image Built Inside a Container"
+note = """## Setup
+
+This rule requires the Elastic Defend for Containers integration to be configured to collect container process events.
+
+## Triage and analysis
+
+### Investigating Container Image Built Inside a Container
+
+Adversaries build a container image directly inside a running container or pod to bypass defenses that inspect images pulled from a registry. Using "docker build" (or buildah/buildctl/img/nerdctl) they assemble an image locally from a Dockerfile and then run it, avoiding registry scanning and admission controls. Outside of dedicated CI/build workloads this is a strong indicator of hands-on-keyboard activity.
+
+### Possible investigation steps
+
+- Identify the container (`container.id`, `container.name`) and namespace (`orchestrator.namespace`) and determine whether it is a sanctioned build/CI workload.
+- Review the full command line (`process.args`) for the build context, Dockerfile path, and resulting image tag.
+- Examine the parent process (`process.parent.name`, `process.parent.executable`) to determine whether the build was launched interactively.
+- Correlate with follow-on activity such as the newly built image being run, pushed, or used to deploy a privileged or host-namespaced pod.
+
+### False positive analysis
+
+- Dedicated CI/build namespaces (Tekton, Argo, Jenkins, Kaniko) build images routinely. Baseline those namespaces and service accounts and add exceptions by `orchestrator.namespace`.
+
+### Response and remediation
+
+- If unexpected, isolate the container, capture the build context and Dockerfile, and identify what the resulting image was used for.
+- Remove the built image, redeploy affected workloads from trusted images, and tighten RBAC/admission controls to prevent in-cluster image builds outside approved pipelines.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1612/",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1612/T1612.md",
+]
+risk_score = 47
+rule_id = "daa0d56b-9149-475c-8bf7-bce8a337eed8"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Containers",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Linux",
+    "Platform: Kubernetes",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-cloud_defend.process* metadata _id, _index, _version
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+    container.id like "*" and
+    process.name in ("docker", "docker-buildx", "buildah", "buildctl", "img", "nerdctl") and
+    kql("""process.args: ("build" or "bud")""")
+| keep @timestamp, host.id, container.id, process.name, process.args, process.parent.name, process.parent.executable, user.id, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1612"
+name = "Build Image on Host"
+reference = "https://attack.mitre.org/techniques/T1612/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
