@@ -7,16 +7,16 @@ updated_date = "2026/09/22"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an outside collaborator being invited to or added on a GitHub repository. An outside collaborator is an
-individual account that is not a member of the organization but is granted direct access to one or more repositories. An
-attacker who has compromised an account or token can add a collaborator they control to retain access to private source
-code after the original credential is revoked, bypassing organization SSO and team-based review. This is distinct from
-adding an organization member (`org.add_member`), which is covered by a separate rule.
+Identifies an outside collaborator being added to a GitHub repository. An outside collaborator is an individual account
+that is not a member of the organization but is granted direct access to one or more repositories. An attacker who has
+compromised an account or token can add a collaborator they control to retain access to private source code after the
+original credential is revoked, bypassing organization SSO and team-based review. This is distinct from adding an
+organization member (`org.add_member`), which is covered by a separate rule.
 """
 false_positives = [
     """
-    Onboarding a contractor or vendor as an outside collaborator, or inviting a personal account during a documented
-    inner-source exercise. Confirm the invitee, repository, and permission with the repo owners.
+    Onboarding a contractor or vendor as an outside collaborator, or adding a personal account during a documented
+    inner-source exercise. Confirm the collaborator, repository, and permission with the repo owners.
     """,
 ]
 from = "now-9m"
@@ -30,27 +30,27 @@ note = """## Triage and analysis
 
 ### Investigating GitHub Outside Collaborator Added to Repository
 
-This rule fires on `repository_invitation.create`, logged when an actor invites an outside account to a repository, and `org.add_outside_collaborator`, logged when that account is added to the repository (typically after the invite is accepted). Outside collaborators are granted direct repository access without being organization members, so they frequently bypass organization SSO and team-based review, making this a convenient persistence mechanism after account or token compromise. Review the actor (`user.name`, `github.actor_ip`), the repository and permission level (`github.repo`, `github.permission`), and the token used (`github.hashed_token`, `github.programmatic_access_type`) to determine whether the grant was authorized, and identify the invited account from the audit event details in the GitHub UI, since the GitHub integration does not currently map the invitee to a dedicated field. When the action is performed through the GitHub web UI, `github.programmatic_access_type` and `github.hashed_token` may be empty; a fine-grained PAT, classic PAT, or OAuth token on these actions is a stronger compromise signal.
+This rule fires on `org.add_outside_collaborator`, logged when an account outside the organization is granted repository access. Outside collaborators are granted direct repository access without being organization members, so they frequently bypass organization SSO and team-based review, making this a convenient persistence mechanism after account or token compromise. Review the actor (`user.name`, `github.actor_ip`), the repository and permission level (`github.repo`, `github.permission`), and the token used (`github.hashed_token`, `github.programmatic_access_type`) to determine whether the grant was authorized. Identify the outside collaborator from the audit event details in the GitHub UI, since the GitHub integration does not currently map the collaborator to a dedicated field. When the action is performed through the GitHub web UI, `github.programmatic_access_type` and `github.hashed_token` may be empty; a fine-grained PAT, classic PAT, or OAuth token on this action is a stronger compromise signal.
 
 ### Possible investigation steps
 
-- Identify the actor using `user.name` and `github.actor_ip`, confirm whether the actor is a repository administrator who normally manages collaborators, and identify the invited account from the audit event details.
+- Identify the actor using `user.name` and `github.actor_ip`, confirm whether the actor is a repository administrator who normally manages collaborators, and identify the added collaborator from the audit event details.
 - Review `github.repo` and `github.permission` to understand which repository was shared and at what level, prioritizing write or admin grants on private repositories.
-- Check `github.programmatic_access_type` and `github.hashed_token` to determine whether the grant was made interactively or with a token; token-backed invites should be treated as higher urgency than a logged-in owner using the UI.
-- Confirm whether the invited account already belongs to the organization; outside collaborators bypass organization SSO and team review more often than members, so an unfamiliar external account is higher risk.
-- Pivot to clones, archive downloads, and `git.push` events by the invitee or the same hashed token after the add, which indicate the access is already being used.
+- Check `github.programmatic_access_type` and `github.hashed_token` to determine whether the grant was made interactively or with a token; token-backed additions should be treated as higher urgency than a logged-in owner using the UI.
+- Confirm that the added account does not belong to the organization; outside collaborators bypass organization SSO and team review more often than members, so an unfamiliar external account is higher risk.
+- Pivot to clones, archive downloads, and `git.push` events by the collaborator or the same hashed token after the add, which indicate the access is already being used.
 
 ### False positive analysis
 
-- Approved contractor or vendor access added as an outside collaborator with a change ticket and an expiry date. Confirm the invitee, repository, and permission with the repository owners before dismissing.
-- A maintainer inviting their own secondary account for testing in a non-production organization. Validate against the actor and scope exceptions where appropriate.
+- Approved contractor or vendor access added as an outside collaborator with a change ticket and an expiry date. Confirm the collaborator, repository, and permission with the repository owners before dismissing.
+- A maintainer adding their own secondary account for testing in a non-production organization. Validate against the actor and scope exceptions where appropriate.
 
 ### Response and remediation
 
-- If the collaborator was not authorized, remove them from the repository and cancel any pending invitations.
-- Revoke the actor's sessions and the token identified by `github.hashed_token` if the invite was not approved, and require the user to reauthenticate.
-- Review the repository's permissions and the organization's outside-collaborator policy, tightening who can invite external accounts.
-- Review activity by the invited account and the actor for clones, archive downloads, or pushes that indicate private code was already accessed.
+- If the collaborator was not authorized, remove them from the repository.
+- Revoke the actor's sessions and the token identified by `github.hashed_token` if the addition was not approved, and require the user to reauthenticate.
+- Review the repository's permissions and the organization's outside-collaborator policy, tightening who can grant access to external accounts.
+- Review activity by the collaborator and the actor for clones, archive downloads, or pushes that indicate private code was already accessed.
 - Engage incident response per your organization's playbooks if account or token compromise is confirmed.
 """
 references = [
@@ -78,7 +78,7 @@ query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
   data_stream.dataset == "github.audit"
-    and event.action in ("org.add_outside_collaborator", "repository_invitation.create")
+    and event.action == "org.add_outside_collaborator"
 | keep
     _id,
     _index,
