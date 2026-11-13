@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.4.0"
-updated_date = "2026/11/03"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
   )
 
 | EVAL cmdline_lower = TO_LOWER(process.command_line)
-
+| WHERE NOT (cmdline_lower LIKE "*GwAbwBjAGEAbABoAG8AcwB0ADoA*" or cmdline_lower LIKE "*DEAMgA3AC4AMAAuADAALgAxADoA*" or cmdline_lower LIKE "*XABQAHIAbwBnAHIAYQBtACAARgBpAGwA*" or cmdline_lower LIKE "*$__claudeCodeScript*" or cmdline_lower like "*QBjAHAALgBhAHQAbABhAHMAcwBpAGEAbgAuAGMAbwBtAC*" or cmdline_lower like "*eveinspect*" or cmdline_lower like "*B2AHMAYwBvAGQAZQA6AC8ALwBmA*")
 | EVAL is_encoded_powershell = CASE(
     TO_LOWER(process.name) == "powershell.exe" AND (
         cmdline_lower LIKE "* -enc*" OR
