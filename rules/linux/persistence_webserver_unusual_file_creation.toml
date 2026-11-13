@@ -2,7 +2,7 @@
 creation_date = "2026/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/27"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -107,6 +107,7 @@ file.path:(
 ) and
 not (
   file.path:*/storage/framework/sessions/* or
+  file.path:*/ci_sessions/* or
   (
     process.name:php-fpm* and
     file.path:(
@@ -119,20 +120,26 @@ not (
     (
       file.path:(
         */.npm/* or */_cache/* or */_inventories/* or */_sessions/* or
+        */cache/* or */ci_sessions/* or */et-cache/* or */filedir/* or
         */cache/tcpdf/* or */cachestore_file/* or */files_trashbin/* or
         */localcache/* or */node_modules/* or */proxy_temp/* or
         */sessions/sess_* or */storage/framework/cache/* or
         */temp-write-test-* or */thumbnails/* or
         */uploads/web-file-upload-*
       ) or
+      NOT file.extension:* or
       file.extension:(
         BMP or GIF or ICO or JPEG or JPG or PDF or PNG or SVG or TIFF or
-        WEBP or avi or bmp or cache or flv or gif or ico or jpeg or jpg or
-        lock or mkv or mov or mp3 or mp4 or ogg or part or pdf or png or
-        svg or temp or tiff or tmp or tmpfsfile or wav or webp or wmv
+        WEBP or avi or bmp or cache or css or csv or dat or data or
+        eot or flv or gif or gz or html or html_gzip or html_gzip_temp or
+        html_temp or ico or jpeg or jpg or json or less or lock or log or
+        md or mkv or mo or mov or mp3 or mp4 or ogg or part or pdf or
+        png or po or scss or sql or stale or svg or temp or tiff or tmp or
+        tmpfsfile or ttf or twig or txt or wav or webp or wmv or woff or
+        woff2 or xml
       )
     ) and
-    not file.name:(*.asp* or *.cgi* or *.jsp* or *.php* or *.phtml*)
+    not file.name:(*.asp* or *.cgi* or *.jsp* or *.php* or *.phtml* or *.sh or *.py or *.pl or *.rb)
   )
 )
 '''
