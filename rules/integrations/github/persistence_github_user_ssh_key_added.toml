@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the addition of an SSH public key to a GitHub user account or a deploy key to a repository. These keys grant
+Git access over SSH, so an adversary can add one to maintain persistent repository access after the original password,
+session, or token is revoked. Note that a user-level `public_key.create` action may not appear in a non-EMU enterprise
+audit stream, where it is retained only in the per-user security log.
+"""
+false_positives = [
+    """
+    Developers adding a key for a new workstation, or administrators adding an approved deploy key for CI/CD or
+    repository automation. Confirm the key, source IP, affected account or repository, and expected access level.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub SSH or Deploy Key Added"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub SSH or Deploy Key Added
+
+This rule fires on GitHub's `public_key.create` audit action, which records the addition of an SSH public key to a user account or a deploy key to a repository. Both provide durable Git access independent of the account password, making an unauthorized key a useful persistence mechanism after account or token compromise. Review the actor and source (`user.name`, `github.actor_ip`), repository context (`github.repo`), client and token (`github.user_agent`, `github.hashed_token`, `github.programmatic_access_type`), and the key's configured access in GitHub. Note that user-level `public_key.create` events may not reach `logs-github.audit-*` on non-EMU enterprises, where they are retained only in the per-user security log.
+
+### Possible investigation steps
+
+- Determine whether the event added a user SSH key or a repository deploy key. Confirm the change with the user or repository owner and verify whether `github.actor_ip` and `github.user_agent` are expected.
+- For deploy keys, verify the repository, purpose, owner, and whether write access is required. Unexpected write-enabled deploy keys should receive higher priority.
+- Geolocate `github.actor_ip` and review its ASN to check whether the source is consistent with the user's normal GitHub activity.
+- Review `github.hashed_token` and `github.programmatic_access_type` to determine whether the key was added interactively or with a PAT or OAuth token, the latter being a stronger compromise signal.
+- Correlate the same `user.name` and `github.actor_ip` with related account changes, such as unrecognized-device sign-ins, new personal access tokens, or OAuth grants, that indicate account takeover.
+- Pivot to subsequent Git activity such as clones, pushes, or archive downloads that may have used the new key.
+
+### False positive analysis
+
+- A developer adding an SSH key for a new or replacement workstation. Confirm the key, source IP, and that the user expected it before dismissing.
+- Automation or onboarding workflows that register SSH keys for a service account. Validate against deployment records and scope exceptions to the specific user where appropriate.
+- Approved deploy keys used by CI/CD systems or repository automation. Confirm the repository, key owner, documented purpose, and whether the configured read or write access is expected.
+
+### Response and remediation
+
+- If the key was not authorized by the user or repository owner, delete it immediately.
+- Reset the user's credentials and revoke active sessions if account takeover is suspected, and rotate any credentials used by affected automation.
+- Review all SSH keys, personal access tokens, and OAuth authorizations on the account and remove any others that are unexpected.
+- Hunt for Git activity that used the new key, such as clones, pushes, or archive downloads, to assess what was accessed.
+- Consider requiring SSH certificates or hardware-backed keys where policy allows, and engage incident response per your organization's playbooks if compromise is confirmed.
+"""
+references = [
+    "https://github.blog/news-insights/company-news/security-alert-new-phishing-campaign-targets-github-users/",
+    "https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account",
+    "https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys",
+]
+risk_score = 21
+rule_id = "8205043a-5fd1-4dd8-be6f-55677ffe067b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "public_key.create"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
