@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["cisco_asa"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Cisco ASA administrative commands that remove AAA authentication, authorization, accounting, or AAA-server
+configuration. These changes can weaken centralized access control or preserve local access after compromise.
+"""
+false_positives = [
+    """
+AAA-server replacement, appliance deployment, troubleshooting, and approved break-glass changes can trigger this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-cisco_asa.log-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Cisco ASA AAA Controls Disabled"
+note = """## Triage and analysis
+
+### Investigating Cisco ASA AAA Controls Disabled
+
+Cisco ASA message `111010` records an administrative command, executing user, and management source address. This rule
+identifies commands that remove AAA authentication, authorization, accounting, or AAA-server configuration.
+
+### Possible investigation steps
+
+- Review `cisco.asa.command_line_arguments`, `server.user.name`, and `source.ip`.
+- Confirm the activity against an approved AAA migration, deployment, troubleshooting session, or break-glass process.
+- Determine which administrative, VPN, console, or command-accounting flows were affected.
+- Verify that expected TACACS+ or RADIUS servers and method lists remain configured and reachable.
+- Search nearby `111010`, `111009`, `111008`, `502101`, and `502103` events for account, privilege, logging, VPN, or
+  configuration changes.
+
+### False positive analysis
+
+- Removing an obsolete AAA server or method list can be legitimate when a replacement is configured and tested in the
+  same change.
+- Scope exceptions to approved actors, source addresses, devices, command families, and maintenance windows.
+
+### Response and remediation
+
+- If unauthorized, isolate administrative access, restore centralized AAA and command accounting, rotate relevant
+  secrets, and terminate sessions established through weakened controls.
+- Audit appliance changes and authentication activity and restore a known-good configuration when integrity is uncertain.
+"""
+references = [
+    "https://blog.talosintelligence.com/salt-typhoon-analysis/",
+    "https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/asa-syslog/syslog-messages-101001-to-199021.html",
+    "https://www.elastic.co/docs/reference/integrations/cisco_asa",
+]
+risk_score = 73
+rule_id = "85ae2037-6e32-42fb-9462-17ced12dfa51"
+setup = """## Setup
+
+This rule requires Cisco ASA syslog collected by the Cisco ASA integration. Configure the appliance to forward message
+`111010` at notification severity. The integration must populate `cisco.asa.command_line_arguments`,
+`server.user.name`, and `source.ip`.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "cisco_asa.log" and
+  event.code == "111010" and
+  cisco.asa.command_line_arguments like~ (
+    "*no aaa authentication *",
+    "*no aaa authorization *",
+    "*no aaa accounting *",
+    "*clear configure aaa*",
+    "*no aaa-server *"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "event.action",
+    "event.outcome",
+    "cisco.asa.command_line_arguments",
+    "server.user.name",
+    "source.ip",
+    "observer.hostname",
+    "observer.serial_number",
+    "event.original",
+]
