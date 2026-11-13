@@ -2,7 +2,7 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/10/23"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -184,7 +184,48 @@ process.parent.name: (
 
     (process.parent.args :"E:/wamp64/bin/apache/apache*" and process.args:node*) or
 
-    (process.parent.name:"php.exe" and process.name:"cmd.exe" and process.args:("/V:ON" and "/E:ON"))
+    (process.parent.name:"php.exe" and process.name:"cmd.exe" and process.args:("/V:ON" and "/E:ON")) or
+
+    (process.parent.name:"java.exe" and process.name:"cmd.exe" and
+      process.command_line : (
+        *echo\ * or
+        *\\\\c\ set or
+        *\ set or
+        *mkdir\ * or
+        *move\ * or
+        *copy\ * or
+        *del\ * or
+        *mode\ CON* or
+        *chcp* or
+        *.bat* or
+        *docker-credential* or
+        *nslookup* or
+        *sc.exe\ stop* or
+        *sc.exe\ start* or
+        *sc.exe\ query* or
+        *netstat* or
+        *ipconfig* or
+        *wmic\ * or
+        *systeminfo* or
+        *findstr* or
+        *net\ use* or
+        *net\ stop* or
+        *net\ start* or
+        *reg\ unload* or
+        *REG\ UNLOAD* or
+        *secedit*
+      )
+    ) or
+
+    (process.parent.name:"java.exe" and
+      process.name:("tasklist.exe" or "hostname.exe" or "ipconfig.exe" or "netstat.exe" or "systeminfo.exe" or "whoami.exe" or "wmic.exe")
+    ) or
+
+    (process.parent.name:"java.exe" and process.name:"rundll32.exe" and process.command_line:*url.dll*) or
+
+    (process.parent.name:"java.exe" and process.name:"reg.exe" and process.command_line:*query*) or
+
+    (process.parent.name:"java.exe" and process.name:"sc.exe" and process.command_line:(*query* or *GetDisplayName*))
   )
 '''
 
