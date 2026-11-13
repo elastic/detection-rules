@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/11/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a user on a macOS host deletes, securely erases, or truncates system, audit, or unified log
+data with the log, rm, srm, shred, unlink, truncate, or dd utilities. Adversaries clear these logs to remove evidence
+of their activity and hinder forensic investigation. Log rotation and cleanup are normally performed by newsyslog and
+periodic maintenance, which are excluded. The New Terms rule type alerts once per user and host, so a recurring
+cleanup by the same account does not alert again during the history window.
+"""
+false_positives = [
+    "Administrators and support staff occasionally clear logs while troubleshooting disk usage. The same user on the same host alerts only once within the history window.",
+    "Third-party log shippers or cleanup utilities that prune /var/log with rm, truncate, or shred. Exclude a verified utility by its full process.parent.executable path.",
+    "MDM cleanup scripts other than Jamf. Exclude the agent by its full parent executable path after confirmation.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "macOS System Log Deletion or Truncation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating macOS System Log Deletion or Truncation
+
+macOS records system activity in the unified log (`/private/var/db/diagnostics`, `/private/var/db/uuidtext`), in legacy text logs under `/private/var/log` and in BSM audit trails under `/private/var/audit`. Apple daemons rotate and prune these locations automatically, so a user-space process erasing them with `log erase`, `rm`, `srm`, `shred`, `unlink`, `truncate` or `dd` is rarely legitimate and is a common anti-forensics step after an intrusion.
+
+This rule alerts the first time a given `user.name` performs that action on a `host.id` within 14 days. A later wipe by the same account on the same host is suppressed until the pair ages out of the history window. Activity that runs as root, including `sudo`, collapses to that one account.
+
+### Possible investigation steps
+
+- Review `process.command_line` to identify which log store was targeted and whether the whole directory or a single file was removed.
+- Inspect `process.parent.executable` and the process tree to determine whether the action came from an interactive shell, a script, `osascript ... with administrator privileges` or a remote session.
+- Identify the time window the cleared logs would have covered and pivot on other telemetry (Elastic Defend process, file and network events) for that window, since the local logs can no longer be relied on.
+- Look for preceding privilege escalation and for other defense evasion on the same host, such as shell history tampering, security software unloads or quarantine attribute removal.
+
+### False positive analysis
+
+- Administrators and support staff occasionally clear logs while troubleshooting disk usage. Confirm with the user or a change ticket and close as benign rather than excluding the shell. The same user on the same host will not alert again for 14 days.
+- Third-party log shippers or cleanup utilities that prune `/var/log` with `rm`, `truncate`, or `shred` can match. Exclude them by full `process.parent.executable` path once verified.
+- MDM agents running cleanup scripts are excluded for Jamf; add other management agents by full executable path.
+
+### Response and remediation
+
+- Treat the host as potentially compromised: isolate it if the activity is unexplained.
+- Preserve remaining evidence (Elastic Defend telemetry, memory, any surviving log archives) before further remediation.
+- Investigate the activity that preceded the log clearing and scope the environment for the same command line or parent process.
+- Reset credentials for the account involved and review how administrative privileges were obtained.
+"""
+references = [
+    "https://www.loobins.io/binaries/log/",
+]
+risk_score = 47
+rule_id = "59513573-0578-4e47-829b-78d77453145c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: New Terms",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:process and host.os.type:macos and event.type:start and event.action:exec and
+user.name:* and host.id:* and
+(
+  (process.name:log and process.args:erase) or
+  (
+    process.name:(rm or srm or shred or gshred or unlink or truncate or gtruncate) and
+    process.args:(
+      /var/log or /var/log/* or /private/var/log or /private/var/log/* or
+      /var/audit/* or /private/var/audit/* or
+      /var/db/diagnostics/* or /private/var/db/diagnostics/* or
+      /var/db/uuidtext/* or /private/var/db/uuidtext/*
+    )
+  ) or
+  (process.name:(dd or gdd) and process.args:(of=/var/log/* or of=/private/var/log/*))
+) and
+not process.parent.executable:(
+  /usr/sbin/periodic or /usr/libexec/periodic-wrapper or /usr/sbin/newsyslog or
+  /usr/local/jamf/bin/jamf or /Library/Elastic/*
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.002"
+name = "Clear Linux or Mac System Logs"
+reference = "https://attack.mitre.org/techniques/T1070/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
