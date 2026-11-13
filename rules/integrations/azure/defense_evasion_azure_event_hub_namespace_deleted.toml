@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the deletion of an Azure Event Hub namespace ("Microsoft.EventHub/namespaces/delete"). Event Hub namespaces
+are a common egress path for Azure diagnostic, activity, and sign-in logs to SIEMs, deleting a namespace can sever that
+telemetry pipeline, impairing defenses and monitoring. This rule excludes known cloud-provider egress networks to reduce
+infrastructure-automation noise.
+"""
+false_positives = [
+    """
+    Infrastructure-as-code and CI/CD automation (e.g. crossplane, Terraform) create and delete ephemeral Event Hub
+    namespaces. Baseline known automation principals and source networks; interactive deletion of a logging namespace
+    warrants review.
+    """,
+]
+from = "now-6m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Event Hub Namespace Deleted"
+note = """## Triage and analysis
+
+### Investigating Azure Event Hub Namespace Deleted
+
+Event Hub namespaces frequently carry diagnostic/activity/sign-in log egress to monitoring pipelines. Deleting one can blind detection by cutting off that telemetry, and may precede or accompany other malicious activity.
+
+### Possible investigation steps
+
+- Identify the deleted namespace (`azure.resource.name`) and whether it was a logging/diagnostics egress hub.
+- Identify the acting principal (`azure.activitylogs.identity.authorization.evidence.principal_id`) and whether the deletion was expected.
+- Review `source.as.organization.name` and source IP; confirm it aligns with normal administration.
+- Check diagnostic settings that targeted the namespace and whether log egress stopped after the deletion.
+
+### False positive analysis
+
+- CI/CD pipelines routinely create and delete ephemeral namespaces; baseline those principals and networks.
+
+### Response and remediation
+
+- If unexpected, restore diagnostic settings to a healthy egress target, verify log ingestion resumed, rotate the implicated principal's credentials, and tighten least privilege on `Microsoft.EventHub/namespaces/*`.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-about",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1685.002/T1685.002.md",
+]
+risk_score = 47
+rule_id = "8b62b3c1-77d6-4f66-9b5a-bf1ebbac8922"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Platform: Azure",
+    "Use Case: Log Auditing",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.activitylogs"
+    and event.action: "MICROSOFT.EVENTHUB/NAMESPACES/DELETE"
+    and event.outcome: "success"
+    and not source.as.organization.name: (
+        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.resource.name",
+    "azure.resource.group",
+    "source.ip",
+    "source.as.organization.name",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+]
