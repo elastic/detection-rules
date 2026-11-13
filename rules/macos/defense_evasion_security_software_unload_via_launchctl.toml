@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/11/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to unload, boot out or disable the launch daemons and agents of third-party endpoint
+detection and response (EDR) software, consumer antivirus, and endpoint telemetry or device-control tools
+via launchctl, or to disable protection through a vendor command-line utility (mdatp, falconctl, sentinelctl).
+Adversaries disable these tools prior to deploying payloads or performing actions on objective in order to
+avoid detection and prevention. Legitimate unloads are almost exclusively performed by vendor uninstallers,
+package install scripts, MDM agents, or trusted applications under /Applications, which are excluded.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Third-Party Security Software Unload or Tamper via Launchctl"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Third-Party Security Software Unload or Tamper via Launchctl
+
+On macOS, EDR sensors, consumer antivirus agents, and endpoint telemetry or device-control tools run as launch daemons registered under `/Library/LaunchDaemons`. An adversary with administrative rights can stop them with `launchctl unload` or `launchctl bootout`, or disable protection through the vendor CLI (for example `mdatp config real-time-protection --value disabled` or `falconctl unload`). This rule alerts when such a command targets a known vendor label and the responsible process is not a known MDM agent, uninstaller or package install script.
+
+### Possible investigation steps
+
+- Review `process.command_line` to identify which vendor label or utility was targeted and whether the command would have succeeded (unload requires root).
+- Inspect `process.parent.executable` and `process.Ext.effective_parent.executable` to determine whether the action came from an interactive terminal, a script, a remote session (SSH, RMM) or an application.
+- Check for a vendor uninstall or upgrade on the same host in the surrounding minutes (package install logs, `installer` or `pkgutil` activity, change tickets).
+- Look for preceding privilege escalation (`sudo`, `osascript ... with administrator privileges`) and for follow-on activity after the unload: new launch agents or daemons, downloads via `curl`, archive or credential access, outbound connections.
+- Confirm with the vendor console whether the sensor on this host went offline at the time of the alert.
+
+### False positive analysis
+
+- Vendor uninstallers, upgrade scripts and `package_script_service` legitimately unload their own daemons. If a specific uninstaller path is observed, add it to the parent or effective-parent exclusions rather than excluding the vendor label.
+- A code-signed, trusted application under `/Applications` or `/Library/PrivilegedHelperTools` that invokes `launchctl` or a vendor utility directly is excluded. Unsigned or untrusted binaries in that folder still match. A shell or Terminal session is not excluded, because the parent in that case is the shell rather than the application.
+- MDM and RMM agents (Jamf, Kandji, Mosyle, Intune, JumpCloud, Addigy, NinjaOne) performing managed removals are excluded; add other management agents in use in your environment by their full executable path.
+- Administrators manually removing a decommissioned product from a terminal will trigger the rule. Treat these as true-positive-benign and close with a note rather than excluding Terminal, since an interactive shell is also the most common attacker path.
+
+### Response and remediation
+
+- Isolate the host if the unload was not part of a sanctioned change and the security sensor is confirmed offline.
+- Reload the affected daemon (`launchctl bootstrap system /Library/LaunchDaemons/<label>.plist`) or re-enable protection through the vendor console, and verify the sensor reports healthy.
+- Investigate how administrative privileges were obtained and whether other defenses (Gatekeeper, SIP, TCC, Elastic Agent) were tampered with on the same host.
+- Collect the process tree, shell history and any dropped files for the responsible process and search the environment for the same command line on other hosts.
+- Reset credentials for the user account involved if the activity originated from a compromised session.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1685/T1685.md",
+    "https://www.loobins.io/binaries/launchctl/",
+]
+risk_score = 73
+rule_id = "40a17220-c926-4776-b396-c66c12076480"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and
+ (
+  (
+   process.name == "launchctl" and
+   process.args in ("unload", "bootout", "remove", "disable") and
+   process.command_line like~ (
+     "*com.crowdstrike.*", "*com.carbonblack.*", "*com.vmware.carbonblack.*", "*com.microsoft.fresno*",
+     "*com.microsoft.wdav*", "*com.sentinelone.*", "*com.jamf.protect*", "*com.paloaltonetworks.cortex*",
+     "*com.trendmicro.*", "*com.sophos.*", "*com.eset.*", "*com.kaspersky.*", "*com.bitdefender.*",
+     "*com.malwarebytes.*", "*com.cylance.*", "*com.mcafee.*", "*com.trellix.*", "*com.symantec.*",
+     "*com.fortinet.fortiedr*", "*com.checkpoint.*", "*com.cybereason.*", "*com.huntress.*",
+     "*com.withsecure.*", "*com.f-secure.*", "*com.avast.*", "*com.avg.*", "*com.norton.*",
+     "*com.webroot.*", "*com.objective-see.*", "*com.facebook.osquery*", "*io.kolide.*",
+     "*com.fleetdm.*", "*com.absolute.*"
+   )
+  ) or
+  (process.name == "mdatp" and process.args == "config" and process.args == "real-time-protection" and process.args == "disabled") or
+  (process.name == "falconctl" and process.args in ("unload", "uninstall")) or
+  (process.name == "sentinelctl" and process.args in ("unload", "unprotect", "uninstall"))
+ ) and
+ not (
+   process.parent.executable like~ "/Library/PrivilegedHelperTools/*" and
+   process.parent.code_signature.trusted == true
+  ) and
+ not process.parent.executable like~ ("/usr/local/jamf/bin/jamf",
+                                      "/Library/Application Support/*/uninstall*",
+                                      "/Applications/*/Contents/Resources/uninstall*") and
+ not process.Ext.effective_parent.executable like~ (
+   "/usr/local/jamf/bin/jamf",
+   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+   "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+   "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+   "/Applications/NinjaRMMAgent/programfiles/ninjarmm-macagent"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
