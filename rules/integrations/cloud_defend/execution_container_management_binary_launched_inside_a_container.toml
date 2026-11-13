@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -82,9 +82,10 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl") or
+  process.name in ("dockerd", "kubelet", "kube-proxy", "kubectl", "containerd", "systemd", "crictl", "podman", "podman-remote") or
   (
     /* Account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg */
     process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
@@ -95,8 +96,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
       "kubectl", "/bin/kubectl", "/usr/bin/kubectl", "/usr/local/bin/kubectl",
       "containerd", "/bin/containerd", "/usr/bin/containerd", "/usr/local/bin/containerd",
       "systemd", "/bin/systemd", "/usr/bin/systemd", "/usr/local/bin/systemd",
-      "crictl", "/bin/crictl", "/usr/bin/crictl", "/usr/local/bin/crictl"
-    ) and 
+      "crictl", "/bin/crictl", "/usr/bin/crictl", "/usr/local/bin/crictl",
+      "podman", "/bin/podman", "/usr/bin/podman", "/usr/local/bin/podman"
+    ) and
     /* default exclusion list to not FP on default multi-process commands */
     not process.args in (
       "which", "/bin/which", "/usr/bin/which", "/usr/local/bin/which",
@@ -115,28 +117,29 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

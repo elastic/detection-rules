@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/11/13"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/11/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects execution of the "at" or "atd" job-scheduling utilities inside a Linux container. Containers are
+typically immutable, single-purpose, and do not run interactive job schedulers, so the use of "at" to queue a one-time
+command is anomalous. Adversaries abuse "at" to establish persistence or to execute a payload at a later time after
+gaining a foothold inside a container.
+"""
+false_positives = [
+    """
+    Some container images bundle the "at"/"atd" utilities and a small number of workloads may legitimately schedule
+    one-time jobs. Investigate the queued command and the scheduling principal; baseline and except known automation
+    images where appropriate.
+    """,
+]
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Scheduled Job Creation via At Utility Inside a Container"
+note = """## Setup
+
+This rule requires the Elastic Defend for Containers integration to be configured to collect container process events.
+
+## Triage and analysis
+
+### Investigating Scheduled Job Creation via At Utility Inside a Container
+
+The "at" utility schedules a command to run once at a later time via the "atd" daemon. Inside a container this is rarely legitimate: container workloads are usually immutable and process-bound, with scheduling handled by the orchestrator (CronJobs), not an in-container scheduler. Adversaries use "at" to persist or to defer execution of a payload after compromising a container.
+
+### Possible investigation steps
+
+- Identify the container (`container.id`, `container.name`) and namespace (`orchestrator.namespace`) where "at" executed, and confirm whether in-container scheduling is expected for that workload.
+- Review the parent process (`process.parent.name`, `process.parent.executable`) to determine whether the invocation came from an interactive shell or an automated process.
+- Inspect the command that was queued (review the container's `/var/spool/cron/atjobs` or `atq`/`at -c` output) to understand what will run and when.
+- Correlate with prior activity in the same container, such as tool installation, package manager use, or shell access.
+
+### False positive analysis
+
+- A small number of images legitimately run "atd" and may schedule maintenance jobs. Baseline these images or namespaces and add exceptions.
+
+### Response and remediation
+
+- If unexpected, isolate the container, remove the scheduled job (`at -r`), capture the queued command for analysis, and redeploy the workload from a trusted image.
+- Rotate any credentials exposed to the container and review how the attacker gained execution inside it.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1053/002/",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1053.002/T1053.002.md",
+]
+risk_score = 21
+rule_id = "1a263a5f-8aea-4c42-a121-0defc82e0a2e"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Containers",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Platform: Kubernetes",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  container.id like "*" and
+  process.name in ("at", "atd")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
