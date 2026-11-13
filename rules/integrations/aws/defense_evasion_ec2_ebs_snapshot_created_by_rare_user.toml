@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/11/11"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/11/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time, within a lookback window, an identity creates an EBS volume snapshot via the EC2
+"CreateSnapshot" API. Adversaries abuse snapshots to stage data for exfiltration (snapshot a volume, then share or copy
+it to an attacker-controlled account) or to capture sensitive data from a compromised environment. This is a New Terms
+rule detecting a rare occurrence of the "cloud.account.id", "user.name", and "source.as.organization.name" tuple for
+this action.
+"""
+false_positives = [
+    """
+    Backup, disaster-recovery, and data-lifecycle automation routinely creates snapshots. Service-invoked calls (AWS
+    Backup, Data Lifecycle Manager) are excluded, but custom backup tooling or administrators taking ad hoc snapshots
+    may generate first-seen matches that warrant review.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 EBS Snapshot Created by Rare User"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 EBS Snapshot Created by Rare User
+
+EBS snapshots are point-in-time copies of volumes. Adversaries create a snapshot of a target volume and then use `ModifySnapshotAttribute` to share it with, or `CopySnapshot` to move it into, an attacker-controlled account, enabling data theft without reading the source instance directly.
+
+This rule uses [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) to detect when an identity creates a snapshot from an account, principal, and network-origin combination not seen in the configured history window.
+
+### Possible investigation steps
+
+- Confirm who `user.name` and `aws.cloudtrail.user_identity.arn` represent and whether snapshot creation is expected for that principal.
+- Review `source.ip`, `source.as.organization.name`, and geolocation, and whether the call aligns with normal egress for that principal.
+- Inspect `aws.cloudtrail.request_parameters` for the source `volumeId` and whether the volume holds sensitive data.
+- Correlate with follow-on `ModifySnapshotAttribute` (shared with another account or made public), `CopySnapshot`, and `DescribeSnapshots` in the same session.
+
+### False positive analysis
+
+- Documented backup/DR roles or custom backup tooling taking snapshots; add exceptions by ARN if needed.
+- One-off administrator snapshots before maintenance; confirm the change window and operator.
+
+### Response and remediation
+
+- If unexpected, review any snapshot sharing or copy operations, revoke cross-account snapshot permissions, rotate credentials for the implicated principal, and tighten least privilege on EC2 snapshot APIs.
+
+### Additional information
+
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks)**
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html",
+    "https://hackingthe.cloud/aws/post_exploitation/copy_ebs_snapshot/",
+    "https://www.atomicredteam.io/docs/atomics/T1578.001",
+]
+risk_score = 21
+rule_id = "80d7c681-e7e1-43f3-acd9-750796806cf1"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
+    "Tactic: Defense Evasion",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: "CreateSnapshot"
+    and event.outcome: "success"
+    and source.ip: *
+    and not source.as.organization.name: (
+        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    )
+    and not aws.cloudtrail.user_identity.invoked_by: (
+        "backup.amazonaws.com" or "AWS Internal" or "dlm.amazonaws.com"
+        or "malware-protection.guardduty.amazonaws.com"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.001"
+name = "Create Snapshot"
+reference = "https://attack.mitre.org/techniques/T1578/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "event.provider",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name", "source.as.organization.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
