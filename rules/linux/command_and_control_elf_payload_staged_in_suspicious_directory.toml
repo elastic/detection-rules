@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.4.0"
 min_stack_comments = "The file.Ext.* fields for file events were introduced in 9.3.0, and are required for this rule to function."
-updated_date = "2026/11/03"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -17,13 +17,13 @@ from = "now-9m"
 index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
-name = "ELF Payload Staged in a Suspicious Directory"
+name = "Potential ELF Payload Staged in a Suspicious Directory"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating ELF Payload Staged in a Suspicious Directory
+### Investigating Potential ELF Payload Staged in a Suspicious Directory
 
 Attackers commonly transfer or construct Linux payloads in writable directories before execution. Download clients,
 copy and archive utilities, scripting runtimes, or executables already running from unusual locations can create an ELF
@@ -56,7 +56,7 @@ file in temporary, shared-memory, runtime, mail, or web directories as part of p
   secrets.
 - Rebuild or restore the host from a known-good source when system integrity cannot be established.
 """
-risk_score = 47
+risk_score = 21
 rule_id = "09c72106-db0c-4806-bb68-cee5a49fa676"
 setup = """## Setup
 
@@ -93,7 +93,7 @@ To capture this behavior, this rule requires a specific advanced setting in the 
 
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -110,11 +110,10 @@ query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and
 file.Ext.header_bytes like "7f454c46*" and (
   process.name in (
-    "curl", "wget", "ftp", "tftp", "scp", "rsync", "busybox", "timeout", "env", "cp", "mv",
-    "install", "dd", "tee", "touch", "tar", "gzip", "gunzip", "bzip2", "bunzip2", "xz",
-    "unxz", "zip", "unzip", "7z", "bun"
+    "curl", "wget", "ftp", "tftp", "scp", "rsync", "busybox", "timeout", "env", "dd", "tee", "touch", 
+    "gzip", "gunzip", "bzip2", "bunzip2", "xz", "unxz", "zip", "unzip", "7z", "bun"
   ) or
-  process.name like (".*", "python*", "perl*", "php*", "ruby*", "lua*", "node*", "deno*") or
+  process.name like (".*", "perl*", "php*", "ruby*", "lua*", "deno*") or
   process.executable like (
     "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "*/www/html/*",
     "/lost+found/*", "/proc/*", "/var/mail/*", "/var/www/*", "/mnt/*", "/media/*", "*/wp-content/*",
@@ -122,7 +121,7 @@ file.Ext.header_bytes like "7f454c46*" and (
   )
 ) and
 file.path like (
-  "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/var/mail/*",
+  "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/var/mail/*", "/var/www/*",
   "*/www/html/*", "*/wp-content/*", "*/wp-includes/*", "*/wp-admin/*"
 )
 '''
