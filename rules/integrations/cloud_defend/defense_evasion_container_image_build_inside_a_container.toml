@@ -23,9 +23,8 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend.process*"]
 interval = "5m"
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "Container Image Built Inside a Container"
 note = """## Setup
@@ -68,18 +67,20 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ES|QL",
     "Platform: Linux",
     "Platform: Kubernetes",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-  container.id like "*" and
-  process.name in ("docker", "docker-buildx", "buildah", "buildctl", "img", "nerdctl") and
-  process.args in ("build", "bud")
+from logs-cloud_defend.process* metadata _id, _index, _version
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+    container.id like "*" and
+    process.name in ("docker", "docker-buildx", "buildah", "buildctl", "img", "nerdctl") and
+    kql("""process.args: ("build" or "bud")""")
+| keep @timestamp, host.id, container.id, process.name, process.args, process.parent.name, process.parent.executable, user.id, _id, _index, _version
 '''
 
 

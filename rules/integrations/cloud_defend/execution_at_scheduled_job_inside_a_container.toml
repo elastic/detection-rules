@@ -22,9 +22,8 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["logs-cloud_defend.process*"]
 interval = "5m"
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "Scheduled Job Creation via At Utility Inside a Container"
 note = """## Setup
@@ -68,17 +67,22 @@ tags = [
     "Tactic: Execution",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ES|QL",
     "Platform: Linux",
     "Platform: Kubernetes",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-  container.id like "*" and
-  process.name in ("at", "atd")
+from logs-cloud_defend.process* metadata _id, _index, _version
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+    container.id like "*" and
+    (
+      process.name in ("at", "atd") or
+      kql("""process.args: "at" """)
+    )
+| keep @timestamp, host.id, container.id, process.name, process.args, process.parent.name, process.parent.executable, user.id, _id, _index, _version
 '''
 
 
