@@ -85,7 +85,18 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
   )
 
 | EVAL cmdline_lower = TO_LOWER(process.command_line)
-| WHERE NOT (cmdline_lower LIKE "*GwAbwBjAGEAbABoAG8AcwB0ADoA*" or cmdline_lower LIKE "*DEAMgA3AC4AMAAuADAALgAxADoA*" or cmdline_lower LIKE "*XABQAHIAbwBnAHIAYQBtACAARgBpAGwA*" or cmdline_lower LIKE "*$__claudeCodeScript*" or cmdline_lower like "*QBjAHAALgBhAHQAbABhAHMAcwBpAGEAbgAuAGMAbwBtAC*" or cmdline_lower like "*eveinspect*" or cmdline_lower like "*B2AHMAYwBvAGQAZQA6AC8ALwBmA*")
+| WHERE NOT (
+    TO_LOWER(process.name) == "powershell.exe" AND 
+    (
+     cmdline_lower LIKE "*gwabwbjageababoag8acwb0adoa*" 
+     OR cmdline_lower LIKE "*deamga3ac4amaauadaalgaxadoa*" 
+     OR cmdline_lower LIKE "*xabqahiabwbnahiayqbtacaargbpagwa*" 
+     OR cmdline_lower LIKE "*$__claudecodescript*" 
+     OR cmdline_lower LIKE "*qbjahaalgbhahqababhahmacwbpageabgauagmabwbtac*" 
+     OR cmdline_lower LIKE "*eveinspect*" 
+     OR cmdline_lower LIKE "*b2ahmaywbvagqazqa6ac8alwbma*"
+     )
+)
 | EVAL is_encoded_powershell = CASE(
     TO_LOWER(process.name) == "powershell.exe" AND (
         cmdline_lower LIKE "* -enc*" OR
