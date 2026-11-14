@@ -35,7 +35,8 @@ class TestRuleTomlFormatter(unittest.TestCase):
             formatted_data = tmp_path.read_text()
             formatted_contents = pytoml.loads(formatted_data)
 
-            # callbacks such as nested normalize leave in line breaks, so this must be manually done
+            # the formatter intentionally strips queries on write (standardization), so normalize
+            # the original the same way before comparing
             query = data.get("rule", {}).get("query")
             if query:
                 data["rule"]["query"] = query.strip()
@@ -45,11 +46,6 @@ class TestRuleTomlFormatter(unittest.TestCase):
             if callback:
                 kwargs = kwargs or {}
                 formatted_contents = callback(formatted_contents, **kwargs)
-
-            # callbacks such as nested normalize leave in line breaks, so this must be manually done
-            query = formatted_contents.get("rule", {}).get("query")
-            if query:
-                formatted_contents["rule"]["query"] = query.strip()
 
             formatted = json.dumps(formatted_contents, sort_keys=True)
             self.assertEqual(original, formatted, "Formatting may be modifying contents")
@@ -164,6 +160,35 @@ class TestRuleTomlFormatter(unittest.TestCase):
 
             self.assertIn("Monitoring Host Temporary Files*", formatted_data)
             self.assertNotIn("Monitoring Host Temporary\nFiles*", formatted_data)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def test_query_round_trip_adds_no_trailing_newline(self):
+        """Export/import round-trip must not append a newline to query/threat_query (issue #6081)."""
+        queries = [
+            'message : "hello"',
+            "host.name : * and event.type : start",
+            "multi\nline\nquery",
+            r"backslashes like C:\Windows\System32 stay literal",
+            "trailing quote' and double quote\" mix",
+        ]
+        tmp_path = Path(tmp_file)
+        try:
+            for query in queries:
+                data = {"rule": {"query": query, "threat_query": query}}
+                toml_write(copy.deepcopy(data), tmp_path)
+                formatted = pytoml.loads(tmp_path.read_text())
+
+                # no strip() masking here: the TOML value must equal the written query exactly
+                self.assertEqual(formatted["rule"]["query"], query)
+                self.assertEqual(formatted["rule"]["threat_query"], query)
+
+                # a second round-trip must be stable (no accumulating newlines)
+                toml_write(copy.deepcopy({"rule": formatted["rule"]}), tmp_path)
+                reformatted = pytoml.loads(tmp_path.read_text())
+                self.assertEqual(reformatted["rule"]["query"], query)
+                self.assertEqual(reformatted["rule"]["threat_query"], query)
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
