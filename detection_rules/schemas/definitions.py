@@ -215,6 +215,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Network Traffic",
     "Data Source: Okta",
     "Data Source: Okta System Logs",
+    "Data Source: OpenAI ChatGPT Enterprise",
     "Data Source: PAN-OS",
     "Data Source: PowerShell Logs",
     "Data Source: Rapid7 Threat Command",
@@ -263,6 +264,7 @@ EXPECTED_RULE_TAGS = [
     "Platform: Linux",
     "Platform: Microsoft 365",
     "Platform: Okta",
+    "Platform: OpenAI",
     "Platform: VMware ESXi",
     "Platform: Windows",
     "Platform: Wiz",
@@ -322,6 +324,7 @@ EXPECTED_RULE_TAGS = [
     "Service: Azure Functions",
     "Service: Azure Key Vault",
     "Service: Azure OpenAI",
+    "Service: Azure Resource Manager",
     "Service: Azure Storage",
     "Service: GCP BigQuery",
     "Service: GCP Cloud Functions",
@@ -338,6 +341,7 @@ EXPECTED_RULE_TAGS = [
     "Service: Microsoft SharePoint",
     "Service: Microsoft Teams",
     "Service: Nginx",
+    "Service: OpenAI ChatGPT Enterprise",
     "Tactic: Collection",
     "Tactic: Command and Control",
     "Tactic: Credential Access",
@@ -467,7 +471,7 @@ EXPECTED_RULE_TAGS = [
 ]
 
 
-MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
+MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD", "security_ai"]
 
 CodeString = NewType("CodeString", str)
 Markdown = NewType("Markdown", CodeString)

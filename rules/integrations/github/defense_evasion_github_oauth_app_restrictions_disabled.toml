@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/11/02"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when OAuth App access restrictions are disabled for a GitHub organization. With restrictions enabled, only
+owner-approved OAuth Apps can access organization data; once disabled, any OAuth App that a member authorizes gains
+access without owner review. Following an account takeover, an adversary may disable restrictions and then authorize a
+malicious or attacker-controlled OAuth App to establish token-based persistence and exfiltrate repository data, making
+this a high-impact change to the organization's third-party access controls.
+"""
+false_positives = [
+    """
+    Briefly disabling restrictions to onboard an approved vendor app. Re-enable immediately and approve that app
+    explicitly instead when possible.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub OAuth App Access Restrictions Disabled"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub OAuth App Access Restrictions Disabled
+
+This rule triggers on `org.disable_oauth_app_restrictions`, which turns off the organization control that limits third-party OAuth App access to owner-approved apps. Once disabled, any OAuth App a member authorizes can access organization data without owner review. An adversary who has taken over an owner account commonly chains this with `oauth_authorization.create` to grant a malicious OAuth App broad, token-based access to repositories and organization resources, establishing persistence and a data-exfiltration path that survives password and session resets.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name`, `github.actor_ip`, `github.user_agent`, and `github.programmatic_access_type`, and confirm whether they legitimately hold organization owner privileges.
+- Determine whether the change was expected by checking change-management records and the affected `github.org`, and confirm whether OAuth App restrictions were previously enforced.
+- Review OAuth authorization events (`oauth_authorization.create`) and third-party app grants created after the disable timestamp, prioritizing apps with broad scopes or unfamiliar publishers.
+- Review authentication context for the actor around the event time for signs of takeover, such as sign-ins from new `github.actor_ip` addresses, unfamiliar user agents, or token-based access (`github.programmatic_access_type`) instead of normal interactive activity.
+- Correlate for other high-impact identity or policy changes near the same timestamp, including owner or member additions, PAT grants, SSO/SAML changes, and 2FA requirement changes.
+
+### False positive analysis
+
+- An organization owner temporarily disables restrictions to onboard an approved vendor app; this should be ticketed and followed by re-enabling restrictions and explicitly approving the specific app instead.
+- A planned governance or migration change performed by a known administrator can generate this event as expected activity.
+
+### Response and remediation
+
+- Re-enable OAuth App access restrictions for the organization as soon as the change is confirmed unauthorized, and approve required apps individually rather than leaving restrictions off.
+- Review and revoke OAuth App authorizations granted after the disable event, especially apps with broad scopes or no business justification.
+- Rotate credentials and tokens potentially exposed through authorized apps, including PATs, OAuth grants, and any secrets accessible to the granted apps.
+- Review org audit logs for other changes made by the actor after the disable event, and revert any unauthorized modifications.
+- Escalate to incident response if the actor is unknown or unauthorized, or if the disable event is followed by new OAuth grants, owner additions, or sign-ins from unfamiliar infrastructure.
+- Harden by enforcing OAuth App access restrictions org-wide, restricting who can change organization security settings, and alerting on future changes to OAuth App restrictions and new third-party app authorizations.
+"""
+references = [
+    "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/disabling-oauth-app-access-restrictions-for-your-organization",
+]
+risk_score = 73
+rule_id = "d5f49e8c-8dad-41a0-a4ad-b9bf584fee3a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "org.disable_oauth_app_restrictions"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
