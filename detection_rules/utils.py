@@ -30,6 +30,7 @@ import pytoml  # type: ignore[reportMissingTypeStubs]
 import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
+from semver import Version
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
@@ -442,8 +443,39 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict
     return json.loads(data)
 
 
+def shipped_versions(lock_entry: dict[str, Any], stripped_stack: str | None) -> list[int]:
+    """Return every version a rule has shipped to a stack, from its baseline and from stack_emit."""
+
+    previous: dict[str, dict[str, Any]] = lock_entry.get("previous") or {}
+    stack_emit: dict[str, dict[str, Any]] = lock_entry.get("stack_emit") or {}
+
+    fork = previous.get(stripped_stack) if stripped_stack else None
+    versions = [int((fork if fork is not None else lock_entry).get("version") or 0)]
+
+    if not previous:
+        return versions + [int(row["version"]) for row in stack_emit.values()]
+
+    parse = functools.partial(Version.parse, optional_minor_and_patch=True)
+    boundaries = sorted(parse(k) for k in (*previous, lock_entry["min_stack_version"]))
+    lower = parse(stripped_stack if fork is not None and stripped_stack else lock_entry["min_stack_version"])
+    upper = next((b for b in boundaries if b > lower), None)
+
+    epoch_keys = sorted(parse(k) for k in stack_emit)
+    for key, row in stack_emit.items():
+        start = parse(key)
+        end = next((k for k in epoch_keys if k > start), None)
+        if (upper is None or start < upper) and (end is None or end > lower):
+            versions.append(int(row["version"]))
+    return versions
+
+
+def next_version(lock_entry: dict[str, Any], stripped_stack: str | None) -> int:
+    """Return the next free version for a stack, one above every version the rule has shipped in the stack."""
+    return max(shipped_versions(lock_entry, stripped_stack)) + 1
+
+
 def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, int, int]]:
-    """Compare versions of two lock version file JSON objects."""
+    """Compare versions of two lock version file JSON objects, measuring each bump from the highest version shipped."""
     changes: list[tuple[str, str, int, int]] = []
     for key, base_val in base_json.items():
         if key in branch_json:
@@ -451,8 +483,34 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
-                changes.append((key, branch_name, base_version, branch_version))
+                changes.append((key, branch_name, max(shipped_versions(base_val, None)), branch_version))
     return changes
+
+
+def check_version_conflicts(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
+    """Find versions already shipped in the base lock that the branch lock ships again with a different hash."""
+
+    def shipped_hashes(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
+        """Map each location in a lock entry (top level, previous fork, stack_emit epoch) to its version and hash."""
+        hashes = {"version": (entry["version"], entry["sha256"])}
+        forks: dict[str, dict[str, Any]] = entry.get("previous") or {}
+        for stack, fork in forks.items():
+            hashes[f"previous.{stack}"] = (fork["version"], fork["sha256"])
+        epochs: dict[str, dict[str, Any]] = entry.get("stack_emit") or {}
+        for stack, epoch in epochs.items():
+            hashes[f"stack_emit.{stack}"] = (epoch["version"], epoch["sha256"])
+        return hashes
+
+    conflicts: list[tuple[str, str, str, int]] = []
+    for key, base_val in base_json.items():
+        if key not in branch_json:
+            continue
+        base_hashes = dict(shipped_hashes(base_val).values())  # version -> sha256
+        for location, (version, sha256) in shipped_hashes(branch_json[key]).items():
+            # a fork is a copy of the entry it replaced, so the same version with the same hash is expected
+            if base_hashes.get(version, sha256) != sha256:
+                conflicts.append((key, branch_json[key].get("rule_name"), location, version))
+    return conflicts
 
 
 def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[str, str, int, int]]:
@@ -473,8 +531,8 @@ def check_version_lock_double_bumps(
     base_branch: str,
     branch: str = "",
     local_file: Path | None = None,
-) -> list[tuple[str, str, int, int]]:
-    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+) -> tuple[list[tuple[str, str, int, int]], list[tuple[str, str, str, int]]]:
+    """Check a version lock file against its base for double bumps and for conflicting versions."""
     base_json = load_json_from_branch(repo, file_path, base_branch)
     if local_file:
         with local_file.open("r") as f:
@@ -483,7 +541,7 @@ def check_version_lock_double_bumps(
         branch_json = load_json_from_branch(repo, file_path, branch)
 
     changes = compare_versions(base_json, branch_json)
-    return check_double_bumps(changes)
+    return check_double_bumps(changes), check_version_conflicts(base_json, branch_json)
 
 
 def format_command_options(ctx: click.Context) -> str:
