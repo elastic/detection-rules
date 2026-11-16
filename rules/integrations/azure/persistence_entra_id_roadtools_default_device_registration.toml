@@ -13,10 +13,10 @@ device profile that ROADtools (roadtx) uses when registering a device, and it is
 hardcoded value across an environment of otherwise patched hosts. Adversaries register rogue devices in Entra ID to
 acquire a Primary Refresh Token (PRT), establish persistence, and obtain trusted, programmatic access to the tenant.
 Because the OS build is a tool default, this is a high-fidelity but evadable indicator; baseline approved provisioning
-tooling and device naming conventions before relying on it. This rule also flags a device registration whose
-registration user agent carries ROADtools' other hardcoded default - the Dsreg build `10.0.19044.1826` (`Dsreg/10.0
-(Windows 10.0.19044.1826)`), recorded in `azure.auditlogs.properties.additional_details.value` - which is a separate
-tool tell from the device OS build and survives a change to the registered OS version or device name.
+tooling and device naming conventions before relying on it. This rule also flags a device registration via Windows Hello
+for Business (WHfB) whose user agent carries the ROADtools hardcoded Dsreg build "10.0.19044.1826" ("Dsreg/10.0 (Windows
+10.0.19044.1826)"), which is a separate tool tell from the device OS build and survives a change to the registered OS
+version or device name.
 """
 false_positives = [
     """
@@ -114,14 +114,13 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"azure.auditlogs" and event.action:"Add device" and
+data_stream.dataset:"azure.auditlogs" and
 (
-    (
-        azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value:*10.0.19041.928* and
-        azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value:*DESKTOP-*
-    ) or
-    azure.auditlogs.properties.additional_details.value:*10.0.19044.1826*
-)
+    event.action:"Add device" and
+    azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value:*10.0.19041.928* and
+    azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value:*DESKTOP-*
+) or event.action: "Add Windows Hello for Business credential" and
+    azure.auditlogs.properties.userAgent: "Dsreg/10.0 (Windows 10.0.19044.1826)"
 '''
 
 
@@ -155,6 +154,7 @@ field_names = [
     "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value",
     "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
     "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.auditlogs.properties.userAgent",
     "azure.correlation_id",
 ]
 
