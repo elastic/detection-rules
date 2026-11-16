@@ -49,6 +49,7 @@ For a production-ready and more integrated solution that is designed to work wit
 * [Sysmon Event ID 10: Process Accessed](sysmon_eventid10_process_access.md)
 * [Sysmon Event ID 11: File Create](sysmon_eventid11_file_create.md)
 * [Sysmon Event IDs 12, 13, 14: Registry Events](sysmon_eventid12_13_14_registry_event.md)
+* [Sysmon Event ID 15: File Create Stream Hash](sysmon_eventid15_file_create_stream_hash.md)
 * [Sysmon Event IDs 17, 18: Named Pipe Events](sysmon_eventid17_18_pipe_event.md)
 * [Sysmon Event IDs 19, 20, 21: WMI Events](sysmon_eventid19_20_21_wmi_event.md)
 * [Sysmon Event ID 22: DNS Query](sysmon_eventid22_dns_query.md)

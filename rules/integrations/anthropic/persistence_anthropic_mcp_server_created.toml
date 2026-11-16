@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -52,9 +52,7 @@ pilot/onboarding ticket match.
 - On unauthorized creation: remove the MCP server and review data accessed through the connector during the exposure
   window.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
 severity = "medium"
@@ -67,6 +65,7 @@ tags = [
     "Resources: Investigation Guide",
     "Rule Type: New Terms",
     "Tactic: Persistence",
+    "Mitre Atlas: AML.T0081",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -87,11 +86,25 @@ name = "Software Extensions"
 reference = "https://attack.mitre.org/techniques/T1176/"
 
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
@@ -114,3 +127,5 @@ value = ["organization.id", "anthropic.audit.mcp_server_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

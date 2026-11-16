@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies modification of the AWS CLI configuration or alias files by a process that is not a known credential
+helper, editor, or provisioning tool. The AWS config file supports a credential_process directive that names an
+arbitrary local executable to source credentials from; an adversary who writes this directive redirects every
+subsequent AWS CLI and SDK call through a binary of their choosing, harvesting or substituting credentials without
+touching the credentials file itself. The CLI alias file offers a similar hijack primitive. This write-side abuse
+leaves no CloudTrail evidence and is substantially quieter than reading the credentials file.
+
+Only the AWS CLI, credential-helper tools that rewrite this file as part of normal operation, and a few system agent
+paths are excluded. Editors, IDEs, dotfile managers, configuration management, shells, and copy utilities are
+intentionally kept in scope: this is a building block, and a human or script writing a credential_process directive
+is the context higher-order rules need.
+"""
+false_positives = [
+    """
+    Configuration management (Ansible, cloud-init) and bootstrap scripts that write ~/.aws/config run as generic
+    interpreters (python3, bash) and will trigger this rule. Add exceptions on host.name, user.name, or
+    process.executable for known provisioning hosts and pipelines. Dotfile managers (chezmoi, stow, yadm) and
+    package managers are excluded by process name.
+    """,
+]
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.file*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CLI Configuration Modified by Unusual Process"
+references = [
+    "https://docs.aws.amazon.com/cli/latest/topic/config-vars.html",
+    "https://docs.aws.amazon.com/sdkref/latest/guide/feature-process-credentials.html",
+    "https://hackingthe.cloud/aws/post_exploitation/iam_roles_anywhere_persistence/",
+]
+risk_score = 21
+rule_id = "665ca95a-2674-4541-b569-e0f363eb6bdc"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS IAM",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : "file" and event.action : (creation or modification or overwrite or rename) and
+file.path : (
+  /root/.aws/cli/alias or /root/.aws/config or
+  /var/root/.aws/cli/alias or /var/root/.aws/config or
+  /private/var/root/.aws/cli/alias or /private/var/root/.aws/config or
+  *\\.aws\\cli\\alias or *\\.aws\\config or
+  /Users/*/.aws/cli/alias or /Users/*/.aws/config or
+  /home/*/.aws/cli/alias or /home/*/.aws/config
+) and
+process.executable : (* and not (/opt/Elastic/Agent/* or /opt/aws/* or /usr/lib/systemd/*)) and
+not process.name : (
+  assume or assumego or aws or aws-azure-login or aws-google-auth or aws-mfa or aws-sso or aws-sso-util or
+  aws-vault or "aws-vault.exe" or aws.exe or aws_completer or aws_signing_helper or "gimme-aws-creds" or granted or
+  leapp or "okta-aws-cli" or saml2aws or saml2aws.exe
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

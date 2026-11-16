@@ -1,0 +1,189 @@
+[metadata]
+creation_date = "2026/11/03"
+integration = ["github"]
+maturity = "production"
+min_stack_comments = "ES|QL IP_LOCATION requires 9.5.0+."
+min_stack_version = "9.5.0"
+updated_date = "2026/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects git clone, git push, or ZIP download authenticated with a classic PAT, fine-grained PAT, or OAuth access token
+from an autonomous system (ASN) not previously seen for that user in the last 7 days. The source IP is resolved to its
+ASN at query time, so address churn inside the same ISP or cloud provider does not produce new alerts. A token used
+from an unfamiliar ASN can indicate credential theft or use from an unauthorized location.
+"""
+false_positives = [
+    """
+    CI, laptops, or travel networks using the same PAT or OAuth token from a new egress IP. Confirm the token owner and
+    whether the repositories are expected.
+    """,
+]
+from = "now-10085m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Token Clone Push or ZIP from Unusual ASN"
+note = """## Triage and analysis
+
+### Investigating GitHub Token Clone Push or ZIP from Unusual ASN
+
+First-seen `user.name` + ASN on `git.clone`, `git.push`, or `repo.download_zip` over a 7-day look-back, using classic PATs, fine-grained PATs, or OAuth tokens. The IP is resolved to its ASN at query time (`IP_LOCATION` / GeoLite2-ASN), so this keys on the source network rather than the raw IP — address churn inside one ISP or cloud provider does not re-alert. Sibling production rule `GitHub Activity on a Private Repository from an Unusual ASN` applies the same ASN approach to clone/push on private repos.
+
+### Possible investigation steps
+
+- Identify `user.name`, the new ASN (`Esql.source_as_number` / `Esql.source_as_organization_name`), `github.programmatic_access_type`, the token (`Esql_priv.token_id_values`), and the repositories (`Esql.repo_values`).
+- Review the IPs and countries observed for the ASN (`Esql.source_ip_values`, `Esql.country_values`) and whether they match the token owner's known locations.
+- Correlate with `personal_access_token.access_granted` and collaborator adds from the same ASN or token.
+
+### False positive analysis
+
+- Developers travelling or switching between home, mobile, and corporate networks appear from a new ASN the first time each is used.
+- Shared automation tokens or CI appear once per cloud provider ASN; add exceptions for known automation identities if the volume is high.
+
+### Response and remediation
+
+- Revoke the token if the ASN is not the owner's. Review clones and ZIP downloads in the same window.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://github.blog/news-insights/company-news/security-alert-stolen-oauth-user-tokens/",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+    "https://docs.github.com/en/rest/repos/contents#download-a-repository-archive-zip",
+]
+risk_score = 21
+rule_id = "f2ecac9a-7145-4587-95bc-70c1ee0fc7ba"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+    "Noise: High",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-github.audit-*
+| WHERE event.dataset == "github.audit"
+  AND event.action IN ("git.clone", "git.push", "repo.download_zip")
+  AND github.programmatic_access_type IN ("OAuth access token", "Fine-grained personal access token", "Personal access token")
+  AND user.name IS NOT NULL AND github.actor_ip IS NOT NULL
+| IP_LOCATION asn = github.actor_ip WITH { "database_file": "GeoLite2-ASN.mmdb", "properties": ["asn", "organization_name"] }
+| IP_LOCATION geo = github.actor_ip WITH { "properties": ["country_iso_code"] }
+| WHERE asn.asn IS NOT NULL
+| STATS Esql.event_count = COUNT(*),
+        Esql.first_seen = MIN(@timestamp),
+        Esql.last_seen = MAX(@timestamp),
+        Esql.source_ip_values = VALUES(github.actor_ip),
+        Esql.country_values = VALUES(geo.country_iso_code),
+        Esql.repo_values = VALUES(github.repo),
+        Esql.event_action_values = VALUES(event.action),
+        Esql.programmatic_access_type_values = VALUES(github.programmatic_access_type),
+        Esql.user_agent_values = VALUES(github.user_agent),
+        Esql_priv.token_id_values = VALUES(github.token_id),
+        Esql_priv.hashed_token_values = VALUES(github.hashed_token)
+  BY user.name, asn.asn, asn.organization_name
+// The 7-day history is the rule look-back (from = now-10085m). A group is new when its first event
+// falls inside the current interval; the 10m bound allows for the 5m interval plus scheduling drift.
+// Novelty is keyed on user + ASN only, so a new IP inside an already-seen ASN does not re-alert.
+| WHERE DATE_DIFF("minute", Esql.first_seen, NOW()) <= 10
+| EVAL Esql.source_as_number = asn.asn,
+       Esql.source_as_organization_name = asn.organization_name
+| KEEP user.name, Esql.*, Esql_priv.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "Esql.source_ip_values",
+    "Esql.country_values",
+    "Esql.source_as_number",
+    "Esql.source_as_organization_name",
+    "Esql.event_count",
+    "Esql.repo_values",
+    "Esql.event_action_values",
+    "Esql.programmatic_access_type_values",
+    "Esql.user_agent_values",
+    "Esql_priv.token_id_values",
+]
+
+
