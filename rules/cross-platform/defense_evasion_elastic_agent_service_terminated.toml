@@ -2,7 +2,7 @@
 creation_date = "2022/05/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/16"
 
 [rule]
 author = ["Elastic"]
@@ -55,23 +55,19 @@ process where event.type == "start" and
     process.args : "uninstall" and
     /* exclude legitimate Elastic-managed reinstall, upgrade, and uninstall subprocesses */
     not (
-      process.parent.code_signature.trusted == true and
-      process.parent.code_signature.subject_name == "Elasticsearch, Inc." and
       (
-        (
-          process.name : "elastic-agent.exe" and process.args : "--force" and
-          process.parent.name : "elastic-agent.exe" and process.parent.args : "install" and
-          process.parent.args : ("--force", "-f")
-        ) or
-        (
-          process.parent.name : "endpoint-security.exe" and
-          process.executable : "*\\components\\previous\\elastic-endpoint.exe" and
-          process.args : "--keepstate" and process.parent.args : "--upgrade"
-        ) or
-        (
-          process.name : "endpoint-security.exe" and process.parent.name : "elastic-agent.exe" and
-          process.parent.args : "uninstall"
-        )
+        process.name : "elastic-agent.exe" and process.args : "--force" and
+        process.parent.name : "elastic-agent.exe" and process.parent.args : "install" and
+        process.parent.args : ("--force", "-f")
+      ) or
+      (
+        process.name : "elastic-endpoint.exe" and
+        process.executable : "*\\components\\previous\\elastic-endpoint.exe" and
+        process.args : "--keepstate"
+      ) or
+      (
+        process.name : "endpoint-security.exe" and process.parent.name : ("elastic-agent.exe", "endpoint-security.exe") and
+        process.parent.args : ("uninstall", "--upgrade")
       )
     )
   ) or
@@ -82,9 +78,28 @@ process where event.type == "start" and
     process.args : ("elastic-agent", "elastic-agent.service", "ElasticEndpoint") and
     process.args : ("stop", "disable", "remove", "off", "kill", "mask") and
     not (
-      process.parent.executable : "/opt/Elastic/Agent/data/elastic-agent-*/components/previous/elastic-endpoint" and
-      process.parent.args : "uninstall" and
-      process.parent.args : "--keepstate"
+      (
+        process.parent.executable : (
+          "/opt/Elastic/Agent/data/elastic-agent-*/components/previous/elastic-endpoint",
+          "/opt/Elastic/Agent/data/elastic-agent-*/components/endpoint-security",
+          "/usr/share/elastic-agent/data/elastic-agent-*/components/endpoint-security",
+          "/var/lib/elastic-agent/data/elastic-agent-*/components/endpoint-security"
+        ) and
+        process.parent.args : ("uninstall", "--upgrade") and
+        process.parent.args : "--keepstate"
+      ) or
+      (
+        process.parent.name == "endpoint-security" and
+        process.parent.executable : (
+          "/opt/Elastic/Agent/data/elastic-agent-*/components/endpoint-security",
+          "/usr/share/elastic-agent/data/elastic-agent-*/components/endpoint-security",
+          "/var/lib/elastic-agent/data/elastic-agent-*/components/endpoint-security"
+        )
+      ) or
+      (
+        process.parent.name == "elastic-agent" and
+        process.parent.args : "uninstall"
+      )
     )
   ) or
   
