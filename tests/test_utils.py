@@ -30,6 +30,8 @@ class TestIndexExpressions(unittest.TestCase):
         cases = {
             "logs-*": "logs-*",
             "remote:logs-*": "logs-*",
+            "*:logs-*": "logs-*",
+            "*:logs-*::failures": "logs-*",
             "logs-*::failures": "logs-*",
             "logs-*::data": "logs-*",
             "remote:logs-*::failures": "logs-*",
