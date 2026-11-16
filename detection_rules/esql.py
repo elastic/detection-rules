@@ -86,7 +86,7 @@ def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = Non
 
 
 def local_esql_index(source: str) -> str:
-    """Drop a ``cluster:`` prefix and ``::data``/``::failures`` selector from an index pattern."""
+    """Drop a `cluster:` prefix and `::data`/`::failures` selector from an index pattern."""
     cleaned = source.strip().strip("`")
     return strip_index_expression(cleaned).strip("`")
 

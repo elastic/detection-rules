@@ -74,7 +74,7 @@ def strip_index_expression(index: str) -> str:
     """Strip cross-cluster prefixes and component selectors from an index pattern."""
     # CCS uses a single colon and selectors a double colon. Index names cannot contain `:`.
     # e.g. remote:logs-*::failures -> logs-*
-    return index.strip().split("::", 1)[0].split(":", 1)[-1]
+    return index.strip().split("::", 1)[0].strip().split(":", 1)[-1]
 
 
 def ensure_list_of_strings(value: str | list[str]) -> list[str]:
