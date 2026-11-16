@@ -2,7 +2,7 @@
 creation_date = "2023/09/14"
 integration = ["dga", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/06"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-ml_is_dga.malicious_probability > 0.98
+ml_is_dga.malicious_probability > 0.98 and
+not dns.question.name:(_*._tcp.* or _*._udp.* or _*._tls.* or _*._sctp.*)
 '''
 note = """## Triage and analysis
 

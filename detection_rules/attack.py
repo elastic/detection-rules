@@ -69,9 +69,7 @@ def get_attack_file_path_for_version(version: str) -> Path:
     raise FileNotFoundError(f"No ATT&CK data file found for version {version!r}. Available: {available}")
 
 
-_, _attack_path_base = str(get_attack_file_path()).split("-v")
-_ext_length = len(".json.gz")
-CURRENT_ATTACK_VERSION = _attack_path_base[:-_ext_length]
+CURRENT_ATTACK_VERSION = get_attack_file_path().name.split("-v", 1)[1][: -len(".json.gz")]
 
 
 def load_attack_gz() -> dict[str, Any]:
