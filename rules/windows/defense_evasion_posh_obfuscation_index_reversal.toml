@@ -2,7 +2,7 @@
 creation_date = "2025/04/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
@@ -137,9 +137,6 @@ from logs-windows.powershell_operational* metadata _id, _version, _index
 
 // Filter for scripts that match the pattern at least once
 | where Esql.script_block_pattern_count >= 1
-
-// FP Patterns
-| where not powershell.file.script_block_text like "*GENESIS-5654*"
 
 | where file.name not like ("PSFzf.psm1", "Tenable_API_AssetLists_IPv6Seeder.ps1", "Utility.ps1")
   // ESQL requires this condition, otherwise it only returns matches where file.name exists.

@@ -2,20 +2,20 @@
 creation_date = "2026/07/27"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects when a Bedrock model is prompted to invoke high-risk tools associated with shell execution, filesystem
-operations, or process spawning. Adversaries may use compromised AI agent pipelines or manipulated prompts to
-instruct the model to execute arbitrary system commands, read or write sensitive files, or spawn subprocesses —
-extending the blast radius of a credential compromise or prompt injection attack.
+operations, or process spawning. Adversaries may use compromised AI agent pipelines or manipulated prompts to instruct
+the model to execute arbitrary system commands, read or write sensitive files, or spawn subprocesses — extending the
+blast radius of a credential compromise or prompt injection attack.
 """
 false_positives = [
     """
-    Authorized AI agent workflows that include shell or filesystem tools may trigger this rule. Validate that the
-    user identity and tool usage pattern are consistent with expected application behavior.
+    Authorized AI agent workflows that include shell or filesystem tools may trigger this rule. Validate that the user
+    identity and tool usage pattern are consistent with expected application behavior.
     """,
 ]
 from = "now-60m"
@@ -62,7 +62,7 @@ and completion content. Ensure `logs-aws_bedrock.invocation-*` is ingested into 
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS Bedrock",
     "Use Case: Threat Detection",
     "Tactic: Execution",
@@ -73,8 +73,8 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: ES|QL",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0053",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -112,22 +112,37 @@ from logs-aws_bedrock.invocation-* metadata _id, _version, _index
 | keep _id, _version, _index, @timestamp, user.id, cloud.account.id, gen_ai.request.model.id, gen_ai.prompt, gen_ai.completion
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
 
 [rule.alert_suppression]
 group_by = ["user.id", "cloud.account.id"]
-duration = {value = 1, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -139,3 +154,8 @@ field_names = [
     "gen_ai.prompt",
     "gen_ai.completion",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

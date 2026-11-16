@@ -55,10 +55,6 @@ In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of the
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
 
-Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
-
-Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
-
 By default, requests made to Kibana by the CLI (and the `detection-rules-kibana` library) include a `User-Agent` header identifying the request as originating from detection-rules, along with the detection-rules and kibana-library versions (e.g. `detection-rules/<version> (DaC; kibana-lib <version>)`). This is used only to attribute requests server-side and contains no user data. Setting the environment variable `DR_USER_AGENT_DISABLED` disables this behavior, in which case no custom `User-Agent` header is sent.
 
 ## Importing rules into the repo

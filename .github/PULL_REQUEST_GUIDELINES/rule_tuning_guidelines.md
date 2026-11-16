@@ -16,6 +16,9 @@ These guidelines serve as a reminder set of considerations when tuning an existi
 - [ ] Provide reasoning of adjusting priority or severity levels of alerts (Severity Tuning).
 - [ ] Provide evidence of improving quality integrity of our data used by detection rules (Data Quality).
 - [ ] Ensure the tuning includes necessary updates to the release documentation and versioning.
+- [ ] Exclusions are generic and non-identifying (no usernames, hostnames, org names, cluster/agent IDs, internal workspace/repo paths, IP addresses or secret values). Obscure product paths have multi-cluster or public-vendor evidence.
+- [ ] Cloud / SaaS exclusions only hard-code application or client IDs that are vendor first-party or publicly marketplace-listed, with the lookup linked in the PR (Entra ID / M365: [MicrosoftApps.json](https://raw.githubusercontent.com/merill/microsoft-info/main/_info/MicrosoftApps.json) or the Entra app gallery; Google: `workspace.google.com/marketplace/app/x/<project-number>`; Okta: `okta.<uuid>` first-party clients or OIN apps; AWS: service principals and `arn:aws:iam::aws:policy/*`; GitHub: Marketplace app slugs).
+- [ ] No tenant, subscription, account, project, or org identifiers, service principal object IDs, Okta `0oa…` app-instance IDs, access key IDs, customer domains, or tokens anywhere in the rule or PR. Sample JSON is redacted before posting.
 
 ### Rule Metadata Checks
 

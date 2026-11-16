@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -166,7 +166,12 @@ sequence by process.entity_id with maxspan=1m
        process.parent.executable : ("C:\\Program Files (x86)\\Bentley\\*.exe",
                                     "C:\\Program Files\\Bentley\\*.exe",
                                     "C:\\Program Files (x86)\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
-                                    "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe"))
+                                    "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe")) and
+  /* Domain logon and GPO scripts that routinely resolve internal hosts */
+  not (process.name : "wscript.exe" and
+       process.parent.executable : ("C:\\Windows\\System32\\userinit.exe",
+                                    "C:\\Windows\\System32\\gpscript.exe") and
+       process.args_count == 2 and process.args : ("\\\\*\\NETLOGON\\*", "\\\\*\\SYSVOL\\*"))
   ]
   [network where dns.question.name != null and
       not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
@@ -174,10 +179,15 @@ sequence by process.entity_id with maxspan=1m
         "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
         "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com", "_ldap._tcp.*", "..localmachine", "secure.globalsign.com",
         "acroipm2.adobe.com", "www.ssl.com", "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
-        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local") and
+        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local",
+        "www.microsoft.com", "crl.microsoft.com", "ocsps.ssl.com", "csc3-2010-crl.verisign.com", "csc3-2009-2-crl.verisign.com",
+        "subca.ocsp-certum.com", "evcs-crl.ws.symantec.com", "crl.sectigo.com", "ocsp2.globalsign.com", "s.symcb.com",
+        "wpad") and
 
       not (process.name : "mshta.exe" and
            dns.question.name : ("client.teamviewer.com", "www.teamviewer.com", "images-na.ssl-images-amazon.com", "searcherbar.tilda.ws")) and
+
+      not (process.name : "MSBuild.exe" and dns.question.name : ("api.nuget.org", "json.schemastore.org")) and
 
       /* host query itself */
       not startswith~(dns.question.name, host.name)

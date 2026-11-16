@@ -25,15 +25,14 @@ import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
 import requests.exceptions
 import yaml
-from elasticsearch import BadRequestError, Elasticsearch
-from elasticsearch import ConnectionError as ESConnectionError
+from elasticsearch import Elasticsearch
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
 from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
-from . import attack, rule_loader, utils
+from . import atlas, attack, rule_loader, utils
 from .beats import download_beats_schema, download_latest_beats_schema, refresh_main_schema
 from .cli_utils import multi_collection, single_collection
 from .config import (
@@ -44,9 +43,6 @@ from .config import (
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
-from .esql_errors import (
-    ESQL_EXCEPTION_TYPES,
-)
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .integrations import (
@@ -61,8 +57,6 @@ from .main import root
 from .misc import (
     PYTHON_LICENSE,
     add_client,
-    get_default_elasticsearch_client,
-    get_default_kibana_client,
     raise_client_error,
 )
 from .navigator import select_navigator_gist_files
@@ -79,7 +73,6 @@ from .rule import (
     VersionedThreatMapping,
 )
 from .rule_loader import RuleCollection, production_filter
-from .rule_validators import ESQLValidator
 from .schemas import definitions, get_stack_versions
 from .utils import check_version_lock_double_bumps, dict_hash, get_etc_path, get_path
 from .version_lock import VersionLockFile, loaded_version_lock
@@ -380,7 +373,7 @@ def bump_versions(
 @click.option("--comment", is_flag=True, help="If set, enables commenting on the PR (requires --pr-number)")
 @click.option("--save-double-bumps", type=Path, help="Optional path to save the double bumps to a file")
 @click.pass_context
-def check_version_lock(  # noqa: PLR0913, PLR0917
+def check_version_lock(  # noqa: PLR0913, PLR0915, PLR0917
     ctx: click.Context,
     pr_number: int,
     local_file: str,
@@ -401,10 +394,13 @@ def check_version_lock(  # noqa: PLR0913, PLR0917
     client = github.authenticated_client
     repo = client.get_repo("elastic/detection-rules")
     double_bumps = []
-    comment_body = "No double bumps detected."
+    conflicts = []
+    comment_body = "No double bumps or version conflicts detected."
 
-    def format_comment_body(double_bumps: list[tuple[str, str, int, int]]) -> str:
-        """Format the comment body for double bumps."""
+    def format_comment_body(
+        double_bumps: list[tuple[str, str, int, int]], conflicts: list[tuple[str, str, str, int]]
+    ) -> str:
+        """Format the comment body for double bumps and version conflicts."""
         comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
         comment_body += "<details>\n"
         comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
@@ -413,6 +409,15 @@ def check_version_lock(  # noqa: PLR0913, PLR0917
             comment_body += f"  - **Rule Name**: {rule_name}\n"
             comment_body += f"  - **Removed**: {removed}\n"
             comment_body += f"  - **Added**: {added}\n"
+        comment_body += "\n</details>\n"
+        comment_body += f"\n{len(conflicts)} Version conflicts detected (same version, different content):\n\n"
+        comment_body += "<details>\n"
+        comment_body += "<summary>Click to expand the list of version conflicts</summary>\n\n"
+        for rule_id, rule_name, location, version in conflicts:
+            comment_body += f"- **Rule ID**: {rule_id}\n"
+            comment_body += f"  - **Rule Name**: {rule_name}\n"
+            comment_body += f"  - **Location**: {location}\n"
+            comment_body += f"  - **Version**: {version}\n"
         comment_body += "\n</details>\n"
         return comment_body
 
@@ -431,24 +436,27 @@ def check_version_lock(  # noqa: PLR0913, PLR0917
     if pr_number:
         click.echo(f"Fetching version lock file from PR #{pr_number}")
         pr = repo.get_pull(pr_number)
-        double_bumps = check_version_lock_double_bumps(
+        double_bumps, conflicts = check_version_lock_double_bumps(
             repo=repo, file_path="detection_rules/etc/version.lock.json", base_branch="main", branch=pr.head.ref
         )
     else:
         click.echo(f"Using local version lock file: {local_file}")
-        double_bumps = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
+        double_bumps, conflicts = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
 
-    if double_bumps:
+    if double_bumps or conflicts:
         click.echo(f"{len(double_bumps)} Double bumps detected")
+        click.echo(f"{len(conflicts)} Version conflicts detected")
+        for rule_id, rule_name, location, version in conflicts:
+            click.echo(f"  {rule_id} ({rule_name}): {location} ships version {version} with different content")
         if comment and pr_number:
-            comment_body = format_comment_body(double_bumps)
+            comment_body = format_comment_body(double_bumps, conflicts)
             if pr:
                 _ = pr.create_issue_comment(comment_body)
         if save_double_bumps:
             save_double_bumps_to_file(double_bumps, save_double_bumps)
         ctx.exit(1)
     else:
-        click.echo("No double bumps detected.")
+        click.echo(comment_body)
         if comment and pr_number and pr:
             _ = pr.create_issue_comment(comment_body)
 
@@ -838,12 +846,12 @@ def integrations_pr(  # noqa: PLR0913, PLR0915, PLR0917
 @click.pass_context
 def license_check(ctx: click.Context, ignore_directory: list[str]) -> None:
     """Check that all code files contain a valid license."""
-    ignore_directory += ("env",)
+    ignore_directory += ("env", ".venv", "venv", "exports")
     failed = False
 
     for path in utils.ROOT_DIR.rglob("*.py"):
         relative_path = path.relative_to(utils.ROOT_DIR)
-        if relative_path.parts[0] in ignore_directory:
+        if relative_path.parts[0] in ignore_directory or "build" in relative_path.parts:
             continue
 
         with path.open(encoding="utf-8") as f:
@@ -1403,72 +1411,6 @@ def rule_event_search(  # noqa: PLR0913, PLR0917
         )
     else:
         raise_client_error("Rule is not a query rule!")
-
-
-@test_group.command("esql-remote-validation")
-@click.option(
-    "--verbosity",
-    type=click.IntRange(0, 1),
-    default=0,
-    help="Set verbosity level: 0 for minimal output, 1 for detailed output.",
-)
-def esql_remote_validation(
-    verbosity: int,
-) -> None:
-    """Search using a rule file against an Elasticsearch instance."""
-
-    rule_collection: RuleCollection = RuleCollection.default().filter(production_filter)
-    esql_rules = [r for r in rule_collection if r.contents.data.type == "esql"]
-
-    click.echo(f"ESQL rules loaded: {len(esql_rules)}")
-
-    if not esql_rules:
-        return
-    # TODO(eric-forte-elastic): @add_client https://github.com/elastic/detection-rules/issues/5156  # noqa: FIX002
-    with get_default_kibana_client() as kibana_client, get_default_elasticsearch_client() as elastic_client:
-        if not kibana_client or not elastic_client:
-            raise_client_error("Skipping remote validation due to missing client")
-
-        failed_count = 0
-        fail_list: list[str] = []
-        max_retries = 3
-        for r in esql_rules:
-            retry_count = 0
-            while retry_count < max_retries:
-                try:
-                    validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                    _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
-                    break
-                except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
-                    e_type = type(e)  # type: ignore[reportUnknownMemberType]
-                    if isinstance(e, ESQL_EXCEPTION_TYPES):
-                        click.echo(click.style(f"{r.contents.data.rule_id} ", fg="red", bold=True), nl=False)
-                        _ = e.show()  # type: ignore[reportUnknownMemberType]
-                    else:
-                        click.echo(f"FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
-                    fail_list.append(f"{r.contents.data.rule_id}  FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
-                    failed_count += 1
-                    break
-                except ESConnectionError as e:
-                    retry_count += 1
-                    click.echo(f"Connection error: {e}. Retrying {retry_count}/{max_retries}...")
-                    time.sleep(30)
-                    if retry_count == max_retries:
-                        click.echo(f"FAILURE: {e} after {max_retries} retries")
-                        fail_list.append(f"FAILURE: {e} after {max_retries} retries")
-                        failed_count += 1
-
-        click.echo(f"Total rules: {len(esql_rules)}")
-        click.echo(f"Failed rules: {failed_count}")
-
-        _ = Path("failed_rules.log").write_text("\n".join(fail_list), encoding="utf-8")
-        click.echo("Failed rules written to failed_rules.log")
-        if failed_count > 0:
-            click.echo("Failed rule IDs:")
-            uuids = {line.split()[0] for line in fail_list}
-            click.echo("\n".join(uuids))
-            ctx = click.get_current_context()
-            ctx.exit(1)
 
 
 @test_group.command("rule-survey")
@@ -2115,6 +2057,18 @@ def scaffold_version_map(target_version: str, source_version: str, framework: st
         f"{len(skeleton['subtechniques'])} subtechniques)."
     )
     return output
+
+
+@dev_group.group("atlas")
+def atlas_group() -> None:
+    """Commands for managing MITRE ATLAS data and mappings."""
+
+
+@atlas_group.command("refresh-data")
+def refresh_atlas_data() -> dict[str, Any] | None:
+    """Refresh the versioned ATLAS data file (atlas-v*.json.gz), same pattern as ATT&CK."""
+    data, _ = atlas.refresh_atlas_data()
+    return data
 
 
 @dev_group.group("transforms")
