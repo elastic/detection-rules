@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/11/16"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a local user account via the sysadminctl utility on macOS. Adversaries may create a local
+account, optionally with administrator privileges via the -admin flag, to maintain persistence or escalate privileges on
+a compromised host.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Local Account Creation via Sysadminctl"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Local Account Creation via Sysadminctl
+
+`sysadminctl` is a built-in macOS utility used to manage local user accounts, including creating users with `-addUser`. Passing `-admin` adds the new account to the `admin` group, granting `sudo` rights and the ability to change system-wide settings. Adversaries may abuse it to create a backdoor account, often with a password supplied in clear text on the command line, to retain access to a compromised Mac. This rule alerts on any `sysadminctl -addUser` execution that does not originate from a known device management agent.
+
+### Possible investigation steps
+
+- Review the command line to identify the account name (`-addUser`), full name (`-fullName`), whether `-admin` was specified, and whether a password was passed in clear text (`-password`).
+- Examine the parent and effective parent processes (`process.parent.executable`, `process.Ext.effective_parent.executable`) to determine whether the account was created interactively, from a script interpreter such as `osascript`, `python`, or a shell, or by an unsigned or untrusted binary.
+- Identify the user that ran the command and confirm whether they are authorized to create local accounts on the host.
+- Check whether the new account is hidden (for example via `dscl . -create /Users/<name> IsHidden 1`) or uses an unusual UID, and whether it was subsequently added to other privileged groups.
+- Search for activity following the account creation, such as logons with the new account over SSH or Screen Sharing, new LaunchAgents or LaunchDaemons, or changes to security settings.
+- Review other alerts for the same host to identify the initial access or execution activity that preceded the account creation.
+
+### False positive analysis
+
+- IT administrators and device management or provisioning tools may legitimately create local accounts with `sysadminctl`. Verify the activity against change tickets or the expected management workflow and add exceptions for the specific management process rather than for `sysadminctl` itself.
+- Security testing frameworks such as Atomic Red Team create test accounts with `sysadminctl`. Confirm the activity with the team running the test.
+
+### Response and remediation
+
+- If the account creation is unauthorized, disable or delete the account with `sysadminctl -deleteUser <name>` and remove it from any privileged groups.
+- Terminate the process tree responsible for the account creation and quarantine any associated scripts or binaries.
+- Review and revert changes made with the new account, such as persistence items, installed software, or modified security settings.
+- Reset credentials of any legitimate account that was used to create the new account, as administrator credentials are required for this operation.
+- Isolate the host if follow-on malicious activity is identified and escalate to the incident response team.
+"""
+references = ["https://ss64.com/mac/sysadminctl.html", "https://attack.mitre.org/techniques/T1136/001/"]
+risk_score = 47
+rule_id = "b8ab618d-3f6b-49c1-a646-88bb6364a213"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "sysadminctl" and process.args like~ "-addUser" and
+  not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                                                    "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+                                                    "/usr/local/jamf/bin/jamf",
+                                                    "/opt/jc/bin/jumpcloud-agent",
+                                                    "/Library/Addigy/go-agent",
+                                                    "/Library/Addigy/auditor",
+                                                    "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+                                                    "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+                                                    "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                    "/Library/Iru/Iru Agent.app/Contents/Helpers/Iru Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                    "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld",
+                                                    "/Applications/NinjaRMMAgent/programfiles/ninjarmm-macagent",
+                                                    "/Library/Tanium/TaniumClient/TaniumClient",
+                                                    "/Library/PrivilegedHelperTools/com.jigsaw24.Elevate24Helper.app/Contents/MacOS/com.jigsaw24.Elevate24Helper")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
