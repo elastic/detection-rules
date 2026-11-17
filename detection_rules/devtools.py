@@ -38,6 +38,7 @@ from .cli_utils import multi_collection, single_collection
 from .config import (
     DEFAULT_THREAT_MAPPING_FRAMEWORK,
     DEFAULT_THREAT_MAPPING_VERSION,
+    PROMOTED_THREAT_MAPPING_VERSION,
     parse_rules_config,
 )
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
@@ -1887,7 +1888,12 @@ def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> l
 
 
 @attack_group.command("convert-threat-mappings")
-@click.option("--target-version", "-t", required=True, help="Target framework version to generate (e.g. 19)")
+@click.option(
+    "--target-version",
+    "-t",
+    required=True,
+    help=f"Target framework version to generate (e.g. {PROMOTED_THREAT_MAPPING_VERSION})",
+)
 @click.option(
     "--source-version",
     "-s",
@@ -2024,7 +2030,9 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
 
 
 @attack_group.command("scaffold-version-map")
-@click.option("--target-version", "-t", required=True, help="Target framework version (e.g. 19)")
+@click.option("--target-version", 
+              "-t", required=True,
+              help=f"Target framework version (e.g. {PROMOTED_THREAT_MAPPING_VERSION})")
 @click.option(
     "--source-version",
     "-s",
