@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/11/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of SetFile on macOS to change a file's creation or modification timestamp. SetFile, included with
+Xcode Command Line Tools, sets the creation date with -d and the modification date with -m. Unlike touch, it can alter
+the file birth time. Adversaries use it to timestomp files so they blend in with legitimate content and hinder forensic
+analysis.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Timestomping using SetFile"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Timestomping using SetFile
+
+`SetFile` is a macOS developer utility that writes file metadata. The `-d` argument sets the creation date and `-m` sets the modification date, using a date string such as `mm/dd/yyyy hh:mm:ss`. On macOS, `touch` does not change the creation (birth) time, so `SetFile -d` is the usual way to backdate a file so it looks older than it is. Adversaries use this after dropping a payload, script, or persistence item to make the file appear to belong with neighboring content. This rule alerts on `SetFile` executions that pass `-d` or `-m`.
+
+### Possible investigation steps
+
+- Review `process.command_line` and `process.args` to identify which timestamp was changed (`-d` for creation, `-m` for modification), the date that was written, and the target file path.
+- Compare the timestamp passed to `SetFile` with the file's current creation and modification times, and with when the file was first written or downloaded on the host.
+- Examine the parent and effective parent processes (`process.parent.executable`, `process.Ext.effective_parent.executable`) to determine whether `SetFile` was launched from Terminal, a script interpreter such as `osascript`, `python`, or a shell, or from an unsigned or untrusted binary.
+- Identify the user that ran the command (`user.name`) and confirm whether they are a developer or administrator who would be expected to stamp file dates.
+- Check the target file for related activity around the same time, such as a download, a quarantine attribute removal, execution of that file, or a new LaunchAgent, LaunchDaemon, or cron entry pointing at it.
+- Review other alerts for the same host to identify the execution that preceded the timestamp change.
+
+### False positive analysis
+
+- Software installers, package builds, and packaging tools may call `SetFile -d` or `SetFile -m` to stamp bundle or application dates. Confirm the parent process is a known installer or build tool and add an exception for that parent executable rather than for `SetFile` itself.
+- Developers using Xcode Command Line Tools may set creation or modification dates while packaging an application. Verify the activity with the user and the working directory.
+- Security testing that emulates timestomping may invoke `SetFile`. Confirm the activity with the team running the test.
+
+### Response and remediation
+
+- If the timestamp change is unauthorized, preserve the file and record both the timestomped dates and the original event timestamps from endpoint telemetry before restoring content from a known-good copy.
+- Quarantine the target file and investigate any process that wrote or executed it.
+- Terminate the process tree that launched `SetFile` when that parent is not a known installer or build tool.
+- Search the host for other files whose timestamps were changed with `SetFile` or `touch` in the same session.
+- Isolate the host if the timestomped file is malicious or if follow-on activity is identified, and escalate to the incident response team.
+"""
+references = ["https://ss64.com/mac/setfile.html", "https://attack.mitre.org/techniques/T1070/006/"]
+risk_score = 47
+rule_id = "d093c7c1-d6cb-4277-b2c9-74477b393b7f"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Fast",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "SetFile" and process.args in ("-d", "-m")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.006"
+name = "Timestomp"
+reference = "https://attack.mitre.org/techniques/T1070/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "process.parent.executable"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
