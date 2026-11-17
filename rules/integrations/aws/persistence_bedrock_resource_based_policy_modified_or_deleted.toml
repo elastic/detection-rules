@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -75,14 +75,14 @@ plane.
 """
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutResourcePolicy.html",
-    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteResourcePolicy.html"
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteResourcePolicy.html",
 ]
 risk_score = 47
 rule_id = "de0e9ed8-b68f-4249-957a-2c2bbdbd1c1b"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS",
     "Data Source: AWS CloudTrail",
     "Data Source: Amazon Web Services",
@@ -97,8 +97,8 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: New Terms",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0012",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -113,16 +113,31 @@ data_stream.dataset: "aws.cloudtrail" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
 
 [rule.investigation_fields]
 field_names = [
@@ -148,3 +163,5 @@ value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

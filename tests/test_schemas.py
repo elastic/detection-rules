@@ -21,7 +21,7 @@ from semver import Version
 from detection_rules import ecs, utils
 from detection_rules.config import load_current_package_version
 from detection_rules.custom_schemas import get_custom_schemas
-from detection_rules.esql_errors import EsqlSemanticError
+from detection_rules.esql_errors import EsqlSemanticError, EsqlSyntaxError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import RULES_CONFIG, downgrade, get_stack_schemas
@@ -925,15 +925,6 @@ class TestNonEcsSchemaFiles(unittest.TestCase):
 class TestESQLValidation(unittest.TestCase):
     """Test ESQL rule validation"""
 
-    def setUp(self):
-        """Force local validation for these tests."""
-        # These cases exercise local AST/semantic validation (KEEP/METADATA checks). Routing them
-        # through remote validation is possible, but the explicit goal of these is to use local vs remote,
-        # so we patch the environment variable to force local validation regardless of other settings.
-        patcher = unittest.mock.patch.dict(os.environ, {"DR_REMOTE_ESQL_VALIDATION": ""})
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
     def test_esql_data_validation(self):
         """Test ESQL rule data validation"""
 
@@ -1024,6 +1015,24 @@ class TestESQLValidation(unittest.TestCase):
         """
         rule_dict["rule"]["query"] = query
         with unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_METADATA_VALIDATION": "1"}):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_both_bypasses_still_reject_syntax_errors(self):
+        """Both bypass env vars skip KEEP and METADATA checks, not the parser."""
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        rule_dict["rule"]["query"] = "FROM logs-windows.powershell_operational* |||"
+        with (
+            unittest.mock.patch.dict(
+                os.environ,
+                {
+                    "DR_BYPASS_ESQL_METADATA_VALIDATION": "1",
+                    "DR_BYPASS_ESQL_KEEP_VALIDATION": "1",
+                },
+            ),
+            pytest.raises(EsqlSyntaxError),
+        ):
             _ = RuleCollection().load_dict(rule_dict, path=rule_path)
 
     def test_esql_metadata_bypass_does_not_skip_keep_validation(self):
