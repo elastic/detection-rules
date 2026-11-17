@@ -56,7 +56,16 @@ class TestESQLQuerySources(unittest.TestCase):
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
     def test_selector_sources(self):
-        """Test that component selectors are stripped from local and cross cluster sources."""
+        """Test that component selectors are stripped from local sources."""
+        query = "FROM logs-a-*::failures, logs-b-*::data, logs-c-* METADATA _id\n| WHERE x"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*", "logs-c-*"])
+        self.assertEqual(replace_with_group_position(query), "FROM test-index-0 METADATA _id\n| WHERE x")
+
+    def test_cross_cluster_selector_sources(self):
+        """Test that component selectors are stripped from cross cluster sources."""
+        # Grammars before 9.4 accept a cluster prefix or a selector on a source, not both.
+        if _current_package() < Version(9, 4):
+            self.skipTest("A cluster prefix combined with a selector requires the 9.4 grammar")
         query = "FROM logs-a-*::failures, cluster_one:logs-b-*::data, logs-c-* METADATA _id\n| WHERE x"
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*", "logs-c-*"])
         self.assertEqual(replace_with_group_position(query), "FROM test-index-0 METADATA _id\n| WHERE x")
@@ -125,6 +134,17 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_selector_strips_to_local_index(self):
         """A ::selector suffix is not part of the local index pattern."""
+        query = "FROM logs-a-*::failures METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(
+            get_esql_query_source_patterns(query),
+            [("logs-a-*::failures", "logs-a-*")],
+        )
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
+
+    def test_cross_cluster_selector_strips_to_local_index(self):
+        """A cluster prefix and a ::selector suffix are not part of the local index pattern."""
+        if _current_package() < Version(9, 4):
+            self.skipTest("A cluster prefix combined with a selector requires the 9.4 grammar")
         query = "FROM remote:logs-a-*::failures METADATA _id\n| WHERE x == 1"
         self.assertListEqual(
             get_esql_query_source_patterns(query),
