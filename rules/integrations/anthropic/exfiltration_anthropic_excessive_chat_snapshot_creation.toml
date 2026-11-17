@@ -2,7 +2,7 @@
 creation_date = "2026/09/16"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -50,9 +50,7 @@ compliance archival automation.
 - On unauthorized staging: revoke sessions, review snapshot destinations and shared links, and tighten chat sharing
   or export policy for the actor.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "0cd6c462-28eb-482a-b445-9ced6a034b49"
 severity = "medium"
@@ -65,6 +63,8 @@ tags = [
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
     "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0085",
+    "Mitre Atlas: AML.T0025",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -107,10 +107,36 @@ reference = "https://attack.mitre.org/techniques/T1567/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
 [rule.alert_suppression]
 group_by = ["user.email"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -128,3 +154,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

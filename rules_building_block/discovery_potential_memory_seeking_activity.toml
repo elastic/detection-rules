@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Monitors for the execution of Unix utilities that may be leveraged as memory add
 built-in utilities to seek specific memory addresses, allowing for potential future manipulation/exploitation.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Memory Seeking Activity"
@@ -28,7 +28,6 @@ tags = [
     "Tactic: Discovery",
     "Rule Type: BBR",
     "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
     "Rule Type: Event Correlation (EQL)",
     "Platform: Linux",
 ]
@@ -51,7 +50,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   ) or
   process.parent.command_line like "sh*acme.sh*" or
   process.args like ("/var/tmp/dracut*", "/opt/bitdefender-security-tools/var/log/script_update.log") or
-  ?process.working_directory like (
+  process.working_directory like (
     "/usr/local/nutanix/ngt/python/bin", "/var/lib/waagent/*", "/opt/Tychon/Endpoint/bin",
     "/usr/local/cloudamize/bin", "/opt/sentinelone/bin"
   ) or

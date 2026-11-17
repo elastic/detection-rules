@@ -2,15 +2,15 @@
 creation_date = "2026/09/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high volume of Claude file uploads from the same user email and source IP within a rolling
-24-hour period. Sustained upload activity can indicate staging of sensitive documents in Claude chats for later
-retrieval, automated ingestion of data into LLM workflows, or abuse of organizational Claude access to move files into
-the cloud service.
+Detects an unusually high volume of Claude file uploads from the same user email and source IP within a rolling 24-hour
+period. Sustained upload activity can indicate staging of sensitive documents in Claude chats for later retrieval,
+automated ingestion of data into LLM workflows, or abuse of organizational Claude access to move files into the cloud
+service.
 """
 false_positives = [
     """
@@ -53,9 +53,7 @@ batch attach jobs with expected project IDs.
 - On unauthorized staging: revoke sessions, review uploaded names/file IDs for sensitive content, and tighten project
   sharing or upload policy for the actor.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "58295a79-5dde-4fc9-a967-2dbe39fb8bc7"
 severity = "medium"
@@ -68,6 +66,7 @@ tags = [
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
     "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0025",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -109,10 +108,24 @@ reference = "https://attack.mitre.org/techniques/T1567/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
 [rule.alert_suppression]
 group_by = ["user.email", "source.ip"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -130,3 +143,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

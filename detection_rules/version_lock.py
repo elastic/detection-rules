@@ -16,7 +16,7 @@ from .config import load_current_package_version, parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
 from .stack_emit import emit_epoch_key, parse_stack, resolve_stack_emit_entry, transforms_for_stack
-from .utils import cached
+from .utils import cached, next_version
 
 RULES_CONFIG = parse_rules_config()
 
@@ -310,10 +310,15 @@ class VersionLock:
                         # 2) on the latest, after a breaking change has been locked
                         # Preserve existing stack_emit channels — never drop higher-stack emit rows.
                         existing_stack_emit = lock_from_file.get("stack_emit")
+                        # If a stack_emit entry already shipped the proposed version, the lock takes the
+                        # next free version instead so no shipped version is used twice for the same stack version.
+                        floor = next_version(lock_from_file, stripped_version) if lock_from_file else None
                         lock_from_file.update(lock_from_rule)
                         if existing_stack_emit is not None:
                             lock_from_file["stack_emit"] = existing_stack_emit
-                        new_version = lock_from_rule["version"]
+                        if floor is not None and not exclude_version_update and lock_from_file["version"] < floor:
+                            lock_from_file["version"] = floor
+                        new_version = lock_from_file["version"]
 
                         # add the min_stack_version to the lock if it's explicitly set
                         if rule.contents.metadata.min_stack_version is not None:
@@ -378,8 +383,19 @@ class VersionLock:
                             )
 
                         if info_from_rule != info_from_file:
-                            lock_from_file["previous"][stripped_version].update(lock_from_rule)
-                            new_version = lock_from_rule["version"]
+                            # The fork cannot pass its max_allowable_version, so fail if the next free
+                            # version is exceeding max_allowable_version.
+                            floor = next_version(lock_from_file, stripped_version)
+                            previous_entry.update(lock_from_rule)
+                            if not exclude_version_update and previous_entry["version"] < floor:
+                                if floor > max_allowable_version:
+                                    raise ValueError(
+                                        f"Forked rule: {rule.id} - {rule.name} needs version {floor} to clear its "
+                                        f"shipped emit versions, above the max allowable version of "
+                                        f"{max_allowable_version}"
+                                    )
+                                previous_entry["version"] = floor
+                            new_version = previous_entry["version"]
                             log_changes(
                                 rule,
                                 route,
@@ -404,8 +420,19 @@ class VersionLock:
                     # comparing against the baseline lock hash (which strips related_integrations).
                     if emit_hash == untransformed_hash:
                         if epoch_key in stack_emit:
+                            if exclude_version_update:
+                                # a hash-only run (dev update-lock-versions) cannot bump, and dropping the epoch
+                                # hands its stacks the baseline number next; keep the row until a versioned run
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    lock_from_file.get("version"),
+                                    f"epoch {epoch_key} kept: transforms are a no-op but dropping it needs a "
+                                    "version bump (run build-release --update-version-lock)",
+                                )
+                                continue
                             stack_emit = dict(stack_emit)
-                            del stack_emit[epoch_key]
+                            dropped_version = int(stack_emit.pop(epoch_key)["version"])
                             if stack_emit:
                                 lock_from_file["stack_emit"] = stack_emit
                             else:
@@ -416,6 +443,19 @@ class VersionLock:
                                 lock_from_file.get("version"),
                                 f"epoch {epoch_key} removed (transforms no-op)",
                             )
+                            # these stacks ship the baseline from now on, so it must sit above the version the
+                            # epoch already shipped to them
+                            forks: dict[str, dict[str, Any]] = lock_from_file.get("previous") or {}
+                            baseline: dict[str, Any] = forks.get(stripped_version) or lock_from_file
+                            if int(baseline["version"]) <= dropped_version:
+                                floor = next_version(lock_from_file, stripped_version)
+                                baseline["version"] = max(dropped_version + 1, floor)
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    baseline["version"],
+                                    f"baseline moved past version {dropped_version} shipped by epoch {epoch_key}",
+                                )
                         continue
 
                     if stack_emit.get(epoch_key, {}).get("sha256") == emit_hash:
@@ -424,15 +464,11 @@ class VersionLock:
                     stack_emit = cast("dict[str, dict[str, Any]]", lock_from_file.setdefault("stack_emit", {}))
                     existing_emit = stack_emit.get(epoch_key)
 
-                    baseline_version = int(lock_from_file.get("version") or 1)
-                    other_emit_versions = [
-                        int(e["version"]) for k, e in stack_emit.items() if k != epoch_key and e.get("version")
-                    ]
-                    floor = max([baseline_version, *other_emit_versions])
                     if exclude_version_update and existing_emit:
                         new_emit_version = int(existing_emit["version"])
                     else:
-                        new_emit_version = floor + 1
+                        # the epoch content changed, so its old number is taken too; go above everything shipped
+                        new_emit_version = next_version(lock_from_file, stripped_version)
 
                     stack_emit[epoch_key] = {
                         "sha256": emit_hash,

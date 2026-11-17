@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2026/11/01"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/11/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the same AWS principal, from the same source IP, successfully calls EC2
+"DescribeInstanceAttribute" for the "userData" attribute against more than 20 distinct instances within a 10-minute
+lookback. Instance user data often contains bootstrap scripts and hardcoded credentials, so retrieving it across many
+instances in a short window can indicate reconnaissance or credential harvesting. Known CSPM roles, AWS service
+invocations, and Terraform calls from major cloud and carrier networks are excluded.
+"""
+false_positives = [
+    """
+    Inventory jobs, configuration management, and security scanners that are not in the exclusion list may read
+    `userData` across a large fleet. Confirm the principal ARN, source IP, ASN, and user agent against approved
+    automation before treating the activity as malicious.
+    """,
+    """
+    Terraform running from an ASN other than Amazon, Google, Microsoft, Verizon, or AT&T is still in scope. A
+    large apply or refresh can exceed 20 instances.
+    """,
+]
+from = "now-10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EC2 Bulk User Data Enumeration"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Bulk User Data Enumeration
+
+EC2 `userData` is returned by `DescribeInstanceAttribute` when `attribute` is `userData`. It is frequently used for
+bootstrap scripts and sometimes contains credentials or tokens. This rule alerts when one principal
+(`aws.cloudtrail.user_identity.arn`), identity type, source IP, and source ASN reads that attribute for more than 20
+distinct `aws.cloudtrail.request_parameters` values in the 10-minute lookback. For this API those values correspond to
+distinct instance requests.
+
+### Possible investigation steps
+
+- Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`. Confirm whether this identity is
+  expected to read instance user data at fleet scale.
+- Review `Esql.count_distinct_instance_id` and `Esql.aws_request_parameters_values`. Extract the `instanceId` values and
+  check whether the instances belong to sensitive workloads.
+- Review `source.ip`, `source.as.organization.name`, and `Esql.user_agent_values`. Unexpected ASNs or clients such as
+  the AWS CLI or an SDK from an unfamiliar network are higher priority than a known automation host.
+- Search CloudTrail for the same principal and source IP in the surrounding hour for `ModifyInstanceAttribute`,
+  `RunInstances`, `GetPasswordData`, `AssumeRole`, and IAM changes.
+- If the instances are still available, inspect their current user data for secrets. Prefer AWS Secrets Manager or
+  Parameter Store over credentials stored in user data.
+
+### False positive analysis
+
+- Approved CSPM and inventory tools. This rule already excludes principal names matching CrowdStrike CSPM, Orca
+  Security, Aikido Security, Stream Security (`streamsec-*`), and `AWSReservedSSO_Poweruser`.
+- Calls invoked by AWS Internal, CloudFormation, AI DevOps, EMR, or AIOps.
+- Terraform user agents whose source ASN is Amazon, Google, Microsoft, Verizon, or AT&T.
+- Add further exceptions by principal ARN or user agent when the behavior is documented and recurring.
+
+### Response and remediation
+
+- If the activity is not authorized, revoke the role session or disable the access key and restrict the source IP.
+- Rotate any credentials found in the retrieved user data and remove secrets from instance user data.
+- Limit `ec2:DescribeInstanceAttribute` to principals that need it.
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html",
+    "https://hackingthe.cloud/aws/exploitation/local_ec2_priv_esc_through_user_data",
+]
+risk_score = 73
+rule_id = "7f6bc52c-fb52-46b5-8081-b78db15af501"
+setup = """## Setup
+
+The AWS integration must collect CloudTrail management events into `logs-aws.cloudtrail-*`.
+`DescribeInstanceAttribute` is a management event logged by default. `source.ip` and
+`source.as.organization.name` must be populated, because events missing either field are excluded.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Platform: AWS",
+    "Service: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+| where KQL("""event.provider: "ec2.amazonaws.com" and event.action: "DescribeInstanceAttribute" and event.outcome: "success" and aws.cloudtrail.flattened.request_parameters.attribute: "userData" and source.ip: * and source.as.organization.name: * and not user.name: (*CrowdStrikeCSPMReader* or *OrcaSecurityRole* or *AikidoSecurityRole* or *streamsec-*) and not aws.cloudtrail.user_identity.invoked_by: ("AWS Internal" or "cloudformation.amazonaws.com" or "aidevops.amazonaws.com" or "elasticmapreduce.amazonaws.com" or "aiops.amazonaws.com")""")
+  and not (
+    user_agent.original like "*Terraform*"
+    and source.as.organization.name in (
+      "Amazon.com, Inc.",
+      "Google LLC",
+      "Microsoft Corporation",
+      "Verizon Business",
+      "AT&T Enterprises, LLC"
+    )
+  )
+| grok aws.cloudtrail.request_parameters """instanceId=(?<Esql.instance_id>[^,}\]]+)"""
+| where Esql.instance_id is not null
+| stats
+    Esql.count_distinct_instance_id = count_distinct(Esql.instance_id),
+    Esql.aws_request_parameters_values = values(aws.cloudtrail.request_parameters),
+    Esql.user_agent_values = values(user_agent.original)
+  by
+    data_stream.namespace,
+    aws.cloudtrail.user_identity.arn,
+    aws.cloudtrail.user_identity.type,
+    source.as.organization.name,
+    source.ip, 
+	source.`as`.number
+| where Esql.count_distinct_instance_id > 20
+| keep
+    Esql.count_distinct_instance_id,
+    data_stream.namespace,
+    aws.cloudtrail.user_identity.arn,
+    aws.cloudtrail.user_identity.type,
+    source.ip,
+	source.`as`.number,
+    source.as.organization.name,
+    Esql.aws_request_parameters_values,
+    Esql.user_agent_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+[[rule.threat.technique.subtechnique]]
+id = "T1552.005"
+name = "Cloud Instance Metadata API"
+reference = "https://attack.mitre.org/techniques/T1552/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.count_distinct_instance_id",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "source.ip",
+	"source.`as`.number",
+    "source.as.organization.name",
+    "Esql.aws_request_parameters_values",
+    "Esql.user_agent_values",
+    "data_stream.namespace",
+]
+
