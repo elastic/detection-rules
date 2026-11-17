@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unusually high number of ChatGPT Enterprise conversation deletion events for the same user within a rolling
+24-hour lookback. Mass deletion can indicate an attempt to remove conversation history or cover tracks after misuse.
+"""
+false_positives = ["Users purging old chats during workspace hygiene or retention cleanup."]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Excessive Conversation Deletion"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Excessive Conversation Deletion
+
+One user deleted a large number of conversations in a rolling 24-hour window. Mass deletion can remove useful
+investigative context after misuse or data staging.
+
+Escalate when deletions follow downloads, shares, or credential-bearing prompts, or when the user has no retention-cleanup role. Close as a false positive for documented retention cleanup or migration tooling.
+
+#### Possible investigation steps
+
+- Capture conversation identifiers from the alert while they remain in audit history.
+- Review `Esql.event_count` and the time window for the user.
+- Compare with preceding file downloads, conversation shares, or prompts containing secrets from the same user.
+- Confirm whether a retention or migration process accounts for the volume.
+
+### False positive analysis
+
+- Approved retention cleanup jobs and workspace migration tooling can delete many conversations in a short period.
+
+### Response and remediation
+
+- Preserve remaining audit exports, revoke sessions if the activity appears malicious, and investigate prior data access by the same user.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "ac16af6b-8a45-43cd-92bc-83b2fa0e1e3a"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Use Case: UEBA",
+    "Tactic: Defense Evasion",
+    "Mitre Atlas: AML.T0092",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-*
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "conversation_delete" and
+    user.id is not null
+| stats
+    Esql.event_count = count(*),
+    Esql.conversation_id_values = values(openai_chatgpt_enterprise.audit_log.action_data.conversation_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.id, user.email
+| where Esql.event_count >= 20
+| keep user.id, user.email, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0092"
+name = "Manipulate User LLM Chat History"
+reference = "https://atlas.mitre.org/techniques/AML.T0092/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.alert_suppression]
+group_by = ["user.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "user.email",
+    "Esql.event_count",
+    "Esql.conversation_id_values",
+    "Esql.source_ip_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

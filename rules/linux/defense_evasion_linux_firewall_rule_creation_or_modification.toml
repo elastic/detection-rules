@@ -2,7 +2,7 @@
 creation_date = "2026/09/14"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -130,6 +130,14 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "p
     process.name == "ufw" and
     process.args like~ ("deny", "allow", "reject") and
     not process.args in ("delete", "--dry-run")
+  )
+) and
+not (
+  process.parent.name in ("firewalld", "libvirtd") or
+  process.parent.executable like (
+    "/usr/bin/dockerd", "/usr/libexec/podman/netavark", "/usr/bin/cilium-agent", "/run/k0s/containerd/io.containerd.runtime.v2.task/k8s.io/*/cilium-agent",
+    "/run/k3s/containerd/io.containerd.runtime.v2.task/k8s.io/*/cilium-agent", "/nix/store/*/docker/dockerd", "/usr/bin/fail2ban-server", "/usr/local/bin/dockerd",
+    "/usr/sbin/NetworkManager", "/usr/sbin/tailscaled", "/var/lib/rancher/rke2/*/kubelet"
   )
 )
 '''

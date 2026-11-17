@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/21"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -41,6 +41,9 @@ language = "eql"
 license = "Elastic License v2"
 name = "Startup or Run Key Registry Modification"
 note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was reviewed with the assistance of generative AI. Validate the guidance and adapt it to your environment and incident response procedures.
 
 ### Investigating Startup or Run Key Registry Modification
 
@@ -148,7 +151,8 @@ registry where host.os.type == "windows" and event.type == "change" and
   /* add common legitimate changes without being too restrictive as this is one of the most abused AESPs */
   not registry.data.strings : "ctfmon.exe /n" and
   not (registry.value : "Application Restart #*" and process.name : "csrss.exe") and
-  not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  not (user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+       not process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe")) and
   not registry.data.strings : ("*:\\Program Files\\*",
                                "*:\\Program Files (x86)\\*",
                                "*:\\Users\\*\\AppData\\Local\\*",
@@ -168,7 +172,6 @@ registry where host.os.type == "windows" and event.type == "change" and
                             "C:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe",
                             "C:\\$WINDOWS.~BT\\Sources\\SetupHost.exe",
                             "C:\\Program Files\\Cisco Spark\\CiscoCollabHost.exe",
-                            "C:\\Sistemas\\Programas MP\\CCleaner\\CCleaner64.exe",
                             "C:\\Program Files (x86)\\FastTrack Software\\Admin By Request\\AdminByRequest.exe",
                             "C:\\Program Files (x86)\\Exclaimer Ltd\\Cloud Signature Update Agent\\Exclaimer.CloudSignatureAgent.exe",
                             "C:\\ProgramData\\Lenovo\\Vantage\\AddinData\\LenovoBatteryGaugeAddin\\x64\\QSHelper.exe",
