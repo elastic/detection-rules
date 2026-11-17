@@ -143,6 +143,7 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_cross_cluster_selector_strips_to_local_index(self):
         """A cluster prefix and a ::selector suffix are not part of the local index pattern."""
+        # Grammars before 9.4 accept a cluster prefix or a selector on a source, not both.
         if _current_package() < Version(9, 4):
             self.skipTest("A cluster prefix combined with a selector requires the 9.4 grammar")
         query = "FROM remote:logs-a-*::failures METADATA _id\n| WHERE x == 1"
