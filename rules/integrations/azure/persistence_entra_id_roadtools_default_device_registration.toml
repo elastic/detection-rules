@@ -114,13 +114,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"azure.auditlogs" and
+data_stream.dataset:"azure.auditlogs" and 
 (
+   (
     event.action:"Add device" and
     azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value:*10.0.19041.928* and
     azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value:*DESKTOP-*
-) or event.action: "Add Windows Hello for Business credential" and
+   ) or ( 
+    event.action: "Add Windows Hello for Business credential" and
     azure.auditlogs.properties.userAgent: "Dsreg/10.0 (Windows 10.0.19044.1826)"
+ )
+)
 '''
 
 
