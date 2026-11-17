@@ -6,12 +6,55 @@ updated_date = "2026/11/17"
 
 [rule]
 author = ["Elastic"]
-description = "A new GitHub repository was created.\n"
+description = """
+Identifies the creation of a GitHub repository by a non-bot actor. Unexpected repository creation can indicate
+unauthorized infrastructure setup, data staging, or misuse of a compromised GitHub account.
+"""
+false_positives = [
+    """
+    Authorized users may create repositories for development, testing, documentation, or migration. Confirm the actor,
+    organization, repository visibility, and business purpose before escalating.
+    """,
+]
 from = "now-9m"
 index = ["logs-github.audit-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "GitHub Repo Created"
+note = """## Triage and analysis
+
+### Investigating GitHub Repo Created
+
+This rule detects repository creation by an actor that GitHub does not identify as a bot. Repository creation is common
+in normal development, but it can also support unauthorized code hosting, data staging, persistence, or resource
+development after an account is compromised.
+
+### Possible investigation steps
+
+- Review `user.name`, `github.org`, `github.repo`, and `github.actor_ip` to identify the actor and repository.
+- Confirm the repository name, visibility, ownership, and creation purpose with the actor or organization owner.
+- Review nearby audit events for permission changes, collaborator additions, deploy keys, webhooks, secrets, workflow
+  creation, pushes, transfers, or visibility changes.
+- Check whether the source IP, user agent, and authentication method are expected for the actor.
+- Determine whether sensitive code, credentials, or organization data were subsequently added to the repository.
+
+### False positive analysis
+
+- Developers and administrators routinely create repositories for approved projects, testing, migrations, and
+  documentation.
+- Internal automation not identified by GitHub as a bot can still trigger this rule. Scope exceptions to a verified
+  actor and organization when that behavior is expected.
+
+### Response and remediation
+
+- If unauthorized, restrict or remove the repository, revoke suspicious sessions or tokens, and review the actor's
+  recent GitHub activity.
+- Remove unauthorized collaborators, deploy keys, webhooks, workflows, and secrets.
+- Preserve relevant audit events and repository contents before deletion when incident-response evidence is required.
+"""
+references = [
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
 risk_score = 21
 rule_id = "6cea88e4-6ce2-4238-9981-a54c140d6336"
 severity = "low"
@@ -20,18 +63,22 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: UEBA",
     "Tactic: Execution",
+    "Tactic: Resource Development",
     "Data Source: Github",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Fast",
+    "Rule Type: Custom Query (KQL)",
     "Platform: GitHub",
     "Domain: SaaS",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-configuration where event.dataset == "github.audit" and event.action == "repo.create" and
-  not github.actor_is_bot == true
+data_stream.dataset:"github.audit" and event.category:"configuration" and event.action:"repo.create" and
+not github.actor_is_bot:true
 '''
 
 
@@ -65,3 +112,17 @@ reference = "https://attack.mitre.org/techniques/T1583/006/"
 id = "TA0042"
 name = "Resource Development"
 reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.repository_public",
+    "github.actor_ip",
+    "github.user_agent",
+    "github.programmatic_access_type",
+    "github.actor_is_bot",
+]
