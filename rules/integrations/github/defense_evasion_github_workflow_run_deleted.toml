@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/11/17"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/11/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a GitHub Actions workflow run is deleted within 30 minutes of its creation. Adversaries who abuse Actions
+for execution or secret theft may delete short-lived runs afterward to remove job logs that show the malicious steps.
+"""
+false_positives = [
+    """
+    Automation that deletes failed or temporary workflow runs shortly after execution. Review whether the workflow,
+    repository, and actors are expected.
+    """,
+]
+from = "now-39m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Actions Workflow Run Rapidly Deleted"
+note = """## Triage and analysis
+
+### Investigating GitHub Actions Workflow Run Rapidly Deleted
+
+`workflows.delete_workflow_run` is recorded when a run is deleted. GitHub does not always emit a separate audit event for deleting only the logs; the run deletion itself is the reliable cover-up signal. This rule correlates workflow-run creation and deletion events for the same organization, repository, and workflow when they occur within 30 minutes.
+
+### Possible investigation steps
+
+- Review `user.name`, `github.repo`, `github.data.workflow_id`, and the correlated creation and deletion timestamps.
+- Determine which workflow file ran and whether it was recently added or modified.
+- Look for `git.push` by `github-actions[bot]` or unexpected `GITHUB_TOKEN` usage around the same time.
+- Check org/repo secrets access (`api.request` for secrets) from the same actor.
+
+### False positive analysis
+
+- Admins pruning old CI history.
+- Tools that delete runs after collecting artifacts.
+
+### Response and remediation
+
+- If unauthorized, disable the suspect workflow and rotate secrets used by Actions.
+- Review commits to `.github/workflows/` and restrict `GITHUB_TOKEN` permissions.
+- Preserve remaining Actions logs and audit events for the incident window.
+"""
+references = ["https://docs.github.com/en/rest/actions/workflow-runs#delete-a-workflow-run"]
+risk_score = 21
+rule_id = "c3767835-ee6d-4523-8d11-3cabeecbb8cf"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Service: GitHub Actions",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-github.audit-*
+| WHERE event.module == "github" AND data_stream.dataset == "github.audit"
+    AND event.action IN (
+      "workflows.created_workflow_run",
+      "workflows.delete_workflow_run"
+    )
+| EVAL
+    Esql.is_workflow_run_created = event.action == "workflows.created_workflow_run",
+    Esql.is_workflow_run_deleted = event.action == "workflows.delete_workflow_run"
+| STATS
+    Esql.workflow_run_created_count = SUM(CASE(Esql.is_workflow_run_created, 1, 0)),
+    Esql.workflow_run_deleted_count = SUM(CASE(Esql.is_workflow_run_deleted, 1, 0)),
+    Esql.workflow_run_created_at = MIN(CASE(Esql.is_workflow_run_created, @timestamp, null)),
+    Esql.workflow_run_deleted_at = MAX(CASE(Esql.is_workflow_run_deleted, @timestamp, null)),
+    user.name = VALUES(user.name),
+    github.actor_ip = VALUES(github.actor_ip),
+    github.hashed_token = VALUES(github.hashed_token),
+    github.programmatic_access_type = VALUES(github.programmatic_access_type),
+    github.user_agent = VALUES(github.user_agent),
+    github.data.workflow_run_id = VALUES(github.data.workflow_run_id)
+  BY github.org, github.repo, github.data.workflow_id
+| EVAL Esql.time_diff_seconds = DATE_DIFF(
+    "second", Esql.workflow_run_created_at, Esql.workflow_run_deleted_at
+  )
+| WHERE Esql.workflow_run_created_count > 0
+    AND Esql.workflow_run_deleted_count > 0
+    AND Esql.time_diff_seconds >= 0
+    AND Esql.time_diff_seconds <= 1800
+    AND DATE_DIFF("minute", Esql.workflow_run_deleted_at, NOW()) <= 10
+| KEEP
+    Esql.workflow_run_created_at,
+    Esql.workflow_run_deleted_at,
+    Esql.time_diff_seconds,
+    Esql.workflow_run_created_count,
+    Esql.workflow_run_deleted_count,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.data.workflow_id,
+    github.data.workflow_run_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.workflow_run_created_at",
+    "Esql.workflow_run_deleted_at",
+    "Esql.time_diff_seconds",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.data.workflow_id",
+    "github.data.workflow_run_id",
+]
+
+[rule.alert_suppression]
+group_by = [
+    "github.org",
+    "github.repo",
+    "github.data.workflow_run_id",
+]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
