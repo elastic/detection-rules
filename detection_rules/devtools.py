@@ -2030,9 +2030,9 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
 
 
 @attack_group.command("scaffold-version-map")
-@click.option("--target-version", 
-              "-t", required=True,
-              help=f"Target framework version (e.g. {PROMOTED_THREAT_MAPPING_VERSION})")
+@click.option(
+    "--target-version", "-t", required=True, help=f"Target framework version (e.g. {PROMOTED_THREAT_MAPPING_VERSION})"
+)
 @click.option(
     "--source-version",
     "-s",
