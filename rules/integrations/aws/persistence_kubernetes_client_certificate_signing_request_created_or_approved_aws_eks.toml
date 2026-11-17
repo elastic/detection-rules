@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Detects creation or approval of a Kubernetes CertificateSigningRequest (CSR) by a non-system identity. Attackers who
+have gained cluster access can submit a CSR with a privileged Common Name such as system:kube-controller-manager or
+system:masters, then approve it themselves to obtain a long-lived client certificate. Unlike service account tokens
+which expire in hours, client certificates persist until they expire or the cluster CA is rotated, providing durable
+access that survives pod termination, token revocation, and RBAC changes. On non-EKS clusters, the signed certificate
+allows the attacker to authenticate as the privileged identity from anywhere without needing cluster network access,
+making it one of the most persistent backdoor mechanisms available in Kubernetes.
+'''
+false_positives = [
+    '''
+    Approved certificate workflows (for example cert-manager, internal PKI rotation, or node bootstrap) may create or
+    update CSRs from identities not in the exclusion list if they run under a custom service account. Baseline
+    automation that legitimately approves CSRs and tune exclusions for those principals.
+''',
+]
+from = "now-9m"
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Client Certificate Signing Request Created or Approved"
+note = '''
+## Triage and analysis
+
+### Investigating AWS EKS Client Certificate Signing Request Created or Approved
+Identify the actor (`user.name`, groups), client (`user_agent.original`), and `source.ip`. Confirm whether the
+principal is expected to create or approve CSRs. Review `aws.eks.audit.requestURI` and, when audit level captures
+request bodies, the CSR `spec` (requested signer, usages, and requested identity / Common Name).
+
+### Extracting the Certificate Common Name
+
+For create events, "aws.eks.audit.requestObject.spec.request" holds the base64-encoded PEM certificate signing request.
+Decode that value to PEM, then inspect the CSR subject (for example with OpenSSL’s CSR subject view) to read the
+requested Common Name (CN).
+
+Known base64 substrings that often appear inside the encoded request for high-risk identities:
+
+- `c3lzdGVtOm1hc3Rlcn` — `system:masters`
+- `c3lzdGVtOmt1YmUtY29udHJvbGxlci1tYW5hZ2Vy` — `system:kube-controller-manager`
+- `c3lzdGVtOmFkbWlu` — `system:admin`
+
+Priority CNs that usually indicate privilege escalation intent:
+
+- `system:masters` (cluster-admin group)
+- `system:kube-controller-manager` (broad control-plane–style access, including secrets and token minting)
+- `system:kube-scheduler` (scheduling across the cluster)
+- `system:kube-proxy` (node/network–adjacent access)
+- Any CN that matches an existing ClusterRoleBinding subject name
+
+### Possible investigation steps
+
+- Compare the CSR name and extracted CN against approved PKI or bootstrap processes.
+- Determine whether the same identity both created and approved or patched the CSR in a short window, which matches
+  self-approval abuse.
+- Review `aws.eks.audit.objectRef` and subsequent authentication or API activity from unusual networks.
+- Correlate with RBAC changes, secret access, or TokenRequest activity that preceded CSR activity.
+
+### Response and remediation
+
+- If malicious, deny further approval, delete or deny the CSR per incident policy, revoke or rotate cluster signing
+  trust if the CA or signer was abused, and invalidate issued credentials.
+- Remove excessive RBAC that allows `certificatesigningrequests` create/update/patch or approval for untrusted
+  identities; enforce signer restrictions and approved issuers where supported.'''
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/",
+]
+risk_score = 73
+rule_id = "7b622503-67f1-5da5-acec-c321061a6056"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"aws.eks_audit" and
+aws.eks.audit.objectRef.resource:"certificatesigningrequests" and
+aws.eks.audit.verb:("create" or "update" or "patch") and
+aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
+not user.name:(
+  system\:kube-controller-manager or
+  system\:kube-scheduler or
+  system\:node\:* or
+  system\:serviceaccount\:kube-system\:* or
+  eks\:*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"

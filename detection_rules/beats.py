@@ -17,7 +17,7 @@ import requests
 import yaml
 from semver import Version
 
-from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, unzip
+from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, read_gzip, strip_index_expression, unzip
 
 
 def _decompress_and_save_schema(url: str, release_name: str) -> None:
@@ -303,12 +303,10 @@ def parse_beats_from_index(indexes: list[str] | None) -> list[str]:
     """Parse beats schema types from index."""
     indexes = indexes or []
     beat_types: list[str] = []
-    # Need to split on : or :: to support cross-cluster search
-    # e.g. mycluster:logs-* -> logs-*
+    # Strip cross-cluster prefixes and component selectors
+    # e.g. mycluster:auditbeat-*::failures -> auditbeat-*
     for index in indexes:
         if "beat-*" in index:
-            index_parts = index.replace("::", ":").split(":", 1)
-            last_part = index_parts[-1]
-            beat_type = last_part.split("-")[0]
+            beat_type = strip_index_expression(index).split("-")[0]
             beat_types.append(beat_type)
     return beat_types

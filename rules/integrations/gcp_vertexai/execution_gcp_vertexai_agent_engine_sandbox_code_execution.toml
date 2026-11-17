@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a Vertex AI Agent Engine caller executes code in a sandboxEnvironment from a given source
+autonomous system. First-time sandbox execution by a user and source ASN can indicate a new workload, stolen
+credentials used from an unusual network, or early Agent Engine abuse before broader sandbox reuse is visible.
+"""
+false_positives = [
+    """
+    Developers, notebooks, and CI service accounts execute sandbox code from new offices, home ISPs, or cloud egress
+    ASNs until baselined. Exclude known build and research identities after review.
+    """,
+]
+from = "now-60m"
+index = ["logs-gcp_vertexai.auditlogs-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time GCP Vertex AI Agent Engine Sandbox Code Execution by User and Source ASN"
+note = """## Triage and analysis
+
+### Investigating First Time GCP Vertex AI Agent Engine Sandbox Code Execution by User and Source ASN
+
+This new-terms rule alerts when `client.user.email` combined with `source.as.number` first appears on a successful
+Agent Engine `ExecuteSandboxEnvironment` call in the history window. It is an informational starting point for
+reviewing who is running code in sandboxes and from where, not proof of hijacking.
+
+#### Possible investigation steps
+
+- Review `client.user.email`, `source.ip`, `source.as.number`, `source.as.organization.name`, and
+  `gcp.vertexai.audit.resource_name` (sandbox path).
+- Confirm whether the principal is expected to use Agent Engine and whether the ASN matches approved office, VPN, or
+  cloud egress.
+- Hunt nearby CreateSandboxEnvironment and additional ExecuteSandboxEnvironment events for the same sandbox or
+  principal. Inspect application traces or captured code when available; audit logs omit submitted Python.
+
+### False positive analysis
+
+- First-time legitimate developers, CI service accounts, and research projects commonly match until identities and
+  ASNs are baselined.
+- Shared automation identities that rotate egress networks can create recurring first-seen pairs; prefer
+  principal-scoped exceptions after ownership review.
+
+### Response and remediation
+
+- If the principal or ASN is unexpected: restrict or rotate credentials, review IAM grants, and inspect recent
+  sandbox activity for unauthorized code execution.
+- Prefer separate sandboxes across users or tenants and treat tool output as untrusted input to the agent.
+"""
+references = [
+    "https://www.beyondtrust.com/blog/entry/vertex-ai-agent-engine-sandbox-hijack",
+    "https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sandbox/code-execution-quickstart",
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+]
+risk_score = 21
+rule_id = "0280de77-4296-42e0-b986-60da7e7ba15d"
+setup = """## Setup
+
+Requires GCP Vertex AI `auditlogs` for `aiplatform.googleapis.com`, including
+`SandboxEnvironmentExecutionService.ExecuteSandboxEnvironment`, with `client.user.email` and `source.as.number`
+populated. Submitted code is not present in these events; obtain application code records or traces separately when
+available.
+"""
+severity = "low"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0110",
+    "Mitre Atlas: AML.T0110.002",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:gcp_vertexai.auditlogs and event.action:*SandboxEnvironmentExecutionService.ExecuteSandboxEnvironment* and gcp.vertexai.audit.resource_name:*/sandboxEnvironments/* and gcp.vertexai.audit.service_name:aiplatform.googleapis.com and client.user.email:* and source.as.number:* and gcp.vertexai.audit.status.code:(0 or not *)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["client.user.email", "source.as.number"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0110"
+name = "AI Agent Tool Poisoning"
+reference = "https://atlas.mitre.org/techniques/AML.T0110/"
+[[rule.threat_mappings.threat.technique.subtechnique]]
+id = "AML.T0110.002"
+name = "Runtime Response"
+reference = "https://atlas.mitre.org/techniques/AML.T0110.002/"
+
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "client.user.email",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.ip",
+    "gcp.vertexai.audit.resource_name",
+    "user_agent.original",
+    "event.action",
+]

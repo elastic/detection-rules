@@ -6,7 +6,9 @@
 """Tests for multi-version threat mappings (e.g. MITRE ATT&CK v18/v19) support."""
 
 import contextlib
+import importlib.util
 import os
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -30,6 +32,28 @@ TACTIC = {
 }
 TECH_V18 = {"id": "T1078", "name": "Valid Accounts", "reference": "https://attack.mitre.org/techniques/T1078/"}
 TECH_V19 = {"id": "T1078", "name": "Valid Accounts (v19)", "reference": "https://attack.mitre.org/techniques/T1078/"}
+
+
+class TestAttackVersionInitialization(unittest.TestCase):
+    """Tests for deriving the baseline ATT&CK version during module initialization."""
+
+    def test_parent_path_with_version_delimiter(self) -> None:
+        """A parent directory containing `-v` must not affect ATT&CK filename parsing."""
+        attack_path = Path("test-v01/installed/detection_rules/etc/attack-v18.1.0.json.gz")
+        module_name = "detection_rules._attack_regression_test"
+        spec = importlib.util.spec_from_file_location(module_name, attack.__file__)
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+
+        with (
+            mock.patch("detection_rules.utils.get_etc_glob_path", return_value=[attack_path]),
+            mock.patch("detection_rules.utils.read_gzip", return_value='{"objects": []}'),
+            mock.patch.dict(sys.modules, {module_name: module}),
+        ):
+            spec.loader.exec_module(module)
+
+        self.assertEqual(module.CURRENT_ATTACK_VERSION, "18.1.0")
 
 
 def _metadata() -> dict[str, Any]:
@@ -689,6 +713,37 @@ class TestIdentityScaffold(unittest.TestCase):
                     expected,
                     f"Scaffold technique {technique_id} has name '{entry['name']}' instead of v19 name '{expected}'",
                 )
+
+
+class TestBuildThreatMapEntry(unittest.TestCase):
+    """Threat entries built from technique IDs."""
+
+    def test_defense_evasion_name_resolves(self) -> None:
+        """The v18 tactic name still builds an entry after the v19 rename."""
+        entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+        self.assertEqual(entry["technique"][0]["id"], "T1055")
+
+    def test_defense_evasion_alias_when_baseline_is_v19(self) -> None:
+        """A v19-only dataset still accepts the v18 tactic name."""
+        tactic_id = attack.tactics_map["Defense Evasion"]
+        techniques = list(attack.matrix["Defense Evasion"])
+        with (
+            mock.patch.dict(attack.tactics_map, {"Stealth": tactic_id}, clear=True),
+            mock.patch.dict(attack.matrix, {"Stealth": techniques}, clear=True),
+        ):
+            entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+
+    def test_redirect_that_changes_tactic_keeps_original_id(self) -> None:
+        """A replacement filed under another tactic does not rewrite the baseline entry."""
+        entry = attack.build_threat_map_entry("Persistence", "T1547.011")
+        sub_ids = [sub["id"] for tech in entry["technique"] for sub in tech.get("subtechnique", [])]
+        self.assertIn("T1547.011", sub_ids)
+        self.assertNotIn("T1647", sub_ids)
+        self.assertEqual(entry["tactic"]["name"], "Persistence")
 
 
 if __name__ == "__main__":

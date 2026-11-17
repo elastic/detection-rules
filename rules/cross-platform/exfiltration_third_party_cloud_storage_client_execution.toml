@@ -1,0 +1,185 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of a third-party S3 or object-storage client (S3 Browser, s5cmd, s3cmd, MinIO mc, rclone,
+Cyberduck, s3fs, goofys, juicefs) launched by a script interpreter, a shell one-liner, or from a temporary or
+user-writable path. After stealing cloud credentials, adversaries switch from the AWS CLI to these clients to
+enumerate and drain buckets in bulk. Gating on a scripted context separates post-exploitation automation from
+interactive developer use.
+"""
+false_positives = [
+    """
+    Data engineers and DevOps teams legitimately use rclone, s5cmd, and s3cmd for bulk data transfers. This rule
+    gates on a scripted parent to suppress interactive use, but automation pipelines that shell out to these tools
+    may still trigger alerts. The 7-day new-terms window suppresses recurring invocations of the same client on the 
+    same host after the first alert. Allowlist known pipeline executor paths if additional tuning is needed.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Third-Party Cloud Storage Client Execution"
+
+note = """## Triage and analysis
+
+### Investigating Potential Third-Party Cloud Storage Client Execution
+
+This rule fires when a third-party S3 or object-storage client (rclone, s5cmd, s3cmd, MinIO `mc`, S3 Browser, Cyberduck, s3fs, goofys, juicefs, aws-shell) starts under a scripted context: a script interpreter or shell one-liner as parent, or the client or its parent running from a temporary or user-writable path. These tools are common on developer and data-engineering hosts, so the scripted gate is what separates post-exploitation automation from interactive use. After stealing cloud credentials from a compromised server, adversaries drop one of these clients to enumerate, mirror, and then delete bucket contents faster than the AWS CLI allows.
+
+### Possible investigation steps
+
+- Identify the client and the verb from `process.args`: `cp`, `sync`, `mirror`, `mv`, `rm`, `rb` indicate bulk transfer or deletion; `ls`, `find`, `du` indicate enumeration. Note the source and destination, especially a remote endpoint that is not one of your accounts.
+- Walk the parent chain. A `sh -c`, `python`, or `node` parent, or a parent in `/tmp`, `/dev/shm`, or `%TEMP%`, is the scripted context the rule keys on. Find what launched that parent (web server worker, cron, CI runner, SSH session, remote management tool).
+- Determine where the credentials came from. Check for `~/.aws/credentials`, `.env` files, `rclone.conf`, `~/.s3cfg`, `~/.mc/config.json`, environment variables in the parent process, or instance metadata access from the same host shortly before.
+- Pivot to CloudTrail (or the equivalent provider log) for the principal and the host's egress IP: `ListBuckets`, `ListObjects*`, `GetObject`, `DeleteObject*`, and `PutBucketLifecycle` in volume within the same window confirm data access; `GetCallerIdentity` immediately before is a common first call.
+- Check the client's user agent in bucket access logs or CloudTrail; S3 Browser, s5cmd, and rclone identify themselves and the `S3 Uncommon Client User Agent` rule may have fired for the same principal.
+- Correlate with other alerts on the host and principal: credential file access, `Potential Data Exfiltration via Rclone` on Windows, new IAM keys, or bucket policy and versioning changes.
+
+### False positive analysis
+
+- Backup, replication, and data-pipeline jobs that shell out to `rclone`, `s5cmd`, or `mc` from cron, systemd timers, Airflow, or CI runners. Confirm the job, then add an exception on `process.parent.executable` or the runner path, not on the client name.
+- Developers running these clients from a script in a checked-out repository. Verify the repository, the destination bucket, and that the credentials used belong to the developer.
+- Configuration and health-check invocations such as `rclone config`, `rclone listremotes`, or `mc alias set`. These are low risk on their own; exclude by argument if they recur.
+
+### Response and remediation
+
+- If the activity is not authorized, isolate the host and terminate the client process and its parent.
+- Rotate or revoke every cloud credential present on the host or referenced in the client's configuration. Treat any key the client used as compromised.
+- Review the affected buckets for objects downloaded, overwritten, or deleted during the window. Restore from versioning or backups and check for new lifecycle rules, bucket policies, or replication configurations left by the attacker.
+- Remove the client binary, its configuration files, and any staged data or scripts, and determine the initial access vector (exposed `.env`, RCE on a web application, leaked key).
+- Escalate to the cloud incident response process if the principal had write or delete permissions on production data, or if objects were transferred to an external account.
+"""
+references = [
+    "https://github.com/ramimac/aws-customer-security-incidents",
+    "https://unit42.paloaltonetworks.com/large-scale-cloud-extortion-operation/",
+    "https://blog.darklab.hk/2021/07/06/trouble-in-paradise/",
+]
+risk_score = 47
+rule_id = "ab05c807-e12b-4ec1-8380-844a65c9fef1"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS S3",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : "process" and event.type : "start" and
+process.name : (
+  Cyberduck or S3Browser.exe or aws-shell or cyberduck or duck or duck.exe or
+  goofys or juicefs or mc or mc.exe or rclone or rclone.exe or
+  s3browser-con.exe or s3browser.exe or s3cmd or s3cmd.exe or s3fs or s5cmd or s5cmd.exe or
+  *bucketexplorer* or *cloudberry* or *s3browser*
+) and not (
+  process.name : (mc or mc.exe) and not
+  process.args : (admin or alias or cat or cp or du or find or get or ls or mb or mirror or mv or pipe or put or rb or rm or share or stat or tree)
+) and not process.executable : (/opt/Elastic/Agent/* or /usr/lib/systemd/*) and
+not process.args : (--help or --version or -h or selfupdate or version) and
+(
+  process.parent.name : (
+    bun or bun.exe or cscript.exe or deno or deno.exe or mshta.exe or node or node.exe or nodejs or
+    perl* or php* or python* or ruby* or wscript.exe
+  ) or
+  (
+    process.parent.name : (bash or bash.exe or cmd.exe or dash or fish or ksh or powershell.exe or pwsh or pwsh.exe or sh or zsh) and
+    process.parent.args : ("-Command" or "-EncodedCommand" or "-enc" or "-e" or "-c" or "-ilc" or "-lc" or "/c")
+  ) or
+  process.executable : (
+    *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\* or
+    /Users/Shared/* or /dev/shm/* or /private/tmp/* or /tmp/* or /var/tmp/*
+  ) or
+  process.parent.executable : (
+    *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\* or
+    /Users/Shared/* or /dev/shm/* or /private/tmp/* or /tmp/* or /var/tmp/*
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
