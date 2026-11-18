@@ -2,7 +2,7 @@
 creation_date = "2020/11/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/08"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -134,11 +134,12 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id
+sequence by process.entity_id with maxspan=1m
   [network where host.os.type == "windows" and process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
    network.direction : ("outgoing", "egress") and network.type == "ipv4" and destination.ip != "127.0.0.1"
   ]
   [file where host.os.type == "windows" and event.type == "creation" and
+   process.name : ("wscript.exe", "cscript.exe") and
    file.extension : ("exe", "dll", "bat", "cmd", "ps1", "vbs", "vbe", "js", "jse", "wsh", "wsf", "sct", "hta", "scr", "pif", "com", "cpl")]
 '''
 
