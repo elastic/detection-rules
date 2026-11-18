@@ -2,6 +2,8 @@
 creation_date = "2026/10/21"
 integration = ["azure"]
 maturity = "production"
+min_stack_comments = "field_extract not available until 9.5.0"
+min_stack_version = "9.5.0"
 updated_date = "2026/10/22"
 
 [rule]
@@ -84,7 +86,7 @@ FROM logs-azure.signinlogs-*
 | WHERE azure.signinlogs.category == "SignInLogs"
     AND event.outcome == "success"
     AND azure.signinlogs.properties.authentication_details IS NOT NULL
-    AND azure.signinlogs.properties.tenant_id IS NOT NULL
+    AND azure.tenant_id IS NOT NULL
 
 // filter for Passkey or FIDO2 security key sign-ins
 | EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
@@ -92,7 +94,8 @@ FROM logs-azure.signinlogs-*
 
 // extract AAGUID from authentication method detail
 // ignore empty or zeroed AAGUIDs; separate rule
-| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{UUID:aaguid_raw}"""
+| EVAL ad_detail = FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_method_detail")
+| DISSECT ad_detail "%{provider_raw} - %{aaguid_raw}"
 | WHERE aaguid_raw IS NOT NULL AND aaguid_raw != "00000000-0000-0000-0000-000000000000"
 
 // aggregate sign-in statistics by tenant and AAGUID
