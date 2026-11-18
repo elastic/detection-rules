@@ -93,9 +93,16 @@ FROM logs-azure.signinlogs-*
 | WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
 
 // extract AAGUID from authentication method detail
-// ignore empty or zeroed AAGUIDs; separate rule
+// a sign-in can carry several auth steps, so expand multi-valued details and evaluate each one
 | EVAL ad_detail = FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_method_detail")
-| DISSECT ad_detail "%{provider_raw} - %{aaguid_raw}"
+| MV_EXPAND ad_detail
+
+// find a well-formed 8-4-4-4-12 hex AAGUID anywhere in the value, independent of provider text or separator
+// the lookarounds reject longer hex/dash runs so a malformed value is not partially matched
+| GROK ad_detail """(?<![0-9A-Fa-f-])(?<aaguid_raw>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})(?![0-9A-Fa-f-])"""
+
+// lowercase to normalize case; ignore missing or zeroed AAGUIDs (separate rule)
+| EVAL aaguid_raw = TO_LOWER(aaguid_raw)
 | WHERE aaguid_raw IS NOT NULL AND aaguid_raw != "00000000-0000-0000-0000-000000000000"
 
 // aggregate sign-in statistics by tenant and AAGUID
@@ -103,7 +110,7 @@ FROM logs-azure.signinlogs-*
         Esql.last_time_seen = MAX(@timestamp),
         Esql.signin_count = COUNT(*),
         Esql.user_count = COUNT_DISTINCT(azure.signinlogs.properties.user_id),
-        Esql.provider_values = VALUES(provider_raw),
+        Esql.provider_values = VALUES(ad_detail),
         Esql.user_values = VALUES(azure.signinlogs.properties.user_principal_name),
         Esql.app_values = VALUES(azure.signinlogs.properties.app_display_name),
         Esql.app_id_values = VALUES(azure.signinlogs.properties.app_id),
