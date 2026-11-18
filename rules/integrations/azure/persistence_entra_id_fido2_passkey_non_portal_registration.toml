@@ -83,23 +83,31 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset: "azure.auditlogs" and
+data_stream.dataset:azure.auditlogs and
+event.outcome:(Success or success) and
+(
     (
-        (
-            azure.auditlogs.operation_name: "User registered security info" and
-            azure.auditlogs.properties.result_reason: ("User registered Fido2 Authentication Method" or "User registered Passkey")
-        ) or (
-            azure.auditlogs.operation_name: "Admin registered security info" and
-            azure.auditlogs.properties.result_reason: ("Admin registered Fido2 Authentication Method for user" or "Admin registered Passkey")
+        azure.auditlogs.operation_name:"User registered security info" and
+        azure.auditlogs.properties.result_reason:(
+            "User registered Fido2 Authentication Method" or
+            "User registered Passkey"
         )
-    ) and
-    event.outcome: ("Success" or "success") and
-    azure.auditlogs.properties.initiated_by.app.appId: * and
-    not azure.auditlogs.properties.initiated_by.app.appId: (
-        "0000000c-0000-0000-c000-000000000000" or
-        "19db86c3-b2b9-44cc-b339-36da233a3be2" or
-        "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
+    ) or
+    (
+        azure.auditlogs.operation_name:"Admin registered security info" and
+        azure.auditlogs.properties.result_reason:(
+            "Admin registered Fido2 Authentication Method for user" or
+            "Admin registered Passkey"
+        )
     )
+) and
+azure.auditlogs.properties.initiated_by.app.appId:(
+    * and not (
+        0000000c-0000-0000-c000-000000000000 or
+        19db86c3-b2b9-44cc-b339-36da233a3be2 or
+        8c59ead7-d703-4a27-9e55-c96a0054c8d2
+    )
+)
 '''
 
 
