@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.4.0 is the lowest supported 9.x release."
 min_stack_version = "9.4.0"
-updated_date = "2026/10/23"
+updated_date = "2026/11/18"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,6 @@ tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "OS: macOS",
-    "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Tactic: Credential Access",
@@ -88,15 +87,15 @@ tags = [
     "Rule Type: ES|QL",
     "Platform: Linux",
     "Platform: macOS",
-    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
+| WHERE host.os.type IN ("linux", "macos")
 | WHERE
     (
-      (MV_CONTAINS(event.action, "exec") OR event.action == "start")
+      MV_CONTAINS(event.action, "exec")
       AND
       process.name.caseless IN (
         // Linux
@@ -105,11 +104,7 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
         "last", "getent", "dmidecode",
         // macOS
         "sw_vers", "system_profiler", "scutil", "networksetup", "ioreg",
-        "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups",
-        // Windows
-        "whoami.exe", "hostname.exe", "ipconfig.exe", "systeminfo.exe", "netstat.exe",
-        "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
-        "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
+        "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups"
       )
     )
     OR destination.ip IN ("169.254.169.254", "169.254.170.2", "169.254.170.23", "100.100.100.200", "168.63.129.16")
@@ -127,10 +122,7 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
       "netstat", "arp", "ifconfig", "route", "w", "who",
       "last", "getent", "dmidecode",
       "sw_vers", "system_profiler", "scutil", "networksetup", "ioreg",
-      "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups",
-      "whoami.exe", "hostname.exe", "ipconfig.exe", "systeminfo.exe", "netstat.exe",
-      "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
-      "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
+      "sysctl", "dscl", "dscacheutil", "csrutil", "spctl", "users", "groups"
     ) AND MV_CONTAINS(event.category, "process"),
     is_metadata = destination.ip IN ("169.254.169.254", "169.254.170.2", "169.254.170.23", "100.100.100.200", "168.63.129.16")
 // recon events correlate on their parent, metadata events on both themselves and their parent
