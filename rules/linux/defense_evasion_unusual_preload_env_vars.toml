@@ -2,14 +2,14 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/18"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects processes that are executed with environment variables that are not commonly used. This could indicate
-an attacker is attempting to hijack the execution flow of a process by loading malicious libraries or binaries into the
-process memory space.
+This rule detects processes that are executed with uncommon dynamic linker environment variables, including LD_PRELOAD,
+LD_LIBRARY_PATH, and LD_AUDIT. This could indicate an attacker is attempting to hijack execution flow by loading a
+malicious library or audit module into the process memory space.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -43,15 +43,14 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
-Elastic Defend integration does not collect environment variable logging by default.
-In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+New Elastic Defend policies capture LD_PRELOAD, LD_LIBRARY_PATH, and LD_AUDIT by default. Existing policies retain their configured values and may require this advanced setting to be updated.
  #### To set up environment variable capture for an Elastic Agent policy:
 - Go to “Security → Manage → Policies”.
 - Select an “Elastic Agent policy”.
 - Click “Show advanced settings”.
 - Scroll down or search for “linux.advanced.capture_env_vars”.
 - Enter the names of environment variables you want to capture, separated by commas.
-- For this rule the linux.advanced.capture_env_vars variable should be set to "LD_PRELOAD,LD_LIBRARY_PATH".
+- For this rule the linux.advanced.capture_env_vars variable should be set to "LD_PRELOAD,LD_LIBRARY_PATH,LD_AUDIT".
 - Click “Save”.
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
@@ -86,7 +85,7 @@ note = """## Triage and analysis
 
 ### Investigating Unusual Preload Environment Variable Process Execution
 
-In Linux environments, preload environment variables can dictate which libraries are loaded into a process, potentially altering its behavior. Adversaries exploit this by injecting malicious libraries to hijack execution flow, achieving persistence or evasion. The detection rule identifies atypical environment variables during process execution, signaling potential misuse by attackers.
+In Linux environments, preload and audit environment variables can dictate which libraries are loaded into a process or notified about dynamic linker activity, potentially altering its behavior. Adversaries exploit this by injecting malicious libraries or audit modules to hijack execution flow, achieving persistence or evasion. The detection rule identifies atypical environment variables during process execution, signaling potential misuse by attackers.
 
 ### Possible investigation steps
 
