@@ -12,6 +12,7 @@ from unittest import mock
 from semver import Version
 
 from detection_rules.stack_emit import (
+    MITRE_ATTACK_TRANSFORM_ID,
     EmitContext,
     EmitTransform,
     apply_emit_transforms,
@@ -27,7 +28,7 @@ class TestStackEmitHelpers(unittest.TestCase):
     """Unit tests for emit epoch helpers."""
 
     def test_epoch_follows_newest_applicable_transform(self) -> None:
-        """9.5 is the v19 epoch; 9.6 is a new epoch once mitre_atlas is registered."""
+        """9.5 is the ATT&CK promotion epoch; 9.6 is a new epoch once mitre_atlas is registered."""
         self.assertEqual(emit_epoch_key(Version(9, 5, 0)), "9.5")
         self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.6")
         self.assertIsNone(emit_epoch_key(Version(9, 4, 0)))
@@ -44,7 +45,7 @@ class TestStackEmitHelpers(unittest.TestCase):
     def test_resolve_inherits_highest_applicable_epoch(self) -> None:
         """Package 9.6 reuses 9.5 until a 9.6 epoch is locked; then prefers 9.6."""
         stack_emit = {
-            "9.5": {"sha256": "a" * 64, "version": 13, "transforms": ["mitre_attack_v19"]},
+            "9.5": {"sha256": "a" * 64, "version": 13, "transforms": [MITRE_ATTACK_TRANSFORM_ID]},
         }
         entry = resolve_stack_emit_entry(stack_emit, Version(9, 6, 0))
         assert entry is not None
@@ -54,7 +55,7 @@ class TestStackEmitHelpers(unittest.TestCase):
         stack_emit["9.6"] = {
             "sha256": "b" * 64,
             "version": 14,
-            "transforms": ["mitre_attack_v19", "related_integrations_gte", "mitre_atlas"],
+            "transforms": [MITRE_ATTACK_TRANSFORM_ID, "related_integrations_gte", "mitre_atlas"],
         }
         entry_96 = resolve_stack_emit_entry(stack_emit, Version(9, 6, 0))
         assert entry_96 is not None
@@ -194,7 +195,7 @@ class TestVersionLockStackEmitSchema(unittest.TestCase):
                     "9.5": {
                         "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         "version": 5,
-                        "transforms": ["mitre_attack_v19", "related_integrations_gte"],
+                        "transforms": [MITRE_ATTACK_TRANSFORM_ID, "related_integrations_gte"],
                     }
                 },
             }
