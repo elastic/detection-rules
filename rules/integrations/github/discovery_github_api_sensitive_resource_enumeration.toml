@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a burst of GitHub `api.request` events from a single non-bot actor and source IP against sensitive routes such
+as Actions/Dependabot/environment secrets, public keys, git trees and contents, zipball archives, organization
+repository and member lists, webhooks, installations, and personal access tokens. Grouping by actor and source IP and
+requiring a high request count spread across several distinct sensitive routes separates broad enumeration from a
+single high-volume endpoint. This pattern is commonly used for credential discovery and source collection after token
+theft. Requires GitHub Enterprise audit log streaming with API Request Events enabled.
+"""
+false_positives = [
+    """
+    Org-wide backup, secret-rotation, or inventory scripts that list secrets, hooks, and repositories. Allowlist known
+    automation tokens and user agents.
+    """,
+]
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub API Sensitive Resource Enumeration"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub API Sensitive Resource Enumeration
+
+`api.request` is a streaming-only audit action (available with GitHub Enterprise audit log streaming and API Request Events enabled). Sensitive routes include Actions/Dependabot/environment secrets, public keys, git trees, contents, zipball archives, organization repository lists, members, webhooks, installations, and personal access tokens. The rule groups requests by `user.name` and `github.actor_ip` in a 10-minute window and fires on >= 15 requests spanning >= 3 distinct sensitive routes, which distinguishes broad enumeration from a single high-volume route. Automated actors (`github.actor_is_bot: true`) and requests without an actor IP are excluded. An adversary who has stolen a token commonly enumerates these routes to locate secrets and source code before pulling them, so this activity frequently precedes successful credential access or source collection.
+
+### Possible investigation steps
+
+- Review the distinct routes probed (`Esql.github_route_values`, `Esql.github_route_unique_count`) and the breadth across repositories and organizations (`Esql.github_repo_unique_count`, `Esql.github_org_values`) to gauge how targeted or broad the enumeration is.
+- Identify the token and access method from `Esql.github_token_id_values` and `Esql.github_programmatic_access_type_values`, and confirm whether the token belongs to known automation.
+- Review `Esql.github_user_agent_values` for the client; treat user agents containing tooling signatures such as `trufflehog` or `nord-stream` as credential-stealer tooling.
+- Pivot on `github.actor_ip` and `user.name` and correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same actor or token, which indicate the enumeration led to collection.
+- Check for a later run of successful (2xx) requests on secrets, trees, or contents from the same actor or token, which indicates successful enumeration rather than failed probing.
+
+### False positive analysis
+
+- Internal inventory, backup, or secret-rotation automation and GitHub App servers that enumerate installations, repositories, and secrets. These typically use a known token and user agent; confirm and scope exceptions by actor, token, or user agent when expected.
+- Security tooling that legitimately scans repositories for exposed secrets from a known source.
+
+### Response and remediation
+
+- Revoke the token if the actor is not a known automation identity, and rotate any secrets exposed on the enumerated routes.
+- Review PAT and OAuth grants for the actor, and tighten organization PAT access and approval policies.
+- Block or monitor the source IP if the activity is clearly reconnaissance, and review whether any probed route later returned a success for the same actor.
+- Escalate to incident response if the enumeration is followed by secret access, repository cloning, or ZIP downloads from the same actor or token.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise#enabling-api-request-events",
+]
+risk_score = 47
+rule_id = "ad112f18-b658-4cd8-ae1e-cb3c18a938ca"
+setup = """## Setup
+
+Requires the Elastic GitHub integration (`logs-github.audit-*`), GitHub Enterprise audit log streaming, and **Enable API Request Events** on the enterprise. `api.request` is not available via the REST audit-log API.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Tactic: Collection",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and event.action == "api.request" and
+  github.actor_ip is not null and (github.actor_is_bot is not null and github.actor_is_bot == false) and
+  (
+    github.route like "*secrets*" or
+    github.route like "*public-key*" or
+    github.route like "*git/trees*" or
+    github.route like "*contents*" or
+    github.route like "*zipball*" or
+    github.route like "*hooks*" or
+    github.route like "*installations*" or
+    github.route like "*members*" or
+    github.route like "*outside_collaborators*" or
+    github.route like "*personal-access-token*" or
+    github.route == "/organizations/:organization_id/repos"
+  )
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_route_unique_count = COUNT_DISTINCT(github.route),
+  Esql.github_repo_unique_count = COUNT_DISTINCT(github.repo),
+  Esql.github_route_values = VALUES(github.route),
+  Esql.github_org_values = VALUES(github.org),
+  Esql.github_programmatic_access_type_values = VALUES(github.programmatic_access_type),
+  Esql.github_user_agent_values = VALUES(github.user_agent),
+  Esql.agent_id_values = VALUES(agent.id),
+  Esql.data_stream_dataset_values = VALUES(data_stream.dataset),
+  Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
+  Esql.github_token_id_values = VALUES(github.token_id)
+  by user.name, github.actor_ip, Esql.time_window = DATE_TRUNC(10 minutes, @timestamp)
+| keep user.name, github.actor_ip, Esql.*
+| where Esql.event_count >= 15 and Esql.github_route_unique_count >= 3
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "github.actor_ip",
+    "Esql.time_window",
+    "Esql.event_count",
+    "Esql.github_route_unique_count",
+    "Esql.github_repo_unique_count",
+    "Esql.github_route_values",
+    "Esql.github_org_values",
+    "Esql.github_programmatic_access_type_values",
+    "Esql.github_user_agent_values",
+    "Esql.github_token_id_values",
+]
+

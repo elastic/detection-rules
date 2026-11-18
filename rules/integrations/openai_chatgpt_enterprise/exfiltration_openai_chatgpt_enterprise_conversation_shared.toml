@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events where a conversation is shared. Sharing can expose prompts, completions, and
+attached files outside the original conversation participants and may be used to exfiltrate sensitive content.
+"""
+false_positives = [
+    "Users intentionally share conversations for collaboration within the organization.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Conversation Shared"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Conversation Shared
+
+A conversation was shared. Sharing can expose prompts, responses, and attached context beyond the original participants.
+
+Escalate when the audience is external or overly broad, the conversation contains sensitive data, or sharing coincides with downloads or mass deletion. Close as a false positive for expected collaboration inside the organization.
+
+#### Possible investigation steps
+
+- Identify the user, conversation, and share-related fields on the alert.
+- Determine the intended audience and whether it matches workspace sharing policy.
+- Review nearby message content, file downloads, or additional shares from the same user.
+- Check whether the conversation includes credentials, proprietary code, or customer data.
+
+### False positive analysis
+
+- Users intentionally share conversations for collaboration within the organization when that sharing path is approved.
+
+### Response and remediation
+
+- Revoke unauthorized shares and review other sharing activity by the same actor.
+- If sensitive content was exposed, follow your data-incident process for the recipients and channel used.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "9246f273-b33f-465b-8966-c27e151ded78"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "conversation_share"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.conversation_id,
+    openai_chatgpt_enterprise.audit_log.action_data.shared_conversation_id,
+    openai_chatgpt_enterprise.audit_log.action_data.already_exists,
+    openai_chatgpt_enterprise.audit_log.action_privilege, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.conversation_id",
+    "openai_chatgpt_enterprise.audit_log.action_data.shared_conversation_id",
+    "source.ip",
+]
+
