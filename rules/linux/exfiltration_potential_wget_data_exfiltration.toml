@@ -2,7 +2,7 @@
 creation_date = "2026/01/07"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -109,7 +109,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "wget" and ?process.parent.executable != null and (
+process.name == "wget" and process.parent.name != null and (
   process.args like ("--post-file*", "--post-data*", "--body-file*") or
   (
     process.command_line like ("*cat*", "*base64*") and
