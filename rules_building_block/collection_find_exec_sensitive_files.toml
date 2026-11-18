@@ -1,0 +1,210 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the find utility started with -exec, -execdir, -ok, or -okdir and an argument that names a sensitive file.
+Adversaries use this to locate browser history and credential stores, keychains, SSH keys, cloud credentials, or
+cryptocurrency wallets and then run a command against each match, such as echo, cat, or cp. Each matching process
+start produces one signal with full process context for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Sensitive File Collection via Find -exec"
+note = """## Triage and analysis
+
+### Investigating Sensitive File Collection via Find -exec
+
+`find -exec` and `find -execdir` run a command on every path that matches. `-ok` and `-okdir` are the interactive forms of the same option. A search rooted at `/` or a home directory for browser profile files, keychains, SSH keys, cloud credentials, or a cryptocurrency wallet is a collection step used by information stealers. The command that follows `-exec` is often `echo` (to record the path), `cat` (to read the file), or `cp` (to copy it).
+
+Browser files covered here are Firefox `places.sqlite`, `cookies.sqlite`, `formhistory.sqlite`, `signons.sqlite`, `logins.json`, `key3.db` or `key4.db`, and `cert8.db` or `cert9.db`; Chromium `Login Data`, `Local State`, `Bookmarks`, `History`, `Cookies`, and `Web Data` for Chrome, Edge, Brave, Chromium, Opera, Vivaldi, and Arc; and Safari `Bookmarks.plist`, `History.db`, `CloudTabs.db`, and `Cookies.binarycookies`. Credential files covered here are login and System keychains, SSH private keys and `authorized_keys`, AWS, gcloud, and Azure credential files, kubeconfig, Docker config, `.netrc`, git credentials, `.npmrc`, a Vault token, and GitHub CLI hosts. Wallet paths covered here are Electrum, Exodus, Coinomi, Atomic, Trezor, Ledger Live, Wasabi, Monero, Bitcoin, Litecoin, Dash, Electron Cash, Guarda, and Dogecoin.
+
+### Possible investigation steps
+
+- Review `process.command_line` and `process.args` for the `-exec` or `-execdir` payload and for which sensitive path was searched.
+- Check the parent process (`process.parent.executable`, `process.parent.command_line`) for a shell, `osascript`, `python`, or an unsigned binary.
+- Look for a follow-on read, copy, or archive of the same files by that user, and for a new text file under `/tmp`, `/private/tmp`, or the user home that lists the matching paths.
+- Identify `user.name` and confirm whether that account would search these paths.
+
+### False positive analysis
+
+- An administrator inventorying a browser profile, keychain, SSH directory, or cloud configuration may run `find` with `-exec`. Confirm the parent process and the user before excluding the activity.
+- Developers sometimes search a repository for `.npmrc`, `.netrc`, or `.aws` files. Confirm the working directory is a source tree before excluding that command.
+- Security testing that emulates browser discovery, including Atomic Red Team T1217, runs `find -path` with `-exec echo`. Confirm the test window with the team that executed it.
+
+### Response and remediation
+
+- If the search is unauthorized, preserve the command line and any output file that received the matching paths.
+- Review the same session for access to the discovered files and for an archive or outbound transfer.
+- Remove any staging file that lists the discovered paths, and terminate the process tree that launched `find` when the parent is not an expected administrative tool.
+- Isolate the host if a copy of a credential store or an outbound transfer follows the search.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1217/",
+    "https://attack.mitre.org/techniques/T1119/",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1217/T1217.md",
+]
+risk_score = 21
+rule_id = "afee5aa8-3e45-48b8-b872-bbc2b9555e93"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Credential Access",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "find" and process.args in ("-exec", "-execdir", "-ok", "-okdir") and
+  (
+    /* Substrings go to process.command_line. That field is mapped as wildcard, so a leading
+       asterisk is an ngram lookup. The same pattern on process.args scans the keyword dictionary. */
+    process.command_line like~ (
+      /* Firefox profile stores */
+      "*places.sqlite*", "*cookies.sqlite*", "*formhistory.sqlite*", "*signons.sqlite*", "*logins.json*",
+      "*key3.db*", "*key4.db*", "*cert8.db*", "*cert9.db*",
+      /* Safari stores */
+      "*Bookmarks.plist*", "*Cookies.binarycookies*", "*Safari/History.db*", "*Safari/CloudTabs.db*",
+      /* Chromium password and key files. The name is distinctive without a browser path. */
+      "*Login Data*",
+      /* Keychains and SSH keys */
+      "*Library/Keychains*", "*login.keychain*", "*System.keychain*",
+      "*id_rsa*", "*id_ed25519*", "*id_ecdsa*", "*id_dsa*", "*id_xmss*",
+      "*/.ssh/id_*", "*/.ssh/authorized_keys*",
+      /* Cloud, kube, and token files */
+      "*/.aws/credentials*", "*/.aws/config*",
+      "*gcloud/credentials.db*", "*gcloud/access_tokens.db*", "*application_default_credentials.json*",
+      "*/.azure/accessTokens.json*", "*/.azure/azureProfile.json*", "*/.azure/msal_token_cache.json*",
+      "*/.kube/config*", "*/.docker/config.json*",
+      "*git-credentials*", "*.netrc*", "*.npmrc*", "*.vault-token*", "*/.config/gh/hosts.yml*",
+      /* Cryptocurrency wallets */
+      "*/.electrum/*",
+      "*Application Support/Electrum*", "*Application Support/Exodus*", "*Application Support/Coinomi*",
+      "*Application Support/Atomic*", "*Application Support/@trezor*", "*Application Support/Ledger Live*",
+      "*Application Support/WasabiWallet*", "*Application Support/Bitcoin*", "*Application Support/Litecoin*",
+      "*Application Support/DashCore*", "*Application Support/ElectronCash*", "*Application Support/Guarda*",
+      "*Application Support/Dogecoin*", "*/Monero/*"
+    ) or
+    (
+      process.command_line like~ (
+        "*Chrome*", "*Edge*", "*Brave*", "*Chromium*", "*Opera*", "*Vivaldi*", "*Application Support/Arc*"
+      ) and
+      process.command_line like~ ("*Bookmarks*", "*History*", "*Cookies*", "*Web Data*", "*Local State*")
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1119"
+name = "Automated Collection"
+reference = "https://attack.mitre.org/techniques/T1119/"
+
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1217"
+name = "Browser Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1217/"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1555"
+name = "Credentials from Password Stores"
+reference = "https://attack.mitre.org/techniques/T1555/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1555.003"
+name = "Credentials from Web Browsers"
+reference = "https://attack.mitre.org/techniques/T1555/003/"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.001"
+name = "Credentials In Files"
+reference = "https://attack.mitre.org/techniques/T1552/001/"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

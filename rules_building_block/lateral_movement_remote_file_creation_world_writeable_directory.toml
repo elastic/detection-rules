@@ -1,0 +1,159 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule detects a file write in a world-writable macOS directory by a remote file transfer utility. On macOS these
+writes are recorded as file modification or rename events. Directories such as /tmp, /private/tmp, /var/tmp, and
+/Users/Shared are accessible to every local user, and adversaries use them to stage tools copied with rsync, scp,
+sftp, or ftp, either pulled by a local client or pushed in over SSH.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Remote File Creation in World Writeable Directory on macOS"
+note = """ ## Triage and analysis
+
+### Investigating Remote File Creation in World Writeable Directory on macOS
+
+World-writable directories on macOS include `/tmp` (resolved as `/private/tmp`), `/var/tmp`, `/Users/Shared`, and
+each user's `Public/Drop Box`. A remote pull such as `rsync -r user@host:remote_path /tmp/payload` writes the file
+locally as `rsync`, `scp`, `sftp`, or `ftp`. An inbound copy over SSH writes it as `sftp-server` (default `scp` and
+`sftp`), `scp -t` (legacy `scp -O`), or `rsync --server`, each started under `sshd-session`. `rsync` writes a hidden
+temporary file and renames it into place, so both modifications and renames are matched. This rule alerts the first
+time a given transfer executable writes into one of those directories on a host. Writes by root are included.
+
+### Possible investigation steps
+
+- Review `file.path`, `file.name`, and the file hash to see whether the write landed in `/private/tmp`, `/private/var/tmp`, `/Users/Shared`, or a `Public/Drop Box` folder, and whether the file is a script, Mach-O, or archive.
+- Inspect `process.name` and `process.executable` to determine which transfer utility wrote the file: `rsync`, `scp`, `sftp`, `ftp`, or `sftp-server`.
+- Check `user.id` and `user.name`, and confirm the account was expected to receive a remote copy. Writes by root (`user.id` 0) are included.
+- File events do not include the parent process. Pivot to the matching process event for `process.command_line` and the parent process. A local `rsync` or `scp` shows the remote `user@host:` target. An inbound copy shows `sshd-session` as the parent.
+- Correlate with the same host around the alert for execution of the new file, new LaunchAgents or LaunchDaemons, and a second hop to another host.
+
+### False positive analysis
+
+- Administrators who `scp` or `rsync` into `/tmp` or `/Users/Shared` will alert once for that executable on that host. Exclude the known `process.executable` after confirming the workflow.
+- Automation that stages files in `/private/tmp` through `rsync` or `scp`, such as Ansible (`ansible-tmp-*` directories) and AI coding agents, alerts the first time each transfer executable is seen on a host. The parent process is not available on file events, so exclude the staging `file.path` after confirming the workflow.
+- Developer sync jobs that copy a project into `/Users/Shared` with `rsync` match until that executable has already been observed on the host. Exclude the specific executable path if the sync is approved.
+
+### Related rules
+
+- Remote File Creation in World Writeable Directory (Linux) - 3e528511-7316-4a6e-83da-61b5f1c07fd4
+- File Transfer Utility Launched from Unusual Parent on macOS - 7c5fcbcf-764d-4f9d-aaed-d5cdce217a61
+
+### Response and remediation
+
+- Isolate the Mac if the written file is an unexpected executable, script, or archive, or if it was executed after the write.
+- Terminate the transfer process (`rsync`, `scp`, `sftp`, `ftp`, or `sftp-server`) and its parent `sshd-session` when it is not an approved session.
+- Quarantine the file from `/tmp`, `/private/tmp`, `/private/var/tmp`, or `/Users/Shared` and preserve a copy for analysis.
+- Disable Remote Login on the host if the write came from an unapproved SSH session, and rotate the account that received the file.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1570/",
+    "https://attack.mitre.org/techniques/T1105/",
+    "https://attack.mitre.org/techniques/T1021/004/",
+]
+risk_score = 21
+rule_id = "d9961e55-21f5-4628-a263-41a119a81388"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: BBR",
+    "Rule Type: New Terms",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:file and host.os.type:macos and event.action:(modification or rename) and
+process.name:(ftp or rsync or scp or sftp or sftp-server) and
+file.path:(
+  /Users/Shared/* or /Users/*/Public/Drop*Box/* or
+  /private/tmp/* or /private/var/tmp/* or /tmp/* or /var/tmp/*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

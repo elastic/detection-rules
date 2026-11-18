@@ -1,0 +1,171 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects file transfer utilities launched from an unusual parent on macOS. Attackers use scp, sftp, ftp, and rsync to
+pull tools from a remote host or push collected data out, including `rsync -r user@host:remote local` and
+`rsync -r local user@host:remote`. The rule matches when one of these utilities is started by a shell, a script-like
+parent, or an untrusted or unsigned parent running from a user-writable path. Each matching process start produces
+one signal with full process context for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File Transfer Utility Launched from Unusual Parent on macOS"
+note = """ ## Triage and analysis
+
+### Investigating File Transfer Utility Launched from Unusual Parent on macOS
+
+File transfer utilities such as `scp`, `sftp`, and `rsync` are commonly used for administration, but the same
+commands move tools and stolen files. A remote pull (`rsync -r user@host:remote_path local_path`) stages a payload
+locally. A remote push (`rsync -r local_path user@host:remote_path`) copies local files to another host. This rule
+does not match the remote `user@host:` syntax directly. It matches a launch of those utilities from a shell, a
+script, or an untrusted parent running out of a temporary or user-writable directory.
+
+### Possible investigation steps
+
+- Review `process.command_line` on the original process event for a remote target (`user@host:`), the direction of the copy, and whether `-e` points `rsync` at an unexpected shell.
+- Examine `process.parent.executable` and `process.parent.command_line` to see whether the parent is an interactive `zsh` session, `osascript`, a binary in `~/Downloads`, `~/Library`, or a hidden home directory, or a binary in `/tmp`, `/private/tmp`, `/var/folders`, or `/Users/Shared`.
+- Review `process.Ext.effective_parent.executable` to identify the application responsible for the shell, such as Terminal, an IDE, `sshd-session`, or an unknown binary.
+- Pivot on `host.id` and `process.parent.entity_id` to correlate authentication, new LaunchAgents, and file writes in `/tmp`, `/private/tmp`, `/private/var/tmp`, and `/Users/Shared` around the same time.
+- Check whether the same `process.executable` and `process.parent.executable` pair has run on other macOS hosts. Activity seen on a single host is more suspicious than a pattern common across the fleet.
+
+### False positive analysis
+
+- An administrator or developer running `rsync` or `scp` from Terminal or iTerm will match. Filter on `process.Ext.effective_parent.executable` in correlation rules, or exclude the known script path after confirming the command.
+- Backup and sync tools that shell out to `rsync` from an unsigned binary in a user-writable install path will match each time they run. Document the parent executable and add an exception for that path.
+- Ansible, Homebrew, and CI jobs that invoke `scp` or `rsync` from `bash` or `zsh` will match. Exclude the automation parent executable if the activity is expected.
+
+### Related rules
+
+- File Transfer Utility Launched from Unusual Parent (Linux) - 8eeeda11-dca6-4c3e-910f-7089db412d1c
+- Remote File Creation in World Writeable Directory on macOS - d9961e55-21f5-4628-a263-41a119a81388
+
+### Response and remediation
+
+- Isolate the Mac if the command targets an unapproved host or writes an executable into a shared or temporary directory.
+- Terminate the transfer process and its parent script, and preserve the command line, parent executable, and any files written by the transfer.
+- Remove staged payloads from `/tmp`, `/private/tmp`, `/private/var/tmp`, `/var/folders`, and `/Users/Shared`, and review LaunchAgents, LaunchDaemons, and cron entries created around the alert.
+- Rotate credentials used in the remote copy and block the remote host if it is not an approved destination.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1048/",
+    "https://attack.mitre.org/techniques/T1059/004/",
+    "https://attack.mitre.org/techniques/T1570/",
+]
+risk_score = 21
+rule_id = "7c5fcbcf-764d-4f9d-aaed-d5cdce217a61"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name in ("scp", "ftp", "sftp", "sftp-server", "rsync") and
+  (
+    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+    (
+      (
+        process.parent.name like (
+          ".*", "*.sh", "*.command", "*.scpt", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", "*.js"
+        ) or
+        process.parent.executable like (
+          "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/var/folders/*",
+          "/private/var/folders/*", "/Users/Shared/*", "/Users/*/Downloads/*", "/Users/*/Library/*",
+          "/Users/*/.*", "/var/root/*", "/private/var/root/*", "/Library/WebServer/*", "./*"
+        )
+      ) and
+      not (process.parent.code_signature.trusted == true and process.parent.code_signature.team_id != null)
+    )
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
