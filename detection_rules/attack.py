@@ -21,6 +21,7 @@ from semver import Version
 from .config import (
     DEFAULT_THREAT_MAPPING_FRAMEWORK,
     DEFAULT_THREAT_MAPPING_VERSION,
+    PROMOTED_THREAT_MAPPING_VERSION,
     THREAT_MAPPING_FRAMEWORK_ENV,
     THREAT_MAPPING_VERSION_ENV,
     load_current_package_version,
@@ -32,8 +33,8 @@ PLATFORMS = ["Windows", "macOS", "Linux"]
 CROSSWALK_FILE = get_etc_path(["attack-crosswalk.json"])
 TECHNIQUES_REDIRECT_FILE = get_etc_path(["attack-technique-redirects.json"])
 ATTACK_VERSION_MAPS_DIRNAME = "attack-version-maps"
-# Stack at which ATT&CK v19 becomes the default shipped threat mapping (emit transform gate).
-MITRE_V19_MIN_STACK = Version(9, 5, 0)
+# Stack at which the promoted ATT&CK version becomes the default shipped threat mapping (emit transform gate).
+PROMOTED_THREAT_MAPPING_MIN_STACK = Version(9, 5, 0)
 
 tactics_map: dict[str, Any] = {}
 
@@ -605,7 +606,7 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
 ) -> list[dict[str, Any]]:
     """Convert a raw threat list to the target version; techniques follow tactic migrations.
 
-    Shared by build-time emit (stack_emit mitre_attack_v19) and the CLI remapper
+    Shared by build-time emit (stack_emit mitre_attack_vPROMOTED_VERSION) and the CLI remapper
     (devtools._remap_threat_entries). When a source tactic is dropped (e.g. Defense Evasion
     in v19), techniques are still placed using the target STIX matrix when lookups are available.
 
@@ -788,9 +789,10 @@ def resolve_output_threat_version(stack: Version | str | None = None) -> tuple[s
     framework = os.getenv(THREAT_MAPPING_FRAMEWORK_ENV, cfg.threat_mapping_framework)
     version = str(os.getenv(THREAT_MAPPING_VERSION_ENV, cfg.threat_mapping_version))
 
-    # Auto-promote to v19 when targeting a stack that ships with v19 ATT&CK mappings,
-    # but only when neither the env var nor the config file has explicitly pinned a version.
-    # An explicit pin (even "18") suppresses auto-promotion so callers can lock a version.
+    # Auto-promote to PROMOTED_THREAT_MAPPING_VERSION when targeting a stack that ships with
+    # PROMOTED_THREAT_MAPPING_VERSION ATT&CK mappings, but only when neither the env var nor the
+    # config file has explicitly pinned a version. An explicit pin (even "18") suppresses
+    # auto-promotion so callers can lock a version.
     env_version_explicit = os.getenv(THREAT_MAPPING_VERSION_ENV) is not None
     if (
         not env_version_explicit
@@ -801,8 +803,8 @@ def resolve_output_threat_version(stack: Version | str | None = None) -> tuple[s
         try:
             raw = stack if stack is not None else load_current_package_version()
             stack_ver = raw if isinstance(raw, Version) else Version.parse(str(raw), optional_minor_and_patch=True)
-            if stack_ver >= MITRE_V19_MIN_STACK:
-                version = "19"
+            if stack_ver >= PROMOTED_THREAT_MAPPING_MIN_STACK:
+                version = PROMOTED_THREAT_MAPPING_VERSION
         except ValueError:
             pass
 
