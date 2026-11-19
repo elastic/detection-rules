@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/11/18"
+updated_date = "2026/11/19"
 
 [rule]
 author = ["Elastic"]
@@ -127,20 +127,29 @@ FROM logs-o365.audit-*
     )
     AND o365.audit.ExtendedProperties.RequestType IS NOT NULL
     AND o365.audit.ExtendedProperties.RequestType NOT IN (
+        "BulkAADJToken:BulkAADJTokenPoll",
         "Consent:Set",
+        "DeviceAuth:PKeyAuth",
         "DeviceAuth:ReprocessTls",
+        "Federation:externalauthcallback",
         "Federation:oauth2claimsprovider",
         "Federation:oauth2msa",
+        "KerberosProxy:kerberos",
         "Kmsi:kmsi",
         "Login:reprocess",
         "Login:resume",
         "MessagePrompt:MessagePrompt",
         "OrgIdWsFederation:federation",
+        "OrgIdWsTrust2:extsts",
         "PermitSso:PermitSso",
+        "RegionalCacheAuth:regionalcacheauthtoken",
+        "SAS:BeginAuth",
         "SAS:EndAuth",
         "SAS:ProcessAuth",
         "SSPR:end",
         "Saml2:processrequest",
+        "UserInfo:Index",
+        "WebNativeBridgeController:WebNativeBridgeReprocess",
         "WsFederation:wsfederation"
     )
     AND (
@@ -155,6 +164,7 @@ FROM logs-o365.audit-*
     )
 | STATS
     Esql.first_seen = MIN(@timestamp),
+    Esql.first_ingested = MIN(COALESCE(event.ingested, @timestamp)),
     Esql.last_seen = MAX(@timestamp),
     Esql.event_count = COUNT(*),
     Esql.source_as_organization_name_values = VALUES(source.`as`.organization.name),
@@ -170,7 +180,7 @@ FROM logs-o365.audit-*
     Esql.user_key_values = VALUES(o365.audit.UserKey),
     Esql.token_object_id_values = VALUES(o365.audit.TokenObjectId)
   BY o365.audit.UserId, source.geo.country_name, source.geo.region_name
-| WHERE Esql.first_seen >= NOW() - 10 minutes
+| WHERE Esql.first_ingested >= NOW() - 10 minutes
 | KEEP Esql.*, o365.audit.UserId, source.geo.country_name, source.geo.region_name
 '''
 
