@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/10/06"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -88,6 +88,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 data_stream.dataset:kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:allow and
 kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:(create or patch or update) and
@@ -100,33 +101,34 @@ not (
     registry.crowdstrike.com/falcon-sensor* or registry.k8s.io/sig-storage/csi-node-driver-registrar*
   ) or
   kubernetes.audit.objectRef.namespace:(
-    calico or calico-system or cilium or elastic or ingress-nginx or kube-system or noname-security-posture or openebs or sysdig-agent
+    calico or calico-system or cilium or elastic or ingress-nginx or kube-system or kubecost or noname-security-posture or openebs or sysdig-agent or upwind
   )
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1610"
 name = "Deploy Container"
 reference = "https://attack.mitre.org/techniques/T1610/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
