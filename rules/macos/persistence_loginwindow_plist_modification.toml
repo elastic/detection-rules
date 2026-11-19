@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,37 @@ license = "Elastic License v2"
 name = "Potential Persistence via Login Hook"
 note = """## Triage and analysis
 
-Starting in Mac OS X 10.7 (Lion), users can specify certain applications to be re-opened when a user reboots their machine. This can be abused to establish or maintain persistence on a compromised system."""
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Persistence via Login Hook
+
+The `com.apple.loginwindow` preferences domain controls login window behavior. It supports the deprecated `LoginHook` and `LogoutHook` keys, which run a script as root each time a user logs in or out. Hooks are typically set with `sudo defaults write com.apple.loginwindow LoginHook <script>`, which stores them in root's preferences at `/var/root/Library/Preferences/com.apple.loginwindow.plist`. Adversaries can abuse these keys to execute a payload every time a user logs in. This rule alerts when a file named `com.apple.loginwindow.plist` is created or modified by a process other than common system, migration, backup, and management services.
+
+### Possible investigation steps
+
+- Identify the process that modified the plist (`process.executable`, `process.code_signature.*`) and determine whether it is a recognized, signed system or management tool. Review the process's execution event for its command line, for example a `defaults write` command.
+- Review the file path (`file.path`) to determine which copy was changed: root's preferences (`/var/root/Library/Preferences`), the system-wide preferences (`/Library/Preferences`), or a user's preferences (`~/Library/Preferences`).
+- Inspect the current contents of the modified plist on the host (for example with `sudo plutil -p <file.path>`) and look for `LoginHook` or `LogoutHook` entries referencing scripts or binaries in unusual locations.
+- If a hook is present, examine the referenced script or binary: its location, code signature, creation time, and content.
+- Review the process tree and recent activity of the modifying process for signs of initial access or execution, such as downloads, script interpreters, or `defaults write` commands.
+- Check whether the same process or user created other persistence mechanisms on the host, such as LaunchAgents, LaunchDaemons, or login items.
+
+### False positive analysis
+
+- Device management solutions, configuration profiles, migration and backup tools may legitimately update login window preferences. Verify the modifying process against the tools approved in the environment.
+- Administrators or users changing login window options through System Settings or `defaults` can modify the plist. Confirm the change with the user if the modifying process is a known Apple or vendor binary.
+- When the activity is confirmed benign, add an exception for the specific signed process executable instead of excluding the plist file.
+
+### Response and remediation
+
+- Isolate the affected host if a malicious login or logout hook is identified.
+- Remove the malicious hook (for example with `sudo defaults delete com.apple.loginwindow LoginHook`), and delete the referenced script or binary after preserving a copy for analysis.
+- Terminate any running processes started by the malicious hook.
+- If root's or the system-wide plist was modified, investigate how the attacker obtained root privileges, and remediate the initial access vector.
+- Reset the credentials of affected user accounts if compromise is confirmed.
+- Escalate to the incident response team and search for the same plist modification or payload on other macOS hosts.
+"""
 references = ["https://github.com/D00MFist/PersistentJXA/blob/master/LoginScript.js"]
 risk_score = 47
 rule_id = "ac412404-57a5-476f-858f-4e8fbb4f48d8"

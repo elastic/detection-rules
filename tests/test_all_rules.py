@@ -44,6 +44,8 @@ from detection_rules.version_lock import loaded_version_lock
 from .base import BaseRuleTest
 
 PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
+# Diff against the PR's target branch so PRs into release branches only see their own changes
+DIFF_BASE_REF = f"origin/{os.getenv('GITHUB_BASE_REF') or 'main'}"
 
 
 class TestValidRules(BaseRuleTest):
@@ -696,18 +698,13 @@ class TestRuleTags(BaseRuleTest):
     def test_genai_rules_have_mitre_atlas_tags(self):
         """Domain: GenAI detections carry an ATLAS technique tag or a tactic-only mapping.
 
-        ES|QL COMPLETION rules are labeled Resources: LLM and are not GenAI-domain detections.
-        A tactic-only ``threat_mappings`` entry is enough when ATLAS has no technique yet.
+        A GenAI-domain rule may also use ES|QL COMPLETION (Resources: LLM is checked separately).
+        A tactic-only `threat_mappings` entry is enough when ATLAS has no technique yet.
         """
         invalid = []
-        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
         for rule in self.all_rules:
             tags = rule.contents.data.tags or []
             if "Domain: GenAI" not in tags:
-                continue
-            query = rule.contents.data.get("query") or ""
-            if completion_re.search(query):
-                invalid.append(f"{self.rule_str(rule)} has Domain: GenAI but invokes ES|QL COMPLETION")
                 continue
             has_technique_tag = any(tag.startswith("Mitre Atlas:") for tag in tags)
             has_atlas_mapping = any(
@@ -967,7 +964,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+        result = detection_rules_git("diff", "--diff-filter=M", DIFF_BASE_REF, "--name-only", rules_path)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result:
@@ -987,7 +984,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         detection_rules_git = make_git()
         result = detection_rules_git(
-            "diff", "--diff-filter=M", "origin/main", "--name-only", rules_path, rules_bbr_path
+            "diff", "--diff-filter=M", DIFF_BASE_REF, "--name-only", rules_path, rules_bbr_path
         )
 
         # If the output is not empty, then file(s) have changed in the directory(s)
@@ -996,7 +993,7 @@ class TestRuleMetadata(BaseRuleTest):
             failed_rules = []
             today_utc = datetime.now(UTC).date()
             for modified_rule_path in modified_rules:
-                diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
+                diff_output = detection_rules_git("diff", DIFF_BASE_REF, modified_rule_path)
                 if re.search(r"^\+\s*updated_date\s*=", diff_output, re.MULTILINE):
                     # updated_date has been modified in this PR
                     continue
