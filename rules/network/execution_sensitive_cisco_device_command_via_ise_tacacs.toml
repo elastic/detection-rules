@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["cisco_ise"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies high-impact Cisco network-device commands recorded by Cisco ISE TACACS+ accounting. The selected commands can
+create privileged identities, weaken AAA or logging, enable hosted execution, collect traffic, establish tunnels, or
+transfer device configurations.
+"""
+false_positives = [
+    """
+    Authorized network administration, automation, troubleshooting, device deployment, and disaster-recovery activity
+    can trigger this rule. Tune by administrator, network device, command family, and approved maintenance window.
+    """,
+]
+from = "now-9m"
+index = ["logs-cisco_ise.log-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Sensitive Cisco Device Command via ISE TACACS"
+note = """## Triage and analysis
+
+### Investigating Sensitive Cisco Device Command via ISE TACACS
+
+Cisco ISE TACACS+ accounting event `3300` records commands sent to managed network devices. This rule focuses on
+privilege-level 15 commands that can create durable access, impair security controls, collect traffic, enable hosted
+execution, create tunnel interfaces, or transfer configurations.
+
+### Possible investigation steps
+
+- Review `cisco_ise.log.cmdset` to identify the exact command and determine which behavior matched.
+- Identify the administrator in `user.name`, the managed device name in `cisco_ise.log.network.device.name`, its
+  address in `client.ip`, and the remote address represented by `destination.address`.
+- Confirm the command was covered by an approved change, automation job, incident-response action, or maintenance
+  window.
+- Correlate adjacent TACACS accounting events from the same user and device to reconstruct the administrative session.
+- Review device logs for resulting account, AAA, logging, Guest Shell, packet-capture, tunnel, or file-transfer changes.
+
+### False positive analysis
+
+- Network automation and planned changes can generate these commands at scale. Prefer scoped exceptions for the
+  automation identity, managed-device group, command family, and maintenance window.
+- Packet capture and configuration transfer are common troubleshooting and backup operations but still require
+  authorization and destination validation.
+
+### Response and remediation
+
+- If unauthorized, revoke the administrative session and credentials, preserve ISE and device logs, and compare the
+  running configuration with a known-good version.
+- Restore altered AAA and logging controls, remove unauthorized accounts or tunnels, disable unexpected hosted
+  execution, and investigate transferred configurations or captures.
+"""
+references = [
+    "https://blog.talosintelligence.com/salt-typhoon-analysis/",
+    "https://www.elastic.co/docs/reference/integrations/cisco_ise",
+]
+risk_score = 73
+rule_id = "894e78a3-7690-42eb-af2e-2ffe4d8bb710"
+setup = """## Setup
+
+This rule requires Cisco ISE logs collected by the Cisco ISE integration. Configure ISE to export TACACS+ accounting
+events and ensure managed devices use command accounting. The integration must populate event code `3300`,
+`cisco_ise.log.cmdset`, `cisco_ise.log.privilege.level`, `user.name`, `cisco_ise.log.network.device.name`, `client.ip`,
+and `destination.address`.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Identity",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "cisco_ise.log" and
+  event.code == "3300" and
+  cisco_ise.log.privilege.level == 15 and
+  cisco_ise.log.cmdset like~ (
+    "*CmdAV=username *",
+    "*CmdAV=no aaa *",
+    "*CmdAV=aaa authentication *",
+    "*CmdAV=aaa authorization *",
+    "*CmdAV=aaa accounting *",
+    "*CmdAV=tacacs server *",
+    "*CmdAV=radius server *",
+    "*CmdAV=no logging *",
+    "*CmdAV=clear logging*",
+    "*CmdAV=logging host *",
+    "*CmdAV=guestshell enable*",
+    "*CmdAV=app-hosting install *",
+    "*CmdAV=app-hosting activate *",
+    "*CmdAV=monitor capture *",
+    "*CmdAV=monitor session *",
+    "*CmdAV=interface tunnel*",
+    "*CmdAV=copy running-config *",
+    "*CmdAV=copy startup-config *"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.008"
+name = "Network Device CLI"
+reference = "https://attack.mitre.org/techniques/T1059/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "cisco_ise.log.cmdset",
+    "cisco_ise.log.privilege.level",
+    "cisco_ise.log.network.device.name",
+    "user.name",
+    "client.ip",
+    "destination.address",
+    "host.hostname",
+]

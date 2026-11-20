@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["cisco_asa"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Cisco ASA administrative commands that disable logging, remove a logging destination, suppress a message,
+or clear the logging configuration. These changes can reduce visibility after an appliance is compromised.
+"""
+false_positives = [
+    """
+Logging collector migrations, troubleshooting, appliance deployment, and approved maintenance can trigger this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-cisco_asa.log-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Cisco ASA Logging Controls Disabled"
+note = """## Triage and analysis
+
+### Investigating Cisco ASA Logging Controls Disabled
+
+Cisco ASA message `111010` records an administrative command, the executing user, and management source address. This
+rule identifies commands that disable logging, remove a logging destination or message, or clear logging configuration.
+
+### Possible investigation steps
+
+- Review `cisco.asa.command_line_arguments`, `server.user.name`, and `source.ip`.
+- Confirm the activity against an approved collector migration, deployment, troubleshooting session, or change.
+- Search nearby `111010`, `111009`, and `111008` events for additional administrative changes.
+- Verify that required remote destinations and security-relevant message IDs remain configured and are receiving events.
+- Review subsequent account, privilege, AAA, packet-capture, configuration-export, and VPN activity.
+
+### False positive analysis
+
+- Removing an obsolete collector can be legitimate when a replacement is configured and verified in the same change.
+- Scope exceptions to approved actors, devices, source addresses, and maintenance windows.
+
+### Response and remediation
+
+- If unauthorized, isolate administrative access, restore logging, validate delivery to off-box collectors, and
+  preserve available evidence.
+- Audit all appliance changes made by the actor and restore a known-good configuration when integrity is uncertain.
+"""
+references = [
+    "https://blog.talosintelligence.com/arcanedoor-new-espionage-focused-campaign-found-targeting-perimeter-network-devices/",
+    "https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/asa-syslog/syslog-messages-101001-to-199021.html",
+    "https://www.elastic.co/docs/reference/integrations/cisco_asa",
+]
+risk_score = 73
+rule_id = "3e6e04c3-a03f-4ae5-9d1e-39deb189d0ae"
+setup = """## Setup
+
+This rule requires Cisco ASA syslog collected by the Cisco ASA integration. Configure the appliance to forward message
+`111010` at notification severity. The integration must populate `cisco.asa.command_line_arguments`,
+`server.user.name`, and `source.ip`.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "cisco_asa.log" and
+  event.code == "111010" and
+  cisco.asa.command_line_arguments like~ (
+    "*no logging enable*",
+    "*no logging host *",
+    "*no logging message *",
+    "*clear configure logging*"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "event.action",
+    "event.outcome",
+    "cisco.asa.command_line_arguments",
+    "server.user.name",
+    "source.ip",
+    "observer.hostname",
+    "observer.serial_number",
+    "event.original",
+]
