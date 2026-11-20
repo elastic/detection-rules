@@ -8,10 +8,10 @@ updated_date = "2026/11/11"
 author = ["Elastic"]
 description = """
 Identifies the first time, within a lookback window, an identity creates an EBS volume snapshot via the EC2
-"CreateSnapshot" API. Adversaries abuse snapshots to stage data for exfiltration (snapshot a volume, then share or copy
-it to an attacker-controlled account) or to capture sensitive data from a compromised environment. This is a New Terms
-rule detecting a rare occurrence of the "cloud.account.id", "user.name", and "source.as.organization.name" tuple for
-this action.
+"CreateSnapshot" or "CreateSnapshots" APIs. Adversaries abuse snapshots to stage data for exfiltration (snapshot one or
+more volumes, then share or copy them to an attacker-controlled account) or to capture sensitive data from a compromised
+environment. This is a New Terms rule detecting a rare occurrence of the "cloud.account.id", "user.name", and
+"source.as.organization.name" tuple for this action.
 """
 false_positives = [
     """
@@ -29,15 +29,15 @@ note = """## Triage and analysis
 
 ### Investigating AWS EC2 EBS Snapshot Created by Rare User
 
-EBS snapshots are point-in-time copies of volumes. Adversaries create a snapshot of a target volume and then use `ModifySnapshotAttribute` to share it with, or `CopySnapshot` to move it into, an attacker-controlled account, enabling data theft without reading the source instance directly.
+EBS snapshots are point-in-time copies of volumes. Adversaries use `CreateSnapshot` (single volume) or `CreateSnapshots` (all volumes attached to an instance) to snapshot target volumes and then use `ModifySnapshotAttribute` to share them with, or `CopySnapshot` to move them into, an attacker-controlled account, enabling data theft without reading the source instance directly.
 
 This rule uses [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) to detect when an identity creates a snapshot from an account, principal, and network-origin combination not seen in the configured history window.
 
 ### Possible investigation steps
 
-- Confirm who `user.name` and `aws.cloudtrail.user_identity.arn` represent and whether snapshot creation is expected for that principal.
+- Confirm who `user.name` and `aws.cloudtrail.user_identity.arn` represent and whether snapshot creation (`CreateSnapshot` or `CreateSnapshots`) is expected for that principal.
 - Review `source.ip`, `source.as.organization.name`, and geolocation, and whether the call aligns with normal egress for that principal.
-- Inspect `aws.cloudtrail.request_parameters` for the source `volumeId` and whether the volume holds sensitive data.
+- Inspect `aws.cloudtrail.request_parameters` for the source `volumeId` (`CreateSnapshot`) or `instanceSpecification` (`CreateSnapshots`) and whether the targeted volume or instance holds sensitive data.
 - Correlate with follow-on `ModifySnapshotAttribute` (shared with another account or made public), `CopySnapshot`, and `DescribeSnapshots` in the same session.
 
 ### False positive analysis
@@ -55,6 +55,7 @@ This rule uses [New Terms](https://www.elastic.co/guide/en/security/current/rule
 """
 references = [
     "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshots.html",
     "https://hackingthe.cloud/aws/post_exploitation/copy_ebs_snapshot/",
     "https://www.atomicredteam.io/docs/atomics/T1578.001",
 ]
@@ -78,7 +79,7 @@ type = "new_terms"
 query = '''
 data_stream.dataset: "aws.cloudtrail"
     and event.provider: "ec2.amazonaws.com"
-    and event.action: "CreateSnapshot"
+    and event.action: ("CreateSnapshot" or "CreateSnapshots")
     and event.outcome: "success"
     and source.ip: *
     and not source.as.organization.name: (
