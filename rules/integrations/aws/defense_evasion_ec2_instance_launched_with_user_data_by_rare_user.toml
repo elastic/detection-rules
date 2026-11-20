@@ -27,6 +27,9 @@ license = "Elastic License v2"
 name = "AWS EC2 Instance Launched With User Data by Rare User"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating AWS EC2 Instance Launched With User Data by Rare User
 
 EC2 user data is a script or directive block executed by cloud-init on first boot. Adversaries with `ec2:RunInstances` embed user data to run commands as root on a freshly launched instance, which can be used for execution, persistence, mining, or to abuse the instance role credentials via IMDS.
@@ -81,6 +84,9 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: "RunInstances"
     and event.outcome: "success"
     and source.ip: *
+    and cloud.account.id: *
+    and user.name: *
+    and source.as.organization.name: *
     and aws.cloudtrail.request_parameters: *userData*
     and not source.as.organization.name: (
         "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
