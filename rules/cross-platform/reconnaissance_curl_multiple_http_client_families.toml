@@ -1,0 +1,225 @@
+[metadata]
+creation_date = "2026/11/20"
+integration = [
+    "apache",
+    "apache_tomcat",
+    "anthropic",
+    "aws",
+    "azure",
+    "gcp",
+    "gcp_vertexai",
+    "iis",
+    "kubernetes",
+    "network_traffic",
+    "nginx",
+    "o365",
+    "okta",
+    "openai_chatgpt_enterprise",
+    "traefik",
+    "zeek",
+]
+maturity = "production"
+updated_date = "2026/11/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects one external address using curl plus at least two other HTTP client families in a single minute, with 20 or
+more requests. The other families are Python, norma (ARTEX web fetch), a browser, and the AWS CLI or Boto3. A browser,
+Python, and the AWS CLI without curl is not a match. The same mix has been reported for agentic offensive
+frameworks, and it also comes from other automation. The look is limited to data streams that already carry
+user_agent.original.
+"""
+false_positives = [
+    """
+    A shared NAT, proxy, or build system can still mix curl with a browser and Python or the AWS CLI in the same
+    minute. Exclude that address on source.ip. Esql.* fields cannot be used in an exception entry.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Curl and Multiple HTTP Client Families from One External IP"
+note = """## Triage and analysis
+
+### Investigating Curl and Multiple HTTP Client Families from One External IP
+
+This is the tool-family burst from Elastic Security Labs' write-up on ARTEX, CyberStrikeAI, Cairn, PentAGI, and
+HexStrike. One external address used curl and at least two of Python, norma, a browser, and the AWS CLI or Boto3, and
+sent at least 20 requests in one minute. A browser, Python, and the AWS CLI without curl does not match. The loop runs
+on infrastructure the attacker controls, so the signal is in the logs that record its requests.
+
+`norma*` is the ARTEX web-fetch user agent (`norma/0.4`). The other families are ordinary clients. A match is the mix
+and the pace, not a single tool name.
+
+#### Possible investigation steps
+
+- Review `Esql.ua_family_values`, `Esql.ua_values`, `Esql.request_count`, and `Esql.event_action_values` for that
+  `source.ip` and `Esql.time_window`. Confirm `Esql.curl_request_count` is greater than zero.
+- Search the same address outside this minute for `artex-agent`, `artex-judge`, `artex-enrich`, `CyberStrikeAI`, or
+  `HexStrike` user agents.
+- On CloudTrail, identify the access key or role behind the AWS CLI or Boto3 calls and list the API actions.
+- On web logs, sample the URLs. Scanner paths and a webshell URL are higher priority than static content.
+
+### False positive analysis
+
+- Office egress, CI, and admin workstations can still combine curl with a browser and Python or the AWS CLI. Exclude
+  the address on `source.ip` after confirming the user agents and actions are expected.
+- A proxy that rewrites the client address to itself will collapse many users into one source. Do not alert on that
+  address; use the forwarded client address instead.
+
+### Response and remediation
+
+- If the address is unauthorized, block it and revoke any credentials it used. These frameworks return from a new
+  address after a block.
+- Tune the three-family and 20-request thresholds against the automation that already behaves this way.
+"""
+references = [
+    "https://www.elastic.co/security-labs/threat-command/agentic-offensive-frameworks-detection-artex",
+]
+risk_score = 47
+rule_id = "a653b17a-acc8-44c8-9830-9ce34a5ab5e0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Domain: Network",
+    "Domain: Containers",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Azure",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Data Source: Microsoft Graph Activity Logs",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Kubernetes",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Zeek",
+    "Data Source: Okta",
+    "Data Source: Okta System Logs",
+    "Data Source: Anthropic Audit Logs",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: ES|QL",
+    "Threat: Agentic Offensive Frameworks",
+    "Platform: AWS",
+    "Platform: Azure",
+    "Platform: Entra ID",
+    "Platform: GCP",
+    "Platform: Kubernetes",
+    "Platform: Okta",
+    "Platform: Anthropic",
+    "Platform: OpenAI",
+    "Service: AWS EKS",
+    "Service: Nginx",
+    "Service: Apache HTTP Server",
+    "Service: Apache Tomcat",
+    "Service: IIS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from
+    logs-aws.cloudtrail-*,
+    logs-aws.eks_audit-*,
+    logs-nginx.access-*,
+    logs-apache.access-*,
+    logs-apache_tomcat.access-*,
+    logs-iis.access-*,
+    logs-traefik.access-*,
+    logs-zeek.http*,
+    logs-network_traffic.http*,
+    logs-azure.signinlogs-*,
+    logs-azure.auditlogs-*,
+    logs-azure.graphactivitylogs-*,
+    logs-azure.aadgraphactivitylogs-*,
+    logs-o365.audit-*,
+    logs-kubernetes.audit_logs-*,
+    logs-gcp.audit-*,
+    logs-gcp_vertexai.auditlogs-*,
+    logs-anthropic.audit-*,
+    logs-openai_chatgpt_enterprise.auth_log-*,
+    logs-okta.system-*
+| where user_agent.original is not null and source.ip is not null
+| eval Esql.ua_lower = to_lower(user_agent.original)
+// curl*, python*/Python*, norma*, Mozilla/5.0*, Boto3*, aws-cli*
+| where
+    Esql.ua_lower like "curl*" or
+    Esql.ua_lower like "python*" or
+    Esql.ua_lower like "norma*" or
+    Esql.ua_lower like "mozilla/5.0*" or
+    Esql.ua_lower like "boto3*" or
+    Esql.ua_lower like "aws-cli*"
+// TO_IP handles indices where source.ip is mapped as keyword instead of ip
+| eval Esql.source_ip = to_ip(source.ip)
+| where Esql.source_ip is not null and not cidr_match(
+    Esql.source_ip,
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+    "127.0.0.0/8", "169.254.0.0/16", "100.64.0.0/10",
+    "0.0.0.0/8", "224.0.0.0/4", "255.255.255.255/32",
+    "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"
+)
+| eval Esql.ua_family = case(
+    Esql.ua_lower like "boto3*" or Esql.ua_lower like "aws-cli*", "aws",
+    Esql.ua_lower like "python*", "python",
+    Esql.ua_lower like "curl*", "curl",
+    Esql.ua_lower like "norma*", "norma",
+    Esql.ua_lower like "mozilla/5.0*", "browser",
+    "other"
+)
+| eval Esql.is_curl = case(Esql.ua_family == "curl", 1, 0)
+| stats
+    Esql.request_count = count(*),
+    Esql.curl_request_count = sum(Esql.is_curl),
+    Esql.ua_family_distinct_count = count_distinct(Esql.ua_family),
+    Esql.ua_family_values = values(Esql.ua_family),
+    Esql.ua_distinct_count = count_distinct(user_agent.original),
+    Esql.ua_values = values(user_agent.original),
+    Esql.event_action_values = values(event.action)
+  by source.ip, Esql.time_window = date_trunc(1 minute, @timestamp)
+| where Esql.curl_request_count > 0 and Esql.ua_family_distinct_count >= 3 and Esql.request_count >= 20
+| sort Esql.request_count desc
+| keep source.ip, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "Esql.time_window",
+    "Esql.request_count",
+    "Esql.curl_request_count",
+    "Esql.ua_family_distinct_count",
+    "Esql.ua_family_values",
+    "Esql.ua_values",
+    "Esql.event_action_values",
+]
+
+[rule.alert_suppression]
+group_by = ["source.ip"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
