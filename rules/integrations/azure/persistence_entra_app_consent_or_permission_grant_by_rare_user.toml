@@ -7,16 +7,16 @@ updated_date = "2026/11/12"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first time, within a lookback window, a user grants application permissions or consent in Entra ID
-("Consent to application", "Add app role assignment to service principal", "Add delegated permission grant"). Adversaries
-abuse illicit consent and app-permission grants to obtain durable, token-based access to tenant data. This is a New Terms
-rule keyed on the consenting user; known cloud-provider egress networks are excluded.
+Identifies the first time, within a lookback window, a user grants application permissions in Entra ID ("Add app role
+assignment to service principal" or "Add delegated permission grant"). Adversaries abuse application role assignments
+and delegated permission grants to obtain durable, token-based access to tenant data without requiring interactive
+consent. This is a New Terms rule keyed on the granting user; known cloud-provider egress networks are excluded.
 """
 false_positives = [
     """
-    Administrators grant consent and application permissions as part of legitimate onboarding and integration work. The
-    New Terms logic baselines known consenters; a newly seen consenting user, especially from an unusual network, warrants
-    review.
+    Administrators grant application and delegated permissions as part of legitimate onboarding and integration work.
+    The New Terms logic baselines known administrators; a newly seen user granting permissions, especially from an
+    unusual network, warrants review.
     """,
 ]
 from = "now-6m"
@@ -28,22 +28,22 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID App Consent or Permission Grant by Rare User
 
-OAuth consent and app-permission grants hand applications standing access to tenant resources. Illicit consent grants are a common persistence and data-access technique; admin consent (`ConsentContext.IsAdminConsent: True`) is especially powerful.
+Direct application role assignments (`Add app role assignment to service principal`) and OAuth delegated permission grants (`Add delegated permission grant`) hand service principals standing access to tenant resources without requiring an interactive `"Consent to application"` flow. Adversaries with privileged roles or application ownership abuse these operations for persistence and data access.
 
 ### Possible investigation steps
 
-- Confirm the consenting user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) and whether the grant was expected.
-- Identify the target application (`azure.auditlogs.properties.target_resources.0.display_name`) and the permissions/scopes granted (`modified_properties`, `ConsentAction.Permissions`).
-- Review `source.as.organization.name` and source IP; consent from an unusual/residential network warrants scrutiny.
-- Determine whether it was admin consent and whether the app is first-party or third-party.
+- Confirm the initiating user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) and whether the permission grant (`event.action`) was expected.
+- Identify the target service principal or application (`azure.auditlogs.properties.target_resources.0.display_name`) and the permissions, roles, or scopes granted (`modified_properties`).
+- Review `source.as.organization.name` and `source.ip`; permission grants from an unusual or residential network warrant scrutiny.
+- Determine whether the grant gives tenant-wide access (`PrincipalId` / `ConsentType: AllPrincipals` or high-privilege Graph app roles) and whether the app is first-party or third-party.
 
 ### False positive analysis
 
-- Legitimate admin onboarding/integration consent; add exceptions by consenter UPN or known application IDs.
+- Legitimate admin onboarding/integration permission grants; add exceptions by initiating UPN or known application/service-principal IDs.
 
 ### Response and remediation
 
-- If illicit, revoke the application's consent/permissions and service-principal credentials, review data accessed via the app, and rotate the consenter's credentials.
+- If unauthorized, revoke the app role assignment or delegated permission grant and service-principal credentials, review data accessed via the app, and rotate the initiating user's credentials.
 """
 references = [
     "https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/manage-consent-requests",
@@ -68,10 +68,7 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset: "azure.auditlogs"
-    and event.action: (
-        "Consent to application" or "Add app role assignment to service principal"
-        or "Add delegated permission grant"
-    )
+    and event.action: ("Add app role assignment to service principal" or "Add delegated permission grant")
     and event.outcome: "success"
     and not source.as.organization.name: (
         "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
