@@ -18,6 +18,7 @@ from detection_rules.utils import (
     cached_method,
     clear_caches,
     normalize_timing_and_sort,
+    registered_cache
     strip_index_expression,
 )
 
@@ -171,3 +172,10 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(first.compute(["hello", "world"]), 4)
         self.assertEqual(first.compute(), 3)
         self.assertEqual(second.compute(), 2)
+
+    def test_registered_cache_flushes_with_clear_caches(self):
+        """Test that clear_caches() empties registered caches."""
+        store = registered_cache()
+        store["key"] = "value"
+        clear_caches()
+        self.assertDictEqual(store, {})

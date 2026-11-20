@@ -43,6 +43,7 @@ from .esql import (
     local_esql_index,
     lookup_index_uses_ecs,
     normalize_dataset_package,
+    parse_esql_query,
 )
 from .esql_errors import (
     EsqlSchemaError as DrEsqlSchemaError,
@@ -60,7 +61,7 @@ from .index_mappings import (
     validate_offline_esql_from_indices,
 )
 from .integrations import (
-    find_latest_compatible_version,
+    _latest_compatible_version_from_etc,  # type: ignore[reportPrivateUsage]
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
     load_integrations_manifests,
@@ -77,6 +78,7 @@ from .rule import (
     set_esql_config,
 )
 from .schemas import get_stack_schemas
+from .utils import cached, registered_cache
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -806,26 +808,41 @@ class EQLValidator(QueryValidator):
         return configured, any(f not in schema for f in configured)
 
 
-# Cross-rule caches for offline ES|QL validation.
-_ESQL_SCHEMA_DICT_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
-_ESQL_WARM_STATE = {"warmed": False}
+# Cross-rule cache of offline ES|QL FROM schemas, emptied by clear_caches().
+_ESQL_SCHEMA_DICT_CACHE: dict[tuple[Any, ...], dict[str, Any]] = registered_cache()
 
 
-def _warm_esql_offline_caches() -> None:
-    """Load heavy integration/ECS artifacts once per process."""
-    if _ESQL_WARM_STATE["warmed"]:
-        return
-    load_integrations_manifests()
-    load_integrations_schemas()
-    _ESQL_WARM_STATE["warmed"] = True
+@cached
+def _package_fields_for_indices(
+    package: str,
+    integration: str | None,
+    stack_version: str,
+    indices: tuple[str, ...],
+    allow_fallback: bool,
+) -> dict[str, Any] | None:
+    """Get the stream fields of a package that match the indices, or None if it does not resolve."""
+    # cached: the returned dict is shared, so callers must treat it as read-only
+    integrations_schemas = load_integrations_schemas()
+    try:
+        package_version, _ = _latest_compatible_version_from_etc(package, integration or "", stack_version)
+    except ValueError:
+        return None
+    if package not in integrations_schemas or package_version not in integrations_schemas[package]:
+        return None
+    stream_fields = collect_package_fields_for_indices(
+        integrations_schemas[package][package_version],
+        package,
+        list(indices),
+        integration,
+        allow_fallback=allow_fallback,
+    )
+    return {name: kql.parser.elasticsearch_type_family(field_type) for name, field_type in stream_fields.items()}
 
 
-def _integration_fields_for_indices(  # noqa: PLR0913
+def _integration_fields_for_indices(
     package_integrations: list[Any],
     indices: list[str],
     min_stack: Version,
-    packages_manifest: dict[str, Any],
-    integrations_schemas: dict[str, Any],
     *,
     allow_fallback: bool = True,
 ) -> tuple[dict[str, Any], set[str]]:
@@ -834,45 +851,31 @@ def _integration_fields_for_indices(  # noqa: PLR0913
     packages: set[str] = set()
     for pk_int in package_integrations:
         package = normalize_dataset_package(str(pk_int["package"]))
-        integration = pk_int.get("integration")
-        package_schemas = integrations_schemas.get(package, {})
-        try:
-            package_version, _ = find_latest_compatible_version(
-                package,
-                integration or "",
-                min_stack,
-                packages_manifest,
-                package_schemas=package_schemas if integration else None,
-            )
-        except ValueError:
-            continue
-        if package not in integrations_schemas or package_version not in integrations_schemas[package]:
-            continue
-        package_schema = integrations_schemas[package][package_version]
-        stream_fields = collect_package_fields_for_indices(
-            package_schema, package, indices, integration, allow_fallback=allow_fallback
+        stream_fields = _package_fields_for_indices(
+            package, pk_int.get("integration"), str(min_stack), tuple(indices), allow_fallback
         )
-        for field_name, field_type in stream_fields.items():
-            fields[field_name] = kql.parser.elasticsearch_type_family(field_type)
+        if stream_fields is None:
+            continue
+        fields.update(stream_fields)
         packages.add(package)
     return fields, packages
 
 
+@cached
 def _lookup_join_schemas_for_stack(
     lookup_targets: list[str],
     stack_version: str,
     ecs_version: str,
-    packages_manifest: dict[str, Any],
-    integrations_schemas: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
     """Build ``Schema(lookups=)`` maps without dumping FROM packages onto lookup indices."""
+    # cached: the returned maps are shared, so callers must treat them as read-only
     if not lookup_targets:
         return {}
     parsed_stack = Version.parse(str(stack_version))
     lookup_pkgs = set(infer_packages_from_indices(lookup_targets))
     patch_floor = find_latest_integration_patch_for_minor(lookup_pkgs, parsed_stack.major, parsed_stack.minor)
     min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
-    ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+    ecs_flat = ecs.get_flat_ecs_schema(ecs_version)
     lookup_index_fields = collect_lookup_index_field_schemas(lookup_targets)
     lookups: dict[str, dict[str, Any]] = {}
     for target in lookup_targets:
@@ -881,9 +884,7 @@ def _lookup_join_schemas_for_stack(
             fields.update(ecs_flat)
         fields.update(lookup_index_fields.get(target, {}))
         inferred = [{"package": pkg, "integration": None} for pkg in infer_packages_from_indices([target])]
-        pkg_fields, _ = _integration_fields_for_indices(
-            inferred, [target], min_stack, packages_manifest, integrations_schemas
-        )
+        pkg_fields, _ = _integration_fields_for_indices(inferred, [target], min_stack)
         fields.update(pkg_fields)
         if fields:
             lookups[target] = fields
@@ -896,18 +897,11 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
     ecs_flat: dict[str, Any],
     package_integrations: list[Any],
     min_stack: Version,
-    packages_manifest: dict[str, Any],
-    integrations_schemas: dict[str, Any],
     index_fields: dict[str, Any],
     event_datasets: list[EventDataset],
 ) -> tuple[dict[str, Any], set[str]]:
-    """Build the FROM schema, one map per index when several patterns are present.
-
-    A single ``FROM a, b`` still unions those maps. Sibling subqueries only see the
-    patterns on their own ``FROM``, which the parser narrows when keys contain ``*``.
-    Each index keeps full ECS on its own: a Beats pattern next to a package stream
-    does not attach ECS to the package stream.
-    """
+    """Build the FROM schema, with one map per index when several patterns are present."""
+    # sibling subqueries only see the fields for the patterns on their own FROM
     package_names = [
         normalize_dataset_package(str(item["package"])) for item in package_integrations if item.get("package")
     ]
@@ -916,12 +910,7 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
         indices: list[str], *, shared_index_fields: dict[str, Any] | None, allow_fallback: bool
     ) -> tuple[dict[str, Any], set[str]]:
         stream_fields, pkgs = _integration_fields_for_indices(
-            package_integrations,
-            indices,
-            min_stack,
-            packages_manifest,
-            integrations_schemas,
-            allow_fallback=allow_fallback,
+            package_integrations, indices, min_stack, allow_fallback=allow_fallback
         )
         # A name that only looks like a Fleet package (custom data streams) has no
         # field file. Keep full ECS there so host.name and the rest still resolve.
@@ -968,11 +957,8 @@ class ESQLValidator(QueryValidator):
 
     def _parse_tree(self, min_stack_version: str | None = None) -> Any:
         """Parse query with detection-rules-esql-py under the given stack config."""
-        stack = min_stack_version or load_current_package_version()
-        cfg = set_esql_config(stack)
         # Empty schema for AST-only parse; field checks run in validate() with plan schemas.
-        with cfg, esql.Schema({}, allow_missing=True):
-            return esql.parse_query(self.query)
+        return parse_esql_query(self.query, min_stack_version)
 
     @cached_property
     def ast(self) -> Any:  # type: ignore[reportIncompatibleMethodOverride]
@@ -1039,11 +1025,8 @@ class ESQLValidator(QueryValidator):
         beat_types: list[str] | None = None,
         integration_types: list[str] | None = None,
     ) -> Exception | None:
-        """Schema-validate nested KQL()/EQL() payloads against the ValidationTarget schema.
-
-        Syntax is handled by parse hooks in set_esql_config. This layer mirrors
-        KQLValidator / EQLValidator schema checks for the embedded string args.
-        """
+        """Validate nested KQL()/EQL() queries against the target schema."""
+        # syntax is checked by the parse hooks in set_esql_config
         nested_queries = esql.find_nested_queries(tree)
         if not nested_queries:
             return None
@@ -1094,10 +1077,8 @@ class ESQLValidator(QueryValidator):
         self, data: "QueryRuleData", meta: RuleMeta
     ) -> list[ValidationTarget]:
         """Build offline validation targets across the release-window stack map."""
-        _warm_esql_offline_caches()
         targets: list[ValidationTarget] = []
         packages_manifest = load_integrations_manifests()
-        integrations_schemas = load_integrations_schemas()
         package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest) or []
 
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
@@ -1127,13 +1108,7 @@ class ESQLValidator(QueryValidator):
         indices_key = tuple(sorted(written for written, _ in from_sources))
 
         def lookups_for(stack_version: str, ecs_version: str) -> dict[str, dict[str, Any]] | None:
-            built = _lookup_join_schemas_for_stack(
-                lookup_targets,
-                str(stack_version),
-                str(ecs_version),
-                packages_manifest,
-                integrations_schemas,
-            )
+            built = _lookup_join_schemas_for_stack(lookup_targets, str(stack_version), str(ecs_version))
             return built or None
 
         stack_versions = meta.get_validation_stack_versions()
@@ -1163,15 +1138,13 @@ class ESQLValidator(QueryValidator):
                     parsed_stack.minor,
                 )
                 min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
-                ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+                ecs_flat = ecs.get_flat_ecs_schema(ecs_version)
                 schema_dict, pkgs = _schema_dict_for_from_indices(
                     from_indices,
                     from_sources,
                     ecs_flat,
                     package_integrations,
                     min_stack,
-                    packages_manifest,
-                    integrations_schemas,
                     index_fields,
                     event_datasets,
                 )
@@ -1302,9 +1275,8 @@ class ESQLValidator(QueryValidator):
         if not field_name:
             raise ValueError("No field name found")
         field_type = ecs.get_all_flattened_schema().get(field_name)
+        # also runs clear_caches(), which rebuilds the offline plan schemas
         update_auto_generated_schema(index_or_dataview, field_name, field_type)
-        # Offline plan caches schemas; rebuild after custom schema mutates.
-        _ESQL_SCHEMA_DICT_CACHE.clear()
 
     def _remember_field_types(self, plan: list[Any]) -> None:
         """Keep the newest offline type for each field used by required_fields."""
@@ -1324,11 +1296,8 @@ class ESQLValidator(QueryValidator):
 
     @staticmethod
     def from_index_for_field(tree: Any, field_name: str, exc: Exception) -> str | None:
-        """Return the first FROM pattern of the (sub)query that references field_name.
-
-        Prefers the reference at the error position, so a field known in one
-        subquery and unknown in a sibling resolves to the sibling's index.
-        """
+        """Return the FROM pattern of the (sub)query that references a field."""
+        # prefer the reference at the error position, so a sibling subquery resolves to its own index
         pos = re.search(r"line:(\d+),column:(\d+)", str(exc))
         err_pos = (int(pos.group(1)) - 1, int(pos.group(2)) - 1) if pos else None
         matches: list[tuple[str, tuple[int | None, int | None]]] = []
@@ -1358,8 +1327,6 @@ class ESQLValidator(QueryValidator):
         """Validate an ES|QL query with detection-rules-esql-py."""
         if rule_meta.query_schema_validation is False or rule_meta.maturity == "deprecated":
             return
-
-        _warm_esql_offline_caches()
 
         # Unknown FROM / LOOKUP JOIN patterns must fail.
         from_indices = get_esql_query_indices(self.query, tree=self.ast)
@@ -1394,10 +1361,8 @@ class ESQLValidator(QueryValidator):
                 gkey = resolve_grammar_key(target.min_stack_version)
                 tree = trees_by_grammar.get(gkey)
                 if tree is None:
-                    cfg = set_esql_config(target.min_stack_version)
                     try:
-                        with cfg, esql.Schema({}, allow_missing=True):
-                            tree = esql.parse_query(target.query_text)
+                        tree = parse_esql_query(target.query_text, target.min_stack_version)
                     except esql.EsqlSyntaxError as exc:
                         raise DrEsqlSyntaxError(str(exc)) from exc
                     trees_by_grammar[gkey] = tree

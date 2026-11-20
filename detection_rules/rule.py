@@ -1094,8 +1094,6 @@ class ESQLRuleData(QueryRuleData):
         bypass_metadata = os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is not None
         bypass_keep = os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is not None
 
-        cfg = set_esql_config(load_current_package_version())
-
         def reject_incomplete_keeps(tree: Any) -> None:
             """Require metadata columns on every KEEP of a non-aggregating query."""
             if esql.has_aggregating_stats(tree):
@@ -1113,8 +1111,7 @@ class ESQLRuleData(QueryRuleData):
                 )
 
         try:
-            with cfg, esql.Schema({}, allow_missing=True):
-                tree = esql.parse_query(data["query"])
+            tree = parse_esql_query(data["query"], load_current_package_version())
             if not bypass_metadata and not bypass_keep:
                 esql.validate_detection_rule_query(tree, name=data["name"])
                 reject_incomplete_keeps(tree)
@@ -2240,9 +2237,7 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
 
         if not isinstance(query, str):
             raise TypeError("ES|QL rule query must be a string")
-        cfg = set_esql_config(min_stack_version)
-        with cfg, esql.Schema({}, allow_missing=True):
-            tree = esql.parse_query(query)
+        tree = parse_esql_query(query, min_stack_version)
         from .rule_validators import ESQLValidator
 
         names = set(esql.get_unique_fields(tree))
