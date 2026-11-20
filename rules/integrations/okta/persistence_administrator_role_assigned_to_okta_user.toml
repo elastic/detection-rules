@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/19"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ Okta administrator roles provide elevated permissions to manage users, applicati
 #### Possible investigation steps:
 - Identify the actor who performed the privilege grant by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
 - Determine the target user or group that received administrator privileges by reviewing the `okta.target` fields.
-- Review the specific administrator role granted by examining the `okta.debug_context.debug_data.flattened.privilegeGranted` field.
+- Review the specific administrator role granted by examining the `okta.debug_context.debug_data.privilege_granted` field (or `okta.debug_context.debug_data.flattened.privilegeGranted` for older integration versions).
 - Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - Check if the source IP is associated with known malicious activity, VPN/proxy services, or unusual geolocations.
 - Examine the `okta.request.ip_chain` field to determine if the actor used a proxy or VPN.
@@ -90,7 +90,10 @@ type = "query"
 query = '''
 data_stream.dataset:okta.system
     and event.action: (user.account.privilege.grant or group.privilege.grant)
-    and okta.debug_context.debug_data.flattened.privilegeGranted: *administrator*
+    and (
+        okta.debug_context.debug_data.privilege_granted: *administrator* or
+        okta.debug_context.debug_data.flattened.privilegeGranted: *administrator*
+    )
 '''
 
 
