@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/20"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,9 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Protection Alerts for User Detected
 
-#### Possible investigation steps
+### Possible investigation steps
+- This rule ignores Entra ID Protection events whose `azure.identityprotection.properties.risk_state` is `remediated`, `dismissed` or `confirmedSafe`, because Microsoft or an administrator has already closed those risks. Events with `atRisk`, `confirmedCompromised` or no risk state still count toward the two-event sequence.
+- Review `azure.identityprotection.properties.risk_state` and `azure.identityprotection.properties.risk_level` on the alerting events to prioritize `atRisk` and `confirmedCompromised` users with `high` risk.
 - Identify the Risk Detection that triggered the event. A list with descriptions can be found [here](https://docs.microsoft.com/en-us/azure/active-directory/identity-protection/concept-identity-protection-risks#risk-types-and-detection).
 - Identify the user account involved and validate whether the suspicious activity is normal for that user.
   - Consider the source IP address and geolocation for the involved user account. Do they look normal?
@@ -32,6 +34,7 @@ note = """## Triage and analysis
 - If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
 
 ### False positive analysis
+- Closed risk states (`remediated`, `dismissed`, `confirmedSafe`) are excluded by the rule. Remaining noise typically comes from low-risk `anonymizedIPAddress` or `unfamiliarFeatures` detections for users who travel or use VPNs.
 - If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and device conditions.
 - Consider the context of the user account and whether the activity is expected. For example, if the user is a developer or administrator, they may have legitimate reasons for accessing resources from various locations or devices.
 
@@ -79,60 +82,69 @@ type = "eql"
 
 query = '''
 sequence by azure.identityprotection.properties.user_principal_name with maxspan=10m
-[any where event.module == "azure" and data_stream.dataset == "azure.identity_protection"] with runs=2
+[any where event.module == "azure" and data_stream.dataset == "azure.identity_protection" and
+ not azure.identityprotection.properties.risk_state in ("remediated", "dismissed", "confirmedSafe") and
+ not azure.identityprotection.properties.risk_level in ("low", "none")] with runs=2
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["azure.identityprotection.properties.user_principal_name"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+
