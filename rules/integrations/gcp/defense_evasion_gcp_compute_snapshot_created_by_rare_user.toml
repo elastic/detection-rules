@@ -26,6 +26,9 @@ license = "Elastic License v2"
 name = "GCP Compute Snapshot Created by Rare User"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating GCP Compute Snapshot Created by Rare User
 
 GCP persistent-disk snapshots are point-in-time copies of a zonal or regional disk created via `*.compute.disks.createSnapshot`, `*.compute.regionDisks.createSnapshot`, or `*.compute.snapshots.insert`. Adversaries snapshot a target disk and then copy or share it to an attacker-controlled project, enabling data theft without touching the source instance.
@@ -71,6 +74,8 @@ data_stream.dataset: "gcp.audit"
         *.compute.disks.createSnapshot or *.compute.regionDisks.createSnapshot or *.compute.snapshots.insert
     )
     and not event.outcome: "failure"
+    and cloud.project.id: *
+    and user.email: *
     and not source.as.organization.name: (
         "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
         or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
