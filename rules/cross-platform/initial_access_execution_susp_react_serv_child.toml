@@ -90,8 +90,9 @@ type = "eql"
 query = '''
 process where event.type == "start" and event.action in ("exec", "executed", "start", "process_started") and (
     process.name in (
-      "sh", "bash", "zsh", "dash", "curl", "wget", "id", "whoami", "uname", "cmd.exe", "cat", "powershell.exe", "java", "rundll32.exe", "wget.exe", "certutil.exe",
-      "nc", "ncat", "netcat", "nc.openbsd", "nc.traditional", "socat", "busybox", "mkfifo", "nohup", "setsid", "xterm"
+      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox", "mksh", "curl", "wget", "id", "whoami",
+      "uname", "cmd.exe", "cat", "powershell.exe", "java", "rundll32.exe", "wget.exe", "certutil.exe", "nc", "ncat",
+      "netcat", "nc.openbsd", "nc.traditional", "socat", "busybox", "mkfifo", "nohup", "setsid", "xterm"
     ) or
     (process.name : "python*" and process.args : "-c" and process.args : (
      "*import*pty*spawn*", "*import*subprocess*call*"
@@ -112,13 +113,16 @@ process where event.type == "start" and event.action in ("exec", "executed", "st
 )
 and (
   ?process.working_directory : (
-    "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*.pnpm/next*", "*next/dist/server*", "*react-scripts*") or
+    "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*.pnpm/next*", "*next/dist/server*", "*react-scripts*"
+  ) or
   (
-    process.parent.name in ("sh", "bash", "dash", "ash") and
-    ?process.parent.command_line : "*node *server.js*" and
-    ?process.parent.command_line != null and
-    ?process.working_directory : ("/app", "/app/*") and
-    ?process.working_directory != null
+    ?process.parent.command_line like "*node *" and
+    ?process.parent.command_line like~ (
+      "*next start*", "*--port*", "*PORT=*", "*HOST=*", "*0.0.0.0*", "*/dist/*.js*", "*/build/*.js*", "*/server/*.js*",
+      "*/app/*.js*", "*/apps/*/*.js*", "*/index.js*", "*/main.js*", "*/srv/*", "*/opt/*", "*/var/www/*"
+    ) and
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox", "mksh") and
+    process.args in ("-c", "-cl", "-lc", "-ilc")
   ) or
   (
     process.parent.name in ("node", "bun", "node.exe", "bun.exe") and
