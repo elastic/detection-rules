@@ -8,9 +8,10 @@ updated_date = "2026/11/12"
 author = ["Elastic"]
 description = """
 Identifies the first time, within a lookback window, a principal creates a snapshot of a Compute Engine persistent disk
-("v1.compute.disks.createSnapshot"). Adversaries create disk snapshots to stage data for exfiltration, copying or
-sharing the snapshot to an attacker-controlled project without reading the source VM directly. This is a New Terms rule
-keyed on the project and acting principal, excluding known cloud-provider egress networks.
+("*.compute.disks.createSnapshot", "*.compute.regionDisks.createSnapshot", or "*.compute.snapshots.insert"). Adversaries
+create disk snapshots to stage data for exfiltration, copying or sharing the snapshot to an attacker-controlled project
+without reading the source VM directly. This is a New Terms rule keyed on the project and acting principal, excluding
+known cloud-provider egress networks.
 """
 false_positives = [
     """
@@ -27,12 +28,12 @@ note = """## Triage and analysis
 
 ### Investigating GCP Compute Snapshot Created by Rare User
 
-GCP persistent-disk snapshots are point-in-time copies of a disk. Adversaries snapshot a target disk and then copy or share it to an attacker-controlled project, enabling data theft without touching the source instance.
+GCP persistent-disk snapshots are point-in-time copies of a zonal or regional disk created via `*.compute.disks.createSnapshot`, `*.compute.regionDisks.createSnapshot`, or `*.compute.snapshots.insert`. Adversaries snapshot a target disk and then copy or share it to an attacker-controlled project, enabling data theft without touching the source instance.
 
 ### Possible investigation steps
 
-- Identify the acting principal (`user.email`) and whether snapshot creation is expected for it.
-- Review the source disk (`gcp.audit.resource_name`) and whether it holds sensitive data.
+- Identify the acting principal (`user.email`) and whether snapshot creation (`event.action`) is expected for it.
+- Review the target resource (`gcp.audit.resource_name`) and request parameters to identify the source disk and whether it holds sensitive data.
 - Review `source.ip` and `source.as.organization.name`; confirm the operation aligns with normal egress.
 - Correlate with follow-on snapshot copy/share or image creation in the same project or across projects.
 
@@ -42,7 +43,7 @@ GCP persistent-disk snapshots are point-in-time copies of a disk. Adversaries sn
 
 ### Response and remediation
 
-- If unexpected, review any snapshot copy/share, revoke cross-project access, rotate the implicated principal's credentials, and tighten least privilege on `compute.disks.createSnapshot`.
+- If unexpected, review any snapshot copy/share, revoke cross-project access, rotate the implicated principal's credentials, and tighten least privilege on `compute.disks.createSnapshot` and `compute.snapshots.create`.
 """
 references = [
     "https://cloud.google.com/compute/docs/disks/create-snapshots",
@@ -53,6 +54,7 @@ rule_id = "ddf5265a-9b04-4d5c-9d28-12cbfed37136"
 severity = "low"
 tags = [
     "Domain: Cloud",
+    "Platform: GCP",
     "Data Source: GCP",
     "Data Source: Google Cloud Platform",
     "Use Case: Threat Detection",
@@ -65,7 +67,9 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset: "gcp.audit"
-    and event.action: "v1.compute.disks.createSnapshot"
+    and event.action: (
+        *.compute.disks.createSnapshot or *.compute.regionDisks.createSnapshot or *.compute.snapshots.insert
+    )
     and not event.outcome: "failure"
     and not source.as.organization.name: (
         "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
