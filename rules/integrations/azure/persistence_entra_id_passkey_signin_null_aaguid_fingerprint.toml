@@ -2,12 +2,14 @@
 creation_date = "2026/10/22"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/10/22"
+min_stack_comments = "ES|QL support for the flattened field type (authentication_details) is in preview from 9.5."
+min_stack_version = "9.5.0"
+updated_date = "2026/11/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID whose Authenticator Attestation GUID (AAGUID) is
+Identifies a successful passkey or FIDO2 authentication step in a Microsoft Entra ID sign-in whose Authenticator Attestation GUID (AAGUID) is
 all zeros or is not a well-formed UUID. Platform and hardware authenticators report a vendor AAGUID registered in the
 FIDO Metadata Service, so a zero or malformed value indicates a software authenticator or a custom WebAuthn
 implementation. Offensive tooling such as ROADtools roadtx and DSInternals.Passkeys can register shadow passkeys with
@@ -31,7 +33,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID
 
-A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`) or not a well-formed UUID. Vendor authenticators report a registered AAGUID, so this value points to a software authenticator. Offensive tooling (ROADtools roadtx `registerpasskey`, DSInternals.Passkeys) defaults to or can be set to a legitimate vendor AAGUID, so absence of this alert is not evidence of a genuine authenticator; presence indicates an unconfigured software authenticator or a custom WebAuthn client and warrants validation of how the passkey was registered.
+A user successfully completed a passkey or FIDO2 authentication step (the step's own `succeeded` flag is checked, not the sign-in level `event.outcome`) with an authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`) or not a well-formed UUID. Vendor authenticators report a registered AAGUID, so this value points to a software authenticator. Offensive tooling (ROADtools roadtx `registerpasskey`, DSInternals.Passkeys) defaults to or can be set to a legitimate vendor AAGUID, so absence of this alert is not evidence of a genuine authenticator; presence indicates an unconfigured software authenticator or a custom WebAuthn client and warrants validation of how the passkey was registered.
 
 ### Possible investigation steps
 
@@ -81,24 +83,33 @@ type = "esql"
 query = '''
 FROM logs-azure.signinlogs-* METADATA _id, _index, _version
 | WHERE azure.signinlogs.category == "SignInLogs"
-    AND event.outcome == "success"
     AND azure.signinlogs.properties.authentication_details IS NOT NULL
 | EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
 | WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
-| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{DATA:aaguid_raw}""""
+
+// Pair each authentication method with its own success flag; event.outcome is sign-in level and is not tied to the passkey step
+| GROK ad """"authentication_method":%{DATA:method_raw},"authentication_"""
+| GROK ad """"succeeded":%{DATA:succeeded_raw}}"""
+| GROK ad """"authentication_method_detail":%{DATA:detail_raw},"authentication_"""
+| EVAL Esql.auth_methods = SPLIT(REPLACE(method_raw, """[\[\]"]""", ""), ","),
+       Esql.auth_method_succeeded = SPLIT(REPLACE(succeeded_raw, """[\[\]"]""", ""), ",")
+| EVAL Esql.method_outcome_pairs = MV_CONCAT(MV_ZIP(Esql.auth_methods, Esql.auth_method_succeeded, "~"), " || ")
+
+// Require the passkey or FIDO2 step itself to have succeeded
+| WHERE Esql.method_outcome_pairs LIKE "*Passkey (synced)~true*"
+    OR Esql.method_outcome_pairs LIKE "*Passkey (device-bound)~true*"
+    OR Esql.method_outcome_pairs LIKE "*FIDO2 security key~true*"
+
+// Extract the provider and AAGUID from the authenticator detail
+| EVAL Esql.auth_method_details = SPLIT(REPLACE(detail_raw, """[\[\]"]""", ""), ",")
+| MV_EXPAND Esql.auth_method_details
+| GROK Esql.auth_method_details """%{GREEDYDATA:provider_raw} - %{NOTSPACE:aaguid_raw}"""
 | WHERE aaguid_raw IS NOT NULL AND (
     aaguid_raw == "00000000-0000-0000-0000-000000000000"
     OR NOT aaguid_raw RLIKE "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
   )
-| EVAL Esql.passkey_aaguid = aaguid_raw,
-       Esql.passkey_provider = provider_raw
-| KEEP _id, _index, _version, @timestamp,
-       azure.signinlogs.*,
-       source.*,
-       user.*,
-       user_agent.*,
-       event.outcome,
-       Esql.*
+| EVAL Esql.passkey_aaguid = aaguid_raw, Esql.passkey_provider = provider_raw
+| KEEP _id, _index, _version, @timestamp, azure.signinlogs.*, source.*, user.*, user_agent.*, event.outcome, Esql.*
 '''
 
 
