@@ -86,11 +86,12 @@ data_stream.dataset: "aws.cloudtrail"
     and source.ip: *
     and cloud.account.id: *
     and user.name: *
-    and source.as.organization.name: *
     and aws.cloudtrail.request_parameters: *userData*
-    and not source.as.organization.name: (
-        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
-        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    and source.as.organization.name: (
+        * and not (
+            "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+            or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+        )
     )
     and not aws.cloudtrail.user_identity.invoked_by: ("autoscaling.amazonaws.com" or "cloudformation.amazonaws.com")
     and not user_agent.original: (*Terraform*)
