@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,8 @@ note = """## Triage and analysis
 
 This rule flags successful `MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE` operations performed by a user principal
 where the extension resource ID matches high-risk extension families (VMAccess, Custom Script, Run Command, DSC,
-Microsoft Monitoring Agent).
+Microsoft Monitoring Agent). DSC matches the extension resource name `Microsoft.Powershell.DSC`, or an extensions
+segment whose name is exactly `DSC`.
 
 ### Triage checklist
 
@@ -54,7 +55,10 @@ Microsoft Monitoring Agent).
 - If unauthorized, remove the extension, rotate credentials, and review RBAC on the affected VM and scope.
 - Isolate the VM and collect endpoint and activity log artifacts per incident procedures.
 """
-references = ["https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/overview"]
+references = [
+    "https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/overview",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/dsc-overview",
+]
 risk_score = 47
 rule_id = "e842d39d-ead1-48c6-97f1-6b055476c2f3"
 severity = "medium"
@@ -68,9 +72,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Execution",
     "Resources: Investigation Guide",
-    "Noise: Unknown",
-    "Performance: Fast",
-    "Profile: Recommended",
+    "Profile: Beta",
     "Threat: Cloud VM Execution",
     "Rule Type: Custom Query (KQL)",
     "Platform: Azure",
@@ -87,7 +89,9 @@ azure.resource.id:(
     *CUSTOMSCRIPTEXTENSION* or
     *RUNCOMMANDWINDOWS* or
     *RUNCOMMANDLINUX* or
-    */DSC/* or
+    *POWERSHELL.DSC* or
+    */EXTENSIONS/DSC or
+    */EXTENSIONS/DSC/* or
     *MICROSOFTMONITORINGAGENT*
 )
 '''
