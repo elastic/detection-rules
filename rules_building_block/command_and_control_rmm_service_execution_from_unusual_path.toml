@@ -1,0 +1,188 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/09/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/17"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies processes launched by the Windows Service Control Manager from outside selected common software and Windows
+system directories when the process name or reported code-signature subject is associated with commonly abused remote
+monitoring and management (RMM) software. This may indicate RMM software executing from a nonstandard location or an
+executable masquerading as an RMM component.
+"""
+false_positives = [
+    """
+    Legitimate RMM agents may run as services from custom deployment directories, software-distribution staging paths, or
+    vendor-supported locations not excluded by this rule. Unrelated software may also share a listed process name. Confirm
+    the executable's reported signer and signature trust, original filename, product metadata, hash, service configuration,
+    host role, and associated change or support records.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "RMM Service Execution from an Unusual Path"
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2023/07/06/the-five-day-job-a-blackbyte-ransomware-intrusion-case-study/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+]
+risk_score = 21
+rule_id = "38668876-e4db-4b9a-87d3-8624af05e867"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Threat: Remote Management Tool Abuse",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.executable : "?:\\Windows\\System32\\services.exe" and
+  (
+    process.code_signature.subject_name : (
+      "Action1 Corporation", "Aeroadmin LLC", "AeroAdmin LLC", "AmidaWare LLC", "Ammyy LLC", "AnyDesk Software GmbH",
+      "AOMEI International Network Limited", "Atera Networks Ltd", "AWERAY PTE. LTD.", "BeamYourScreen GmbH",
+      "Bomgar Corporation", "BreakingSecurity.net", "ConnectWise, Inc.", "ConnectWise, LLC", "Connectwise, LLC",
+      "Devolutions Inc", "Devolutions inc.", "DOMOTZ INC.", "DUC FABULOUS CO.,LTD", "DWSNET OÜ", "DWSNET srl",
+      "Electronic Team, Inc.", "Famatech Corp.", "FleetDeck Inc", "FLEETDECK INC.", "GlavSoft LLC", "GlavSoft LLC.",
+      "GoTo Technologies USA, LLC", "Hefei Pingbo Network Technology Co. Ltd", "IDrive, Inc.",
+      "Impero Solutions Limited", "IMPERO SOLUTIONS LIMITED", "Instant Housecall", "ISL Online Ltd.", "JumpCloud Inc",
+      "Level Software, Inc.", "LogMeIn, Inc.", "LUNIXAR SAS DE CV", "MMSOFT Design Ltd.", "Monitoring Client",
+      "MSPBytes Corp", "MSPBytes, Corp.", "N-ABLE TECHNOLOGIES LTD", "Nanosystems S.r.l.", "NetSupport Ltd",
+      "NetSupport Ltd.", "NETSUPPORT LTD.", "NinjaOne LLC", "NinjaRMM, LLC", "Open Source Developer, Huabing Zhou",
+      "Parallels International GmbH", "philandro Software GmbH", "Pro Softnet Corporation", "PURSLANE", "RealVNC",
+      "RealVNC Limited", "REMOTE UTILITIES PTE. LTD.", "Remote Utilities LLC", "Rocket Software, Inc.",
+      "Rsupport Co., Ltd.", "SAFIB", "ScreenConnect Client", "Servably, Inc.", "Servably Inc.", "ShowMyPC INC",
+      "SimpleHelp Ltd", "Splashtop Inc.", "Superops Inc.", "Tailscale Inc.", "TeamViewer", "TeamViewer GmbH",
+      "TeamViewer Germany GmbH", "Techinline Limited", "uvnc bvba", "Yakhnovets Denis Aleksandrovich IP",
+      "Zhou Huabing", "ZOHO Corporation Private Limited"
+    ) or
+    process.name : (
+      "AA_v*.exe", "AcronisCyberProtectConnectAgent.exe", "AeroAdmin.exe", "AgentMon.exe", "AnyDesk.exe",
+      "apc_Admin.exe", "apc_host.exe", "AteraAgent.exe", "aweray_remote*.exe", "AweSun.exe", "B4-Service.exe",
+      "BASupSrvc.exe", "bomgar-scc.exe", "CagService.exe", "CloudRaCmd.exe", "CloudRaSd.exe", "CloudRaService.exe",
+      "ConnectWiseControl*.exe", "connectwisecontrol.client.exe", "domotzagent.exe", "domotz-windows-x64-10.exe",
+      "dwagsvc.exe", "DWRCC.exe", "dwrcs.exe", "dwrcst.exe", "fleetdeck_commander*.exe", "g2aservice.exe",
+      "getscreen.exe", "GoToAssistService.exe", "GoToResolveProcessChecker.exe", "GoToResolveRemoteControl.exe",
+      "GoToResolveService.exe", "GoToResolveTerminal.exe", "GoToResolveUnattended.exe", "gotohttp.exe", "helpwire.exe",
+      "ImmyAgent.exe", "ImmyBot.Agent.Ephemeral.exe", "ImmyUpdater.exe", "ImperoClientSVC.exe", "ImperoServerSVC.exe",
+      "ISLLight.exe", "ISLLightClient.exe", "jumpcloud-agent.exe", "komari.exe", "komari-agent.exe", "level.exe",
+      "lmi_rescue.exe", "lmi_rescue_srv.exe", "LMIIgnition.exe", "LogMeIn.exe", "ltsvc.exe", "ltsvcmon.exe",
+      "lttray.exe", "Lunixar.exe", "LunixarRemote.exe", "LunixarUpdater.exe", "LvAgent.exe",
+      "ManageEngine_Remote_Access_Plus.exe", "MeshAgent.exe", "Mikogo-Service.exe", "nezha-agent.exe",
+      "NinjaRMMAgent.exe", "NinjaRMMAgentPatcher.exe", "ninjarmm-cli.exe", "parsec.exe", "PService.exe",
+      "quickassist.exe", "r_server.exe", "radmin.exe", "radmin3.exe", "rcengmgru.exe", "RCClient.exe", "rcmgrsvc.exe",
+      "RCService.exe", "Remote Support.exe", "RemoteDesktopManager.exe", "Remotely_Agent.exe", "Remotely_Desktop.exe",
+      "RemotePC.exe", "RemotePCDesktop.exe", "RemotePCService.exe", "remoteview.exe", "rfusclient.exe", "RMM.Agent.exe",
+      "ROMServer.exe", "ROMViewer.exe", "RPCSuite.exe", "rserver3.exe", "rustdesk.exe", "rutserv.exe", "rutview.exe",
+      "rvagent.exe", "rvagtray.exe", "saazapsc.exe", "ScreenConnect*.exe", "ScreenConnect.ClientService.exe",
+      "session_win.exe", "simplegatewayservice.exe", "simplehelpcustomer.exe", "smpcview.exe", "spclink.exe",
+      "Splashtop-streamer.exe", "SplashtopSOS.exe", "spsrv.exe", "sragent.exe", "SRService.exe", "srmanager.exe",
+      "srserver.exe", "strwinclt.exe", "Supremo.exe", "SupremoService.exe", "Syncro.App.Runner.exe",
+      "Syncro.Installer.exe", "Syncro.Overmind.Service.exe", "Syncro.Service.exe", "SyncroLive.Agent.exe",
+      "SyncroLive.Agent.Runner.exe", "SyncroLive.Service.exe", "tacticalrmm.exe", "tailscale.exe", "tailscaled.exe",
+      "teamviewer.exe", "teamviewer_desktop.exe", "teamviewer_service.exe", "TiAgent.exe", "TiClientCore.exe",
+      "ToDesk_Service.exe", "ToolsIQ.exe", "TSClient.exe", "tvn.exe", "tvnserver.exe", "tvnviewer.exe", "twingate.exe",
+      "UltraVNC*.exe", "UltraViewer*.exe", "Velociraptor.exe", "vncserver.exe", "vncviewer.exe", "winvnc.exe",
+      "winwvc.exe", "ZA_Access.exe", "za_connect.exe", "Zaservice.exe", "ZMAgent.exe", "ZohoMeeting.exe",
+      "zohotray.exe", "ZohoURS.exe", "ZohoURSService.exe"
+    )
+  ) and
+  not process.executable : (
+    "?:\\Program Files\\*",
+    "?:\\Program Files (x86)\\*",
+    "?:\\Windows\\System32\\*",
+    "?:\\Windows\\SysWOW64\\*"
+  ) and
+  not (
+    process.pe.original_file_name : (
+      "G2M.exe", "Updater.exe", "powershell.exe"
+    ) and
+    process.code_signature.subject_name : "LogMeIn, Inc."
+  ) and
+  not (
+    process.code_signature.subject_name : ("ConnectWise, Inc.", "ConnectWise, LLC") and
+    process.executable : "?:\\Windows\\LTSvc\\*"
+  ) and
+  not (
+    process.code_signature.subject_name : "Bomgar Corporation" and
+    process.name : "bomgar-scc.exe" and
+    process.executable : "?:\\ProgramData\\bomgar-scc-*\\bomgar-scc.exe"
+  )
+'''
+
+setup = """## Setup
+
+This rule requires process events from [Elastic Defend](https://www.elastic.co/security/endpoint-security).
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "user.name",
+    "process.entity_id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.pe.original_file_name",
+    "process.parent.entity_id",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
