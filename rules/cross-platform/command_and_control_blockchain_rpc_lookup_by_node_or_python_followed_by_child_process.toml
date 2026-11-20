@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["endpoint"]
+maturity = "development"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Kirill Popov"]
+description = """
+Identifies a Node.js or Python interpreter that resolves a public blockchain JSON-RPC endpoint or block-explorer API and
+then, within five minutes, starts a command shell, script host or system utility. DPRK "Contagious Interview" (EtherHiding)
+loaders read their next-stage C2 address from a smart contract through such endpoints with an eth_call, download the next
+stage and run it inside the same interpreter process, which then spawns PowerShell, reg.exe, schtasks.exe, wscript.exe,
+sh or ssh for discovery, persistence and remote-access tooling.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Blockchain RPC Lookup by Node or Python Followed by Child Process"
+note = """## Triage and analysis
+
+- Review the parent interpreter command line and working directory: a `node` process running `~/.vs_cache/main.js`, or a
+  freshly cloned "take-home assignment" repository, is a strong indicator.
+- Check the resolved RPC host and whether the user does Web3 development; hardhat, foundry, wallet and trading-bot tooling
+  legitimately resolves these hosts and spawns shells.
+- Look for `.vs_cache\\main.vbs`, HKCU Run values `Microsoft Realtime Aggregator` or `SettingSyncResCache`, and NetSupport
+  files under `%LOCALAPPDATA%\\Microsoft\\Windows\\SettingSync\\Caches\\{GUID}\\Win32\\ResCache\\`.
+"""
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/dprk-adopts-etherhiding",
+    "https://www.ic3.gov/CSA/2026/260918.pdf",
+]
+risk_score = 47
+rule_id = "85020744-fdd0-4f4b-9ac5-07a6d096637a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence with maxspan=5m
+  [network where host.os.type in ("windows", "linux") and
+     event.action in ("lookup_requested", "lookup_result") and
+     (process.name in~ ("node", "node.exe") or process.name like~ "python*") and
+     dns.question.name like~ (
+       "polygon-rpc.com", "*.polygon-rpc.com",
+       "*.drpc.org",
+       "*.publicnode.com",
+       "1rpc.io",
+       "gateway.tenderly.co", "*.gateway.tenderly.co",
+       "*.quiknode.pro",
+       "rpc.ankr.com",
+       "*.llamarpc.com",
+       "bsc-dataseed*",
+       "api.blockcypher.com", "api.ethplorer.io", "api.blockchair.com"
+     )
+  ] by process.entity_id
+  [process where host.os.type in ("windows", "linux") and event.type == "start" and
+     process.name in~ (
+       "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+       "reg.exe", "schtasks.exe", "tasklist.exe", "taskkill.exe", "wmic.exe", "whoami.exe", "ssh.exe",
+       "node.exe", "sh", "bash", "dash", "zsh", "ssh", "whoami", "pgrep", "pkill", "node"
+     )
+  ] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
