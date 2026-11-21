@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Debian adduser lifecycle hooks and account skeleton templates. The
+adduser.local and deluser.local hooks can execute commands immediately during account changes, while files under
+/etc/skel are copied into subsequently created home directories and may execute when those users begin new sessions.
+Adversaries may abuse either mechanism to establish persistence or run privileged commands during user provisioning.
+"""
+false_positives = [
+    "Legitimate account-provisioning customization, operating-system installation, and configuration-management activity.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux User Provisioning Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux User Provisioning Configuration File Activity
+
+Debian's `adduser` can invoke `/usr/local/sbin/adduser.local` or `/usr/local/sbin/deluser.local` during account
+lifecycle operations. These hooks can run commands with the privileges of the invoking account, which is commonly root
+during administration. Separately, account-management tools copy templates from `/etc/skel` into newly created home
+directories. Command-bearing shell profiles or other startup files placed there can remain dormant until a future user
+session loads the copied file.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Retrieve the hook or template and inspect it for shell commands, external scripts, network utilities, encoded content,
+  or references to files outside the expected provisioning workflow.
+- Determine whether the change belongs to approved account provisioning, image creation, package installation, or
+  configuration management, and compare it with trusted build records and peer systems.
+- For an `adduser.local` or `deluser.local` change, verify ownership and executable permissions, then correlate it with
+  recent `adduser` or `deluser` executions and unexpected child processes.
+- For `/etc/skel` activity, identify accounts created after the change, inspect the corresponding copied files in their
+  home directories, and review subsequent login or interactive-shell activity.
+- Check referenced scripts and other files written by the same process or account for additional persistence or
+  execution mechanisms.
+
+### False positive analysis
+
+- Administrators and provisioning systems may legitimately customize lifecycle hooks or skeleton files when building
+  hosts and account baselines.
+- Operating-system installation and package activity can initialize `/etc/skel`. Validate provenance and timing before
+  creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed hook or template and any copied or referenced files before remediation.
+- Remove unauthorized content, restore approved provisioning files, and correct ownership and permissions.
+- Review accounts created while malicious skeleton content was present and clean the copied artifacts from each affected
+  home directory.
+- Investigate commands executed by lifecycle hooks and contain any resulting processes, accounts, or network activity.
+- Scope matching content, paths, writers, and newly provisioned accounts across the environment.
+"""
+references = [
+    "https://manpages.debian.org/bookworm/adduser/adduser.local.8.en.html",
+    "https://manpages.debian.org/bookworm/adduser/adduser.conf.5.en.html",
+    "https://man7.org/linux/man-pages/man8/useradd.8.html",
+]
+risk_score = 21
+rule_id = "48d51696-9f3a-499d-bd4c-cd39522fc3df"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/usr/local/sbin/adduser.local",
+    "/usr/local/sbin/deluser.local",
+    "/etc/skel/*"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
