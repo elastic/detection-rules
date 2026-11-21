@@ -137,6 +137,7 @@ Here are the queries currently available:
 
 
 ## windows
+- [ADRecon Directory Report Collection](./windows/docs/discovery_adrecon_report_collection.md) (ES|QL)
 - [DLL Hijack via Masquerading as Microsoft Native Libraries](./windows/docs/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.md) (ES|QL)
 - [DNS Queries via LOLBins with Low Occurrence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
