@@ -1,0 +1,186 @@
+[metadata]
+creation_date = "2026/11/03"
+integration = ["system"]
+maturity = "production"
+updated_date = "2026/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Linux kernel use-after-free diagnostic and a nearby IPv4/TCP call-trace function on the same host. This
+combination is high-signal evidence of a kernel memory-safety fault in the network stack and can indicate an attempted
+exploit of CVE-2026-98432 or a related kernel defect.
+"""
+false_positives = [
+    """
+    Kernel development, KASAN testing, fuzzing, fault injection, or an unrelated kernel defect may produce the same
+    use-after-free and network-stack call-trace combination. Confirm the running kernel, recent test activity, and
+    inbound traffic before attributing the fault to CVE-2026-98432.
+    """,
+]
+from = "now-14m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Linux Kernel IPv4 TCP Use-After-Free Call Trace"
+note = """## Triage and analysis
+
+### Investigating Linux Kernel IPv4 TCP Use-After-Free Call Trace
+
+This rule correlates a kernel use-after-free diagnostic with one or more IPv4/TCP functions associated with
+CVE-2026-98432. The vulnerability is a race in Linux IPv4 TCP option handling that can permit a remote attacker to
+disclose kernel memory and execute an attacker-selected command as root. The rule requires both signal classes on the
+same host within the rule lookback window so multiline kernel reports remain detectable when syslog stores the KASAN
+header and call-trace frames as separate events.
+
+The alert is strong evidence of a kernel networking memory-safety fault, but it does not by itself prove exploitation
+or CVE attribution. A successful exploit can also complete without a kernel fault.
+
+### Possible investigation steps
+
+- Retrieve all kernel messages for the affected `host.id` between `Esql.first_seen` and `Esql.last_seen`, including the
+  complete KASAN report, register state, allocation and free stacks, and surrounding call trace.
+- Record the running kernel release, installed kernel packages, boot time, distribution, and current vendor advisory
+  status. Verify the running kernel rather than relying only on the installed package version.
+- Identify every IPv4 TCP listener on the host and the process, container, and network namespace that owns it. Determine
+  whether an MPTCP listener or a Go 1.24-or-later listener was reachable from an untrusted network.
+- Review bidirectional packet data immediately before the fault for inbound TCP SYNs with IPv4 options, retransmitted or
+  duplicate option-bearing SYNs, rapid teardown, and anomalous IPv4 options in the server SYN-ACK. Do not confuse IPv4
+  options with ordinary TCP options such as MSS, SACK, timestamps, window scale, or MPTCP.
+- Correlate with unexpected root process execution, new persistence, credential access, security-control tampering,
+  first-seen egress, or attempts to clear kernel logs.
+- Preserve journald, pstore, serial or hypervisor console output, crash dumps, and relevant packet capture. Local
+  evidence may be incomplete or untrustworthy after kernel-level compromise.
+
+### False positive analysis
+
+- Confirm whether the host performs kernel development, KASAN regression testing, packet fuzzing, or authorized
+  vulnerability testing.
+- Compare the full allocation, free, and call traces with known defects for the running vendor kernel. The listed
+  functions can occur in failures unrelated to CVE-2026-98432.
+- Avoid suppressing all alerts from an unstable host. Scope any exception to a documented test asset, kernel build, and
+  maintenance window.
+
+### Response and remediation
+
+- Isolate the host from untrusted traffic when exploitation cannot be ruled out, while preserving off-host evidence.
+- Install the vendor-fixed kernel, reboot, and verify that the remediated kernel is running. Disabling MPTCP or filtering
+  IPv4 options can reduce exposure but does not replace patching.
+- Rebuild from trusted media if kernel control-flow hijack or root execution is plausible. Rotate credentials and keys
+  accessible to the kernel or root.
+- Search peer systems for the same fault, option-bearing handshake activity, and suspicious root-level follow-on
+  behavior.
+"""
+references = [
+    "https://lists.openwall.net/linux-cve-announce/2026/10/15/1",
+    "https://www.anthropic.com/research/discovering-vulnerabilities-with-claude",
+    "https://www.openwall.com/lists/oss-security/2026/10/30/1",
+    "https://access.redhat.com/security/vulnerabilities/RHSB-2026-016",
+]
+risk_score = 73
+rule_id = "b76157d9-fea4-4a31-a1eb-e448c5516c8d"
+setup = """## Setup
+
+This rule requires Linux kernel messages collected by the System integration's `system.syslog` data stream.
+
+Configure rsyslog, syslog-ng, or journald forwarding so kernel messages are ingested with `process.name: kernel`,
+`host.id`, and `message`. Preserve multiline kernel reports or ensure every line receives the same stable `host.id`.
+Forward logs off-host and collect pstore or console output where possible because a kernel crash may prevent local log
+delivery.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-system.syslog-* METADATA _id, _index, _version
+| WHERE host.os.type == "linux"
+    AND process.name == "kernel"
+| EVAL Esql.message_lower = TO_LOWER(message)
+| WHERE Esql.message_lower LIKE "*use-after-free*"
+    OR Esql.message_lower LIKE (
+      "*ip_options_build*",
+      "*ip_build_and_send_pkt*",
+      "*tcp_v4_send_synack*",
+      "*tcp_v4_reqsk_destructor*",
+      "*inet_sock_destruct*"
+    )
+| EVAL
+    Esql.memory_safety_fault = Esql.message_lower LIKE "*use-after-free*",
+    Esql.ipv4_tcp_trace = Esql.message_lower LIKE (
+      "*ip_options_build*",
+      "*ip_build_and_send_pkt*",
+      "*tcp_v4_send_synack*",
+      "*tcp_v4_reqsk_destructor*",
+      "*inet_sock_destruct*"
+    )
+| STATS
+    Esql.memory_safety_fault_count = SUM(CASE(Esql.memory_safety_fault, 1, 0)),
+    Esql.ipv4_tcp_trace_count = SUM(CASE(Esql.ipv4_tcp_trace, 1, 0)),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    host.name = MAX(host.name),
+    agent.id = MAX(agent.id)
+  BY host.id
+| WHERE Esql.memory_safety_fault_count > 0
+    AND Esql.ipv4_tcp_trace_count > 0
+| KEEP host.id, host.name, agent.id, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.alert_suppression]
+group_by = ["host.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "agent.id",
+    "Esql.first_seen",
+    "Esql.last_seen",
+    "Esql.memory_safety_fault_count",
+    "Esql.ipv4_tcp_trace_count",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
