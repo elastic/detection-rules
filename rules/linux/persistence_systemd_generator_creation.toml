@@ -1,58 +1,71 @@
 [metadata]
 creation_date = "2024/06/19"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of a systemd generator file. Generators are small executables executed by systemd at
-bootup and during configuration reloads. Their main role is to convert non-native configuration and execution parameters
-into dynamically generated unit files, symlinks, or drop-ins, extending the unit file hierarchy for the service manager.
-Systemd generators can be used to execute arbitrary code at boot time, which can be leveraged by attackers to maintain
-persistence on a Linux system.
+Detects non-deletion file activity involving systemd unit and environment generators. Systemd executes these files
+during manager startup and configuration reloads. Unit generators dynamically create unit files, symlinks, or drop-ins,
+while environment generators produce variables for the service manager and processes it starts. Adversaries may abuse
+either mechanism to execute code or influence subsequently started processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
-name = "Systemd Generator Created"
+name = "Systemd Generator File Activity"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Systemd Generator Created
+### Investigating Systemd Generator File Activity
 
-Systemd generators are scripts that systemd runs at boot or during configuration reloads to convert non-native configurations into unit files. Adversaries can exploit this by creating malicious generators to execute arbitrary code, ensuring persistence or escalating privileges. The detection rule identifies suspicious generator file creations or renames, excluding benign processes and file types, to flag potential abuse.
+Systemd runs unit and environment generators early during manager startup and again during configuration reloads. Unit
+generators translate other configuration sources into transient units, symlinks, or drop-ins. Environment generators
+emit variable assignments that the manager passes to services and other processes started afterward. Because both
+generator types are executables, an unauthorized file in one of these directories can run whenever the corresponding
+system or user manager starts or reloads.
 
 ### Possible investigation steps
 
-- Review the file path where the generator was created or renamed to determine if it is located in a standard systemd generator directory, such as /run/systemd/system-generators/ or /etc/systemd/user-generators/.
-- Identify the process that created or renamed the generator file by examining the process.executable field, and determine if it is a known benign process or potentially malicious.
-- Check the file extension and original extension fields to ensure the file is not a temporary or expected system file, such as those with extensions like "swp" or "dpkg-new".
-- Investigate the history and behavior of the process that created the generator file, including any associated network connections or file modifications, to assess if it exhibits signs of malicious activity.
-- Correlate the event with other security alerts or logs from the same host to identify any patterns or additional indicators of compromise that might suggest persistence or privilege escalation attempts.
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Retrieve the generator, verify its ownership and executable permissions, and inspect its interpreter, commands,
+  referenced files, and output.
+- Determine whether it is a unit generator, system environment generator, or user environment generator and identify
+  which manager instances can execute it.
+- Establish provenance through package manifests, configuration-management records, host build records, and comparison
+  with peer systems.
+- Correlate the change with system or user manager startup, `daemon-reload`, transient unit generation, changed manager
+  environment, unexpected child processes, and network connections.
+- Inspect other files written by the same process or account and analyze scripts or executables referenced by the
+  generator.
 
 ### False positive analysis
 
-- Package managers like dpkg, rpm, and yum can trigger false positives when they create or rename files in systemd generator directories during software installations or updates. To handle these, exclude processes associated with these package managers as specified in the rule.
-- Automated system management tools such as Puppet and Chef may also create or modify generator files as part of their configuration management tasks. Exclude these processes by adding them to the exception list if they are part of your environment.
-- Temporary files with extensions like swp, swpx, and swx, often created by text editors, can be mistakenly flagged. Ensure these extensions are included in the exclusion list to prevent unnecessary alerts.
-- System updates or maintenance scripts that run as part of regular operations might create or modify generator files. Identify these scripts and add their executables to the exclusion list to reduce false positives.
-- Custom scripts or tools that are part of legitimate administrative tasks may also trigger alerts. Review these scripts and consider excluding their executables if they are verified as non-malicious.
+- Packages, desktop environments, compatibility layers, and system-management software can install legitimate
+  generators. Validate package ownership and expected deployment context before adding a narrowly scoped exception.
+- Administrators may deploy custom generators to integrate non-native configuration or build a session environment.
+  Confirm the writer and content against approved configuration.
 
 ### Response and remediation
 
-- Immediately isolate the affected system from the network to prevent further execution of potentially malicious code and lateral movement.
-- Terminate any suspicious processes associated with the creation or modification of systemd generator files to halt any ongoing malicious activity.
-- Conduct a thorough review of the systemd generator directories to identify and remove any unauthorized or suspicious generator files.
-- Restore any modified or deleted legitimate systemd generator files from a known good backup to ensure system integrity.
-- Implement file integrity monitoring on systemd generator directories to detect unauthorized changes in the future.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
-- Review and update access controls and permissions for systemd generator directories to limit the ability to create or modify files to authorized users only."""
+- Preserve the generator and referenced content before remediation.
+- Remove unauthorized generators or restore trusted package content, then reload the affected manager using approved
+  administration procedures.
+- Restart affected services or user sessions where necessary to remove poisoned environment values.
+- Terminate malicious child processes and investigate any actions performed while the generator was active.
+- Scope matching files, content, writers, generated units, and environment changes across the environment."""
 references = [
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.generator.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.environment-generator.html",
     "https://pberba.github.io/security/2022/02/07/linux-threat-hunting-for-persistence-systemd-generators/",
     "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
 ]
@@ -60,7 +73,9 @@ risk_score = 47
 rule_id = "39c06367-b700-4380-848a-cab06e7afede"
 setup = """## Setup
 
-This rule requires data coming in from Elastic Defend.
+This rule requires Linux file event data from Elastic Defend, SentinelOne Cloud Funnel, or Elastic Endgame.
+Elastic Defend currently reports creation, rename, and deletion, but not in-place Linux modifications. Validate
+SentinelOne Linux file-event emission in your deployment.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
@@ -89,8 +104,9 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Noise: Medium",
     "Performance: Normal",
@@ -100,12 +116,24 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
-"/run/systemd/system-generators/*", "/etc/systemd/system-generators/*",
-"/usr/local/lib/systemd/system-generators/*", "/lib/systemd/system-generators/*",
-"/usr/lib/systemd/system-generators/*", "/etc/systemd/user-generators/*",
-"/usr/local/lib/systemd/user-generators/*", "/usr/lib/systemd/user-generators/*",
-"/lib/systemd/user-generators/*"
+file where host.os.type == "linux" and event.type != "deletion" and file.path : (
+  "/run/systemd/system-generators/*",
+  "/etc/systemd/system-generators/*",
+  "/usr/local/lib/systemd/system-generators/*",
+  "/lib/systemd/system-generators/*",
+  "/usr/lib/systemd/system-generators/*",
+  "/etc/systemd/user-generators/*",
+  "/usr/local/lib/systemd/user-generators/*",
+  "/usr/lib/systemd/user-generators/*",
+  "/lib/systemd/user-generators/*",
+  "/run/systemd/system-environment-generators/*",
+  "/etc/systemd/system-environment-generators/*",
+  "/usr/local/lib/systemd/system-environment-generators/*",
+  "/usr/lib/systemd/system-environment-generators/*",
+  "/run/systemd/user-environment-generators/*",
+  "/etc/systemd/user-environment-generators/*",
+  "/usr/local/lib/systemd/user-environment-generators/*",
+  "/usr/lib/systemd/user-environment-generators/*"
 ) and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -124,23 +152,13 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
   ) or
   process.name like~ ("ssm-agent-worker", "crio", "docker-init", "systemd", "pacman", "python*", "platform-python*") or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
+  ?file.Ext.original.extension == "dpkg-new" or
   process.executable == null
 )
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1543"
-name = "Create or Modify System Process"
-reference = "https://attack.mitre.org/techniques/T1543/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1543.002"
-name = "Systemd Service"
-reference = "https://attack.mitre.org/techniques/T1543/002/"
 
 [[rule.threat.technique]]
 id = "T1546"
@@ -151,26 +169,3 @@ reference = "https://attack.mitre.org/techniques/T1546/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1543"
-name = "Create or Modify System Process"
-reference = "https://attack.mitre.org/techniques/T1543/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1543.002"
-name = "Systemd Service"
-reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-[[rule.threat.technique]]
-id = "T1546"
-name = "Event Triggered Execution"
-reference = "https://attack.mitre.org/techniques/T1546/"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
