@@ -1,0 +1,171 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects non-deletion file activity in Linux package lifecycle hook locations used by needrestart, CA
+certificate updates, Debian kernel packages, initramfs updates, and systemd kernel-install. Adversaries may place or
+replace files in these locations so that trusted package maintenance activity executes attacker-controlled code.
+"""
+false_positives = [
+    "Legitimate package installation, kernel maintenance, certificate updates, and approved configuration management.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Package Lifecycle Hook Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Package Lifecycle Hook Activity
+
+Linux package and system-maintenance components use several extensibility points to run local code. Needrestart evaluates
+Perl configuration from its main configuration and `conf.d` directory. Debian-style CA maintenance invokes executable
+hooks through `run-parts`, while openSUSE uses `.run` hooks in its CA update directories. Kernel package scripts and
+`kernel-install` execute plugins during kernel installation, upgrade, and removal, while initramfs maintenance can
+invoke post-update hooks.
+
+An adversary with sufficient privileges can create or replace one of these artifacts and wait for a later legitimate
+maintenance operation to trigger it. The resulting execution commonly inherits root privileges, but the artifact may
+remain dormant until the corresponding package, certificate, kernel, or initramfs operation occurs.
+
+### Possible investigation steps
+
+- Review the affected path, operation, file owner, mode, hash, responsible process, parent process, user, and timestamp.
+- Determine whether the writer belongs to an authorized package installation, kernel update, certificate refresh, or
+  configuration-management workflow.
+- Compare the file with package-manager metadata and a known-good host. Files below `/etc` are commonly local
+  administrator overrides, while files below `/usr/lib` and `/usr/share` are commonly package managed.
+- For needrestart configuration, review Perl constructs such as `system`, `exec`, backticks, module loading, and
+  references to unexpected scripts.
+- For executable hooks, inspect interpreters, commands, sourced files, permission changes, and whether the filename meets
+  the loader's naming requirements.
+- Identify package, `needrestart`, `update-ca-certificates`, `run-parts`, `kernel-install`, or initramfs activity after the
+  file event, and review descendant processes and network connections.
+- Correlate the event with recent authentication, privilege escalation, software installation, and persistence alerts on
+  the same host.
+
+### False positive analysis
+
+- Package installation and upgrades can legitimately add or replace vendor-maintained hooks.
+- Kernel, boot-loader, DKMS, initramfs, and certificate-management packages commonly install scripts in these locations.
+- Approved configuration-management systems may deploy local needrestart settings or organization-specific maintenance
+  hooks. Confirm the file content, package provenance, and associated change record before creating an exception.
+
+### Response and remediation
+
+- Isolate the host if the hook is unauthorized or if suspicious execution followed a maintenance event.
+- Preserve the file and relevant process telemetry, then remove the unauthorized artifact and restore affected packages
+  and configuration from trusted sources.
+- Review package databases and verify the integrity of other hooks, boot files, kernel images, initramfs files, and trust
+  stores.
+- Scope the same file path, hash, writer, and command across the environment.
+- Rebuild the host from a known-good image if root-level execution occurred and the full extent of modification cannot be
+  established.
+"""
+references = [
+    "https://github.com/liske/needrestart/blob/master/ex/needrestart.conf",
+    "https://github.com/openSUSE/ca-certificates/blob/master/update-ca-certificates.8",
+    "https://manpages.debian.org/update-ca-certificates.8",
+    "https://manpages.debian.org/testing/linux-base/linux-run-hooks.1.en.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/kernel-install.html",
+]
+risk_score = 21
+rule_id = "703b43a3-3c07-4d19-a8c7-b071da2dfb3b"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/needrestart/needrestart.conf",
+    "/etc/needrestart/conf.d/*.conf",
+    "/etc/ca-certificates/update.d/*",
+    "/usr/lib/ca-certificates/update.d/*.run",
+    "/lib/ca-certificates/update.d/*.run",
+    "/etc/kernel/preinst.d/*",
+    "/etc/kernel/postinst.d/*",
+    "/etc/kernel/prerm.d/*",
+    "/etc/kernel/postrm.d/*",
+    "/etc/kernel/header_postinst.d/*",
+    "/usr/share/kernel/preinst.d/*",
+    "/usr/share/kernel/postinst.d/*",
+    "/usr/share/kernel/prerm.d/*",
+    "/usr/share/kernel/postrm.d/*",
+    "/usr/share/kernel/header_postinst.d/*",
+    "/etc/kernel/install.d/*.install",
+    "/usr/lib/kernel/install.d/*.install",
+    "/lib/kernel/install.d/*.install",
+    "/etc/initramfs/post-update.d/*",
+    "/etc/kernel-img.conf"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
