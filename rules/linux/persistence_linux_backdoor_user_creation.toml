@@ -49,11 +49,11 @@ note = """## Triage and analysis
 
 ### Investigating Potential Linux Backdoor User Account Creation
 
-The `usermod` command is used to modify user account attributes and settings in Linux-based operating systems.
+The `usermod/useradd/adduser` command is used to modify user account attributes and settings in Linux-based operating systems.
 
 Attackers may create new accounts with a UID of 0 to maintain root access to target systems without leveraging the root user account.
 
-This rule identifies the usage of the `usermod` command to set a user's UID to 0, indicating that the user becomes a root account. 
+This rule identifies the usage of the `usermod/useradd/adduser` command to set a user's UID to 0, indicating that the user becomes a root account. 
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -143,7 +143,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "usermod" and process.args in ("-u", "--uid") and process.args == "0" and
+process.name in ("usermod", "useradd", "adduser") and process.args in ("-u", "--uid") and process.args == "0" and
 process.args in ("-o", "--non-unique")
 '''
 
