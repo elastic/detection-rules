@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/12/16"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/17"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Attackers may abuse SSH to maintain persistence on a compromised system, or to e
 potentially resulting in an unusual SSHD child process being created.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
+index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual SSHD Child Process"
@@ -60,7 +60,6 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Data Source: Crowdstrike",
     "Noise: Low",
     "Performance: Normal",
     "Rule Type: New Terms",
@@ -69,13 +68,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and event.action:(exec or ProcessRollup2) and
-process.parent.name:sshd and process.args_count:2 and process.parent.args:"-D" and
-not (
-  process.command_line:(-bash or -zsh or -sh) or
-  process.name:(ractrans or exectask or tty or tput or ferny-askpass or id or ip) or
-  process.executable:/var/tmp/foreman-ssh-cmd*/script
-)
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+process.parent.name:(sshd or sshd-session) and process.parent.args:"-D" and process.interactive:false and
+process.previous.executable:(
+  "/bin/bash" or "/usr/bin/bash" or "/usr/bin/dash" or "/bin/dash" or "/usr/bin/sh" or "/bin/sh" or
+  "/usr/bin/tcsh" or "/bin/tcsh" or "/usr/bin/csh" or "/bin/csh" or "/usr/bin/zsh" or "/bin/zsh" or
+  "/usr/bin/ksh" or "/bin/ksh" or "/usr/bin/fish" or "/bin/fish" or "/usr/bin/mksh" or "/bin/mksh"
+) and process.previous.args:"-c"
 '''
 
 [[rule.threat]]
@@ -149,10 +148,11 @@ reference = "https://attack.mitre.org/techniques/T1133/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.executable"]
+value = ["process.executable", "user.id"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-5d"
+value = "now-10d"
