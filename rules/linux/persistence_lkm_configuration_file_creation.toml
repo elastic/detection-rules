@@ -1,28 +1,33 @@
 [metadata]
 creation_date = "2024/12/17"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the creation of Loadable Kernel Module (LKM) configuration files. Attackers may create or modify these
-files to allow their LKMs to be loaded upon reboot, ensuring persistence on a compromised system.
+This rule detects non-deletion file activity involving Loadable Kernel Module (LKM) configuration. Attackers may create
+or replace these files to alter module-loading behavior, execute commands through modprobe directives, or load malicious
+kernel modules during startup.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
-name = "Loadable Kernel Module Configuration File Creation"
+name = "Loadable Kernel Module Configuration File Activity"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Loadable Kernel Module Configuration File Creation
+### Investigating Loadable Kernel Module Configuration File Activity
 
-Loadable Kernel Modules (LKMs) are components that can be dynamically loaded into the Linux kernel to extend its functionality without rebooting. Adversaries exploit this by creating or altering LKM configuration files to ensure their malicious modules load at startup, achieving persistence. The detection rule identifies suspicious file creation or renaming activities in key directories, excluding benign processes, to flag potential threats.
+Loadable Kernel Modules (LKMs) are components that can be dynamically loaded into the Linux kernel to extend its functionality without rebooting. Adversaries exploit this by creating or replacing LKM configuration files to ensure malicious modules load at startup or to execute commands when modprobe processes a matching directive. The detection rule identifies non-deletion file activity in key configuration locations, including creations and atomic replacements reported as rename events.
 
 ### Possible investigation steps
 
@@ -61,6 +66,8 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Noise: Medium",
     "Performance: Normal",
@@ -70,7 +77,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action == "creation" and process.executable != null and
+file where host.os.type == "linux" and event.type != "deletion" and process.executable != null and
 file.path like (
   "/etc/modules", "/etc/modprobe.d/*", "/run/modprobe.d/*", "/usr/local/lib/modprobe.d/*", "/usr/lib/modprobe.d/*",
   "/lib/modprobe.d/*", "/etc/modules-load.d/*", "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*",
@@ -92,7 +99,7 @@ file.path like (
     "./usr/bin/qemu-aarch64-static", "/.envbuilder/bin/envbuilder"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
+  ?file.Ext.original.extension == "dpkg-new" or
   process.executable like (
     "/nix/store/*", "/var/lib/dpkg/info/kmod.postinst", "/tmp/vmis.*", "/snap/*", "/dev/fd/*",
     "/usr/libexec/platform-python*", "./snap/snapd/*/snap-update-ns"
