@@ -8,7 +8,7 @@
 - **Description:** Detects an outbound network connection by a Python script that was executed and deleted from disk. A recent DPRK 
 initial access campaign used a Python script that self 
 deletes and continues operating in memory.
-- **UUID:** `04d4b300-bf2f-4e86-8fab-c51502a1db32`
+- **UUID:** `d9fed538-58c8-49a1-a1c1-a8c90a2a35ca`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[EQL]`
 - **Source File:** [Self-Deleted Python Script Outbound Network Connection](../queries/defense_evasion_self_deleted_python_script_outbound_network_connection.toml)
