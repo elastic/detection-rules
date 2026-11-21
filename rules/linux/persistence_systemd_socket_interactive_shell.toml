@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects systemd accepting an inbound network connection and shortly afterward spawning an interactive Unix shell.
+This behavior may indicate abuse of systemd socket activation to expose a command shell over the network.
+"""
+false_positives = [
+    "Authorized socket-activated remote administration or debugging services that intentionally provide interactive shells.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Interactive Shell Spawned via systemd Socket Activation"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Interactive Shell Spawned via systemd Socket Activation
+
+Systemd socket units can listen for network connections and start an associated service when a connection arrives. With
+accept-mode socket activation, systemd can accept each connection and pass the connected socket to a newly instantiated
+service. An adversary may configure that service to launch an interactive shell with its standard input and output bound
+to the socket, creating an on-demand network backdoor managed by PID 1.
+
+This rule correlates a connection accepted by systemd with an interactive shell started directly by systemd shortly
+afterward. The short correlation window and shared systemd process entity distinguish the behavior from ordinary
+services that accept their own connections or unrelated shells managed by systemd.
+
+### Possible investigation steps
+
+- Review the source and destination addresses and ports associated with the accepted connection.
+- Inspect the shell process arguments, executable, user, working directory, and any subsequent commands or network
+  activity.
+- Identify the systemd socket and service units associated with the listening port. Review `ListenStream`, `Accept`,
+  `Service`, `ExecStart`, standard input and output settings, and the effective service user.
+- Examine recently created or modified `.socket`, `.service`, and template unit files in system and user unit
+  directories, including drop-in configuration.
+- Review `systemctl` and `journalctl` records for recent unit installation, enablement, daemon reloads, starts, and
+  accepted connections.
+- Correlate the activity with recent privilege escalation, configuration changes, remote access, and file creation on
+  the host.
+
+### False positive analysis
+
+- A custom socket-activated administration, recovery, or debugging service may intentionally launch an interactive
+  shell. Confirm that the unit files, listening interface, port, service identity, and source address are approved.
+- In environments with frequent legitimate systemd socket activation, an unrelated interactive shell launched by
+  systemd within the short correlation window could produce an alert. Validate that both events involve the same
+  systemd process and identify the units responsible.
+
+### Response and remediation
+
+- Isolate the host if the socket-activated shell is unauthorized or has accepted an untrusted connection.
+- Preserve the relevant unit files, drop-ins, journal records, process telemetry, and network evidence.
+- Stop and disable the malicious socket and service units, remove unauthorized artifacts, run `systemctl daemon-reload`,
+  and verify that the port is no longer listening.
+- Review commands executed through the shell and investigate any resulting credential access, persistence, lateral
+  movement, or data transfer.
+- Rotate credentials or secrets exposed to the service and restore modified configuration from trusted sources.
+"""
+references = [
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html",
+]
+risk_score = 47
+rule_id = "be0e9669-dcdc-4d3f-ac50-d5af369f79a3"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=3s
+  [network where host.os.type == "linux" and event.type == "start" and
+   event.action == "connection_accepted" and process.name == "systemd"
+  ]
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.parent.name == "systemd" and
+   process.name in ("bash", "dash", "sh", "ash", "tcsh", "csh", "zsh", "ksh", "fish", "mksh", "busybox") and
+   (process.args in ("-i", "-li", "-il") or process.interactive == true)
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
