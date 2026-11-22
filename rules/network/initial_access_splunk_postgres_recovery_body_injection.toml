@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["endpoint", "network_traffic", "zeek", "suricata", "azure", "gcp"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/22"
 
 [rule]
 author = ["Elastic"]
@@ -171,36 +171,36 @@ type = "query"
 
 query = '''
 http.request.method:POST and
-url.path:("*splunkd/__raw/v1/postgres/recovery/*" or "/v1/postgres/recovery/*") and
+url.path:(*splunkd/__raw/v1/postgres/recovery/* or /v1/postgres/recovery/*) and
 (
   http.request.body.content:(
-    "*\"backupFile\"*../*" or
-    "*\"backupFile\"*/dev/shm/*" or
-    "*\"backupFile\"*/etc/cron*" or
-    "*\"backupFile\"*/home/*/.ssh/*" or
-    "*\"backupFile\"*/opt/splunk/bin/scripts/*" or
-    "*\"backupFile\"*/opt/splunk/etc/apps/*" or
-    "*\"backupFile\"*/root/*" or
-    "*\"backupFile\"*/tmp/*" or
-    "*\"backupFile\"*/var/tmp/*" or
-    "*\"backupFile\"*authorized_keys*" or
-    "*\"database\"*dbname=*" or
-    "*\"database\"*host=*" or
-    "*\"database\"*hostaddr=*" or
-    "*\"database\"*passfile=*" or
-    "*\"database\"*password=*" or
-    "*\"database\"*port=*" or
-    "*\"database\"*service=*" or
-    "*\"database\"*sslmode=*" or
-    "*\"database\"*user=*" or
-    "*/opt/splunk/etc/apps/*" or
-    "*/opt/splunk/var/packages/data/postgres/.pgpass*"
+    *\"backupFile\"*../* or
+    *\"backupFile\"*/dev/shm/* or
+    *\"backupFile\"*/etc/cron* or
+    *\"backupFile\"*/home/*/.ssh/* or
+    *\"backupFile\"*/opt/splunk/bin/scripts/* or
+    *\"backupFile\"*/opt/splunk/etc/apps/* or
+    *\"backupFile\"*/root/* or
+    *\"backupFile\"*/tmp/* or
+    *\"backupFile\"*/var/tmp/* or
+    *\"backupFile\"*authorized_keys* or
+    *\"database\"*dbname=* or
+    *\"database\"*host=* or
+    *\"database\"*hostaddr=* or
+    *\"database\"*passfile=* or
+    *\"database\"*password=* or
+    *\"database\"*port=* or
+    *\"database\"*service=* or
+    *\"database\"*sslmode=* or
+    *\"database\"*user=* or
+    */opt/splunk/etc/apps/* or
+    */opt/splunk/var/packages/data/postgres/.pgpass*
   ) or
   data_stream.dataset:zeek.http and url.password:"" or
   data_stream.dataset:(azure.application_gateway or gcp.loadbalancing_logs or network_traffic.http or suricata.eve or zeek.http) and
   url.path:(
-    "*splunkd/__raw/v1/postgres/recovery/backup" or
-    "*splunkd/__raw/v1/postgres/recovery/restore" or
+    *splunkd/__raw/v1/postgres/recovery/backup or
+    *splunkd/__raw/v1/postgres/recovery/restore or
     /v1/postgres/recovery/backup or
     /v1/postgres/recovery/restore
   ) and
