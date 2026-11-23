@@ -2,107 +2,151 @@
 creation_date = "2026/11/23"
 integration = ["azure"]
 maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
 updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects SelfSubjectAccessReview/SelfSubjectRulesReview activity on AKS used to map permissions for a user or service account.
+Detects a single AKS (Azure Kubernetes Service) identity and source IP that receives both allowed and forbidden RBAC
+decisions while touching more than five distinct request URIs across more than three resource types in a short window.
+This trial-and-error pattern indicates an adversary mapping what a stolen token or kubeconfig can access, either by
+attempting resources directly or by issuing SelfSubjectAccessReview and SelfSubjectRulesReview requests. High-volume
+controllers are excluded by an upper bound on the request count, and node, control-plane, and kube-system identities are
+excluded.
 """
 false_positives = [
     """
-    CI systems and operators may probe permissions. Baseline expected identities.
+    Administrators exploring a cluster with limited permissions, dashboards such as Lens, k9s, or Headlamp opened by a
+    restricted user, and newly deployed operators with incomplete RBAC can produce mixed decisions across several
+    resources. Validate the identity and client, and exclude stable automation after review.
     """,
 ]
-from = "now-9m"
-index = ["logs-azure.platformlogs-*"]
-language = "kuery"
+from = "now-6m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "Azure AKS Endpoint Permission Enumeration by User"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Azure AKS Endpoint Permission Enumeration by User
 
-AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
-`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
-`azure.platformlogs.category: kube-audit`. Detects SelfSubjectAccessReview/SelfSubjectRulesReview activity on AKS used to map permissions for a user or service account.
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. The RBAC outcome of each
+request is recorded in the `authorization.k8s.io/decision` annotation (`allow` or `forbid`). This rule aggregates
+completed requests by identity and originating client IP, and alerts when the identity receives both decisions across a
+broad set of endpoints with a modest request count.
 
 ### Possible investigation steps
 
-- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
-- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
-- If present, examine `requestObject` for privileged fields or binding subjects.
-- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+- Review `Esql.username` and `Esql.source_ip` (the last entry in `sourceIPs`, which is the originating client on AKS)
+  to determine whether this is a human, a CI runner, or a workload service account.
+- Review `Esql.azure_platformlogs_properties_log_objectRef_resource_values` and
+  `Esql.azure_platformlogs_properties_log_requestURI_values`. Requests to `selfsubjectaccessreviews` or
+  `selfsubjectrulesreviews` alongside forbidden reads of `secrets`, `nodes`, or RBAC resources indicate deliberate
+  permission mapping.
+- Compare `Esql.forbid_count` with `Esql.event_count` and review `Esql.azure_platformlogs_properties_log_userAgent_values`
+  for scripting clients or tooling that differs from the identity's normal client.
+- For a service account, identify the pod using it and check for exec sessions, token theft, or image changes on that
+  workload. For a user, correlate with Entra ID sign-in activity.
 
 ### False positive analysis
 
-- CI systems and operators may probe permissions. Baseline expected identities.
+- Restricted users browsing the cluster with kubectl or a dashboard can match. Confirm with the user and consider
+  granting least-privilege read access to stop the noise.
+- New operators with incomplete RBAC produce repeated forbidden requests; their request volume usually exceeds the
+  upper bound, but exclude them by service account if they match.
 
 ### Response and remediation
 
-- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
-- Rotate any secrets or tokens that may have been accessed.
-- Harden RBAC to least privilege and review admission controls.
+- If unauthorized, revoke the identity's tokens or kubeconfig and rotate any credentials it could read.
+- Review RBAC bindings for the identity and remove permissions that were not required.
+- Collect kube-audit artifacts per incident response procedures.
 """
 references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
     "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
-    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "71148e0d-f30e-4513-8b13-4a6969b8cfa0"
-setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
-severity = "low"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+into the `azure.platformlogs` data stream is required for this rule. Read requests are excluded from the
+`kube-audit-admin` category, so that category alone is insufficient.
+"""
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
+    "Domain: Containers",
     "Data Source: Azure",
     "Data Source: Azure Platform Logs",
     "Data Source: Kubernetes",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: ES|QL",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
+    "Noise: Medium",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset:azure.platformlogs and
-  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-  azure.platformlogs.category:"kube-audit" and
-  azure.platformlogs.properties.log.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews" or "subjectaccessreviews") and
-  azure.platformlogs.properties.log.verb:"create" and
-  not azure.platformlogs.properties.log.user.username:(
-    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
-    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
-    "system:kube-controller-manager" or "system:kube-scheduler"
-  )
+FROM logs-azure.platformlogs-* METADATA _id, _index, _version
+| WHERE data_stream.dataset == "azure.platformlogs"
+    AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
+    AND azure.platformlogs.category == "kube-audit"
+| EVAL Esql.stage = FIELD_EXTRACT(azure.platformlogs.properties, "log.stage"),
+    Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
+    Esql.decision = FIELD_EXTRACT(azure.platformlogs.properties, "log.annotations.authorization.k8s.io/decision"),
+    Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
+    Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+    Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
+    Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
+    Esql.source_ip = MV_LAST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs"))
+| WHERE Esql.stage == "ResponseComplete"
+    AND Esql.decision IN ("allow", "forbid")
+    AND Esql.username IS NOT NULL
+    AND NOT Esql.username RLIKE "system:node:.*|system:serviceaccount:kube-system:.*"
+    AND NOT Esql.username IN ("aksService", "hcpService", "readinessChecker", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
+| STATS Esql.event_count = COUNT(*),
+    Esql.forbid_count = SUM(CASE(Esql.decision == "forbid", 1, 0)),
+    Esql.azure_platformlogs_properties_log_annotations_decision_count_distinct = COUNT_DISTINCT(Esql.decision),
+    Esql.azure_platformlogs_properties_log_requestURI_count_distinct = COUNT_DISTINCT(Esql.requestURI),
+    Esql.azure_platformlogs_properties_log_objectRef_resource_count_distinct = COUNT_DISTINCT(Esql.resource),
+    Esql.azure_platformlogs_properties_log_requestURI_values = VALUES(Esql.requestURI),
+    Esql.azure_platformlogs_properties_log_objectRef_resource_values = VALUES(Esql.resource),
+    Esql.azure_platformlogs_properties_log_verb_values = VALUES(Esql.verb),
+    Esql.azure_platformlogs_properties_log_userAgent_values = VALUES(Esql.user_agent),
+    Esql.azure_resource_name_values = VALUES(azure.resource.name),
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp)
+  BY Esql.username, Esql.source_ip
+| WHERE Esql.azure_platformlogs_properties_log_annotations_decision_count_distinct == 2
+    AND Esql.azure_platformlogs_properties_log_requestURI_count_distinct > 5
+    AND Esql.azure_platformlogs_properties_log_objectRef_resource_count_distinct > 3
+    AND Esql.event_count < 75
+| KEEP Esql.*
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "azure.platformlogs.category",
-    "azure.platformlogs.properties.log.verb",
-    "azure.platformlogs.properties.log.user.username",
-    "azure.platformlogs.properties.log.userAgent",
-    "azure.platformlogs.properties.log.sourceIPs",
-    "azure.platformlogs.properties.log.objectRef.resource",
-    "azure.platformlogs.properties.log.objectRef.subresource",
-    "azure.platformlogs.properties.log.objectRef.namespace",
-    "azure.platformlogs.properties.log.objectRef.name",
-    "azure.platformlogs.properties.log.responseStatus.code",
-]

@@ -29,8 +29,9 @@ AKS kube-audit events are carried under the flattened `azure.platformlogs.proper
 `requestObject` for it and the command parameters live only in the URL-encoded `requestURI`. The rule decodes that URI,
 normalizes embedded newlines to spaces so multi-line scripts still reconstruct, and `GROK`s the repeated `command=`
 parameters into a single readable `Esql.executed_command` that one regular expression can evaluate. A
-`responseStatus.code` of `101` (the protocol upgrade for an established exec session) restricts matches to sessions that
-actually ran, and health, localhost, OIDC/JWKS, `kubernetes.default.svc`, and `169.254.169.254` destinations are
+`responseStatus.code` of `101` (the protocol upgrade for an established exec session) at the `ResponseComplete` stage
+restricts matches to sessions that actually ran and drops the duplicate `ResponseStarted` audit record. Health,
+localhost, OIDC/JWKS, `kubernetes.default.svc`, and `169.254.169.254` destinations are
 excluded because in-cluster API server calls and instance metadata theft are covered by the secret access and pod exec
 instance metadata rules.
 
@@ -39,7 +40,8 @@ instance metadata rules.
 - Review `Esql.executed_command` for the decoded command and destination URL, with `Esql.namespace`/`Esql.pod_name` for
   the target workload. Determine whether the URL is a known internal artifact host or an unrecognized external
   endpoint, and whether the fetch writes to disk or pipes directly into a shell.
-- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to establish whether the session came from a human
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` (the last entry in `sourceIPs`, which is the
+  originating client on AKS) to establish whether the session came from a human
   `kubectl` identity or automation, and confirm the principal is expected to hold `pods/exec` on that namespace.
 - Correlate adjacent activity from the same identity: secret reads, additional execs, RBAC changes, or workload
   mutations. Inspect the pod for artifacts the fetch dropped, such as new binaries, scripts, or cron entries.
@@ -72,15 +74,18 @@ severity = "high"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
+    "Domain: Containers",
+    "Data Source: Azure",
     "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
     "Platform: Azure",
     "Platform: Kubernetes",
-    "Service: Azure Kubernetes Service",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
+    "Noise: Low",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -90,7 +95,8 @@ FROM logs-azure.platformlogs-* METADATA _id, _index, _version
 | WHERE data_stream.dataset == "azure.platformlogs"
     AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
     AND azure.platformlogs.category == "kube-audit"
-| EVAL Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+| EVAL Esql.stage = FIELD_EXTRACT(azure.platformlogs.properties, "log.stage"),
+    Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
     Esql.subresource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.subresource"),
     Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
     Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
@@ -98,9 +104,10 @@ FROM logs-azure.platformlogs-* METADATA _id, _index, _version
     Esql.pod_name = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.name"),
     Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
     Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
-    Esql.source_ip = MV_FIRST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs")),
+    Esql.source_ip = MV_LAST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs")),
     Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code")
-| WHERE Esql.resource == "pods"
+| WHERE Esql.stage == "ResponseComplete"
+    AND Esql.resource == "pods"
     AND Esql.subresource == "exec"
     AND Esql.verb IN ("create", "get")
     AND Esql.requestURI LIKE "*command=*"

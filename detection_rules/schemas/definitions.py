@@ -323,7 +323,6 @@ EXPECTED_RULE_TAGS = [
     "Service: Azure Event Hubs",
     "Service: Azure Functions",
     "Service: Azure Key Vault",
-    "Service: Azure Kubernetes Service",
     "Service: Azure OpenAI",
     "Service: Azure Resource Manager",
     "Service: Azure Storage",

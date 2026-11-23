@@ -2,81 +2,136 @@
 creation_date = "2026/11/23"
 integration = ["azure"]
 maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
 updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects Kubernetes API discovery or access-review activity attributed to the anonymous user on AKS. Anonymous enumeration indicates overly permissive anonymous-auth configuration or probing.
+Detects unauthenticated or anonymous clients enumerating the AKS (Azure Kubernetes Service) API server from a single
+source IP and user agent, touching more than five distinct request URIs across more than three resource types with at
+least one failure (401 or 403) or several 404 responses. Breadth across many endpoints in a short window indicates
+scripted discovery, such as tooling probing which APIs an exposed cluster will answer without credentials. Health,
+version, and OIDC discovery endpoints are excluded because they are public by design.
 """
 false_positives = [
     """
-    Misconfigured readiness probes rarely use anonymous cluster-scoped reviews; treat matches as high priority for config review.
+    Internal security scanners and attack surface management tools that probe the API server without credentials will
+    match. Exclude the scanner source IP or user agent after validation. Large internet-wide scanners that send many
+    requests are capped by the document count threshold.
     """,
 ]
-from = "now-9m"
-index = ["logs-azure.platformlogs-*"]
-language = "kuery"
+from = "now-6m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "Azure AKS Anonymous Endpoint Permission Enumeration"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Azure AKS Anonymous Endpoint Permission Enumeration
 
-AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
-`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
-`azure.platformlogs.category: kube-audit`. Detects Kubernetes API discovery or access-review activity attributed to the anonymous user on AKS. Anonymous enumeration indicates overly permissive anonymous-auth configuration or probing.
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. When anonymous
+authentication is disabled, an unauthenticated request is rejected with `401` and recorded without any `user` field, at
+the `ResponseStarted` stage only. When anonymous authentication is enabled, the request is recorded as
+`system:anonymous` and is subject to RBAC. This rule covers both cases and aggregates them by the originating client.
 
 ### Possible investigation steps
 
-- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
-- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
-- If present, examine `requestObject` for privileged fields or binding subjects.
-- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+- Review `Esql.source_ip` and `Esql.user_agent` to identify the client. `Esql.source_ip` is the last entry in
+  `sourceIPs`, which is the originating client on AKS.
+- Review `Esql.azure_platformlogs_properties_log_requestURI_values` and
+  `Esql.azure_platformlogs_properties_log_objectRef_resource_values` to see which APIs were probed, and
+  `Esql.azure_platformlogs_properties_log_responseStatus_code_values` to see how the server answered.
+- Any `200` or `201` in the response codes means anonymous requests were authorized. Review RBAC bindings that grant
+  permissions to `system:anonymous` or `system:unauthenticated` and treat this as a critical misconfiguration.
+- Check whether the API server is public or restricted by authorized IP ranges, and correlate the source IP with
+  authenticated activity, Azure sign-ins, and other cloud logs.
 
 ### False positive analysis
 
-- Misconfigured readiness probes rarely use anonymous cluster-scoped reviews; treat matches as high priority for config review.
+- Internal attack surface scanners can match; exclude their stable source IP or user agent after validation.
+- Health and version probes (`/healthz`, `/livez`, `/readyz`, `/version`) and OIDC discovery endpoints are excluded.
 
 ### Response and remediation
 
-- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
-- Rotate any secrets or tokens that may have been accessed.
-- Harden RBAC to least privilege and review admission controls.
+- Restrict API server access with authorized IP ranges or a private cluster, and confirm anonymous authentication is
+  disabled or limited to health endpoints.
+- Remove any RBAC bindings that grant permissions to `system:anonymous` or `system:unauthenticated`.
+- Block the source if external and review follow-on authenticated activity from the same origin.
 """
 references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests",
+    "https://learn.microsoft.com/en-us/azure/aks/api-server-authorized-ip-ranges",
     "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
-    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
 ]
 risk_score = 47
 rule_id = "5d10c492-6940-4555-a0b7-66417c26f7ff"
-setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+into the `azure.platformlogs` data stream is required for this rule. Most of the probed requests are reads, which the
+`kube-audit-admin` category excludes.
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
+    "Domain: Containers",
     "Data Source: Azure",
     "Data Source: Azure Platform Logs",
     "Data Source: Kubernetes",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: ES|QL",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Tactic: Reconnaissance",
     "Resources: Investigation Guide",
+    "Noise: Low",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset:azure.platformlogs and
-  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-  azure.platformlogs.category:"kube-audit" and
-  azure.platformlogs.properties.log.verb:("get" or "list" or "create" or "watch") and
-  (
-    azure.platformlogs.properties.log.user.username:("system:anonymous" or "system:unsecured") or
-    azure.platformlogs.properties.log.impersonatedUser.username:("system:anonymous" or "system:unsecured")
-  )
+FROM logs-azure.platformlogs-* METADATA _id, _index, _version
+| WHERE data_stream.dataset == "azure.platformlogs"
+    AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
+    AND azure.platformlogs.category == "kube-audit"
+| EVAL Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
+    Esql.impersonated_username = FIELD_EXTRACT(azure.platformlogs.properties, "log.impersonatedUser.username"),
+    Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
+    Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+    Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
+    Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code"),
+    Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
+    Esql.source_ip = MV_LAST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs"))
+| WHERE Esql.response_code IS NOT NULL
+    AND (
+      Esql.username IS NULL
+      OR Esql.username IN ("system:anonymous", "system:unauthenticated")
+      OR Esql.impersonated_username IN ("system:anonymous", "system:unauthenticated")
+    )
+    AND NOT Esql.requestURI RLIKE """/(healthz|livez|readyz|version)([/?].*)?|/\.well-known/openid-configuration.*|/openid/v1/jwks.*"""
+| STATS Esql.event_count = COUNT(*),
+    Esql.failure_count = SUM(CASE(Esql.response_code IN ("401", "403"), 1, 0)),
+    Esql.not_found_count = SUM(CASE(Esql.response_code == "404", 1, 0)),
+    Esql.azure_platformlogs_properties_log_requestURI_count_distinct = COUNT_DISTINCT(Esql.requestURI),
+    Esql.azure_platformlogs_properties_log_objectRef_resource_count_distinct = COUNT_DISTINCT(Esql.resource),
+    Esql.azure_platformlogs_properties_log_requestURI_values = VALUES(Esql.requestURI),
+    Esql.azure_platformlogs_properties_log_objectRef_resource_values = VALUES(Esql.resource),
+    Esql.azure_platformlogs_properties_log_verb_values = VALUES(Esql.verb),
+    Esql.azure_platformlogs_properties_log_responseStatus_code_values = VALUES(Esql.response_code),
+    Esql.azure_resource_name_values = VALUES(azure.resource.name),
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp)
+  BY Esql.source_ip, Esql.user_agent
+| WHERE Esql.azure_platformlogs_properties_log_requestURI_count_distinct > 5
+    AND Esql.azure_platformlogs_properties_log_objectRef_resource_count_distinct > 3
+    AND Esql.event_count < 50
+    AND (Esql.failure_count >= 1 OR Esql.not_found_count >= 3)
+| KEEP Esql.*
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -85,35 +140,26 @@ id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "azure.platformlogs.category",
-    "azure.platformlogs.properties.log.verb",
-    "azure.platformlogs.properties.log.user.username",
-    "azure.platformlogs.properties.log.userAgent",
-    "azure.platformlogs.properties.log.sourceIPs",
-    "azure.platformlogs.properties.log.objectRef.resource",
-    "azure.platformlogs.properties.log.objectRef.subresource",
-    "azure.platformlogs.properties.log.objectRef.namespace",
-    "azure.platformlogs.properties.log.objectRef.name",
-    "azure.platformlogs.properties.log.responseStatus.code",
-]
