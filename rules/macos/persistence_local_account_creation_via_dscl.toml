@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a local user record with the dscl command line utility on macOS, including the attributes
+that complete an account or hide it from the login window. Adversaries create local accounts to maintain access to a
+host and may assign a low unique ID or the IsHidden attribute so that the account does not appear in the user interface.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Local Account Creation via Dscl"
+note = """## Triage and analysis
+
+### Investigating Local Account Creation via Dscl
+
+`dscl` is the macOS Directory Service command line utility. `dscl . -create /Users/<name>` creates a local user record, and further `-create` calls set the attributes that make the account usable, such as `UniqueID`, `PrimaryGroupID` and `NFSHomeDirectory`. Setting `IsHidden` to 1 or assigning a `UniqueID` below 500 hides the account from the login window and from System Settings. The rule matches the creation of the user record and the creation of these attributes. Alerts are suppressed per host and user for five minutes because one account creation issues several commands.
+
+### Possible investigation steps
+
+- Review `process.command_line` to identify the account name and the attributes that were set, in particular `IsHidden` and the value of `UniqueID`.
+- Examine `process.parent.executable`, `process.parent.command_line` and `process.Ext.effective_parent.executable` to determine whether the command was run from an interactive terminal, a script, a remote session or an unsigned binary.
+- Search for related commands from the same parent in the same time frame, such as `dscl . -passwd` to set a password, `dscl . -append /Groups/admin GroupMembership` or `dseditgroup` to grant administrator rights, and `createhomedir`.
+- Confirm with the system owner whether the new account is expected and who requested it.
+- Review authentication and remote login activity for the new account after it was created.
+
+### False positive analysis
+
+- Device management agents and provisioning scripts create local service or administrator accounts with `dscl`. Common management agents are excluded by the query. Add an exception for other agents in `process.Ext.effective_parent.executable` after confirming the product.
+- Administrators may create local accounts manually. Confirm the change with the administrator and the parent process.
+
+### Response and remediation
+
+- If the account is not authorized, disable or delete it with `sysadminctl -deleteUser` or `dscl . -delete /Users/<name>` and remove it from any group it was added to.
+- Review the process tree that created the account and investigate how the creating process gained root privileges.
+- Check the host for logins, scheduled jobs, launch items or SSH keys associated with the account.
+- Reset credentials for accounts that were used to create it and review other hosts for the same account name.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1136/001/",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1136.001/T1136.001.md",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1564.002/T1564.002.md",
+]
+risk_score = 47
+rule_id = "0a13f199-d0c4-4892-8b8f-b7b932915a30"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ process.name == "dscl" and process.args in ("-create", "create") and process.args like "/Users/*" and
+ (
+  process.args_count == 4 or
+  process.args in ("UniqueID", "PrimaryGroupID", "NFSHomeDirectory", "IsHidden")
+ ) and
+ not process.args regex ".*/Users/_nixbld[0-9]{1,3}" and
+ not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                                                   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+                                                   "/usr/local/jamf/bin/jamf",
+                                                   "/opt/jc/bin/jumpcloud-agent",
+                                                   "/Library/Addigy/go-agent",
+                                                   "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer",
+                                                   "/usr/sbin/installer",
+                                                   "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+                                                   "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+                                                   "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                   "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.002"
+name = "Hidden Users"
+reference = "https://attack.mitre.org/techniques/T1564/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "user.id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 5
+
