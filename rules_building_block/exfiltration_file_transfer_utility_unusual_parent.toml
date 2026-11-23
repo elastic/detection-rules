@@ -1,34 +1,37 @@
 [metadata]
 bypass_bbr_timing = true
-creation_date = "2026/11/17"
+creation_date = "2026/11/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/17"
+updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Detects file transfer utilities launched from an unusual parent on macOS. Attackers use scp, sftp, ftp, and rsync to
-pull tools from a remote host or push collected data out, including `rsync -r user@host:remote local` and
-`rsync -r local user@host:remote`. The rule matches when one of these utilities is started by a shell, a script-like
-parent, or an untrusted or unsigned parent running from a user-writable path. Each matching process start produces
-one signal with full process context for correlation.
+Detects file transfer utilities on macOS that are started with a remote target or from an unusual parent. Attackers
+use scp, sftp, ftp, and rsync to pull tools from a remote host or push collected data out, including
+`rsync -r user@host:remote local` and `rsync -r local user@host:remote`. The rule matches when one of these utilities
+is given a `user@host` operand or a transfer URL, or when it is started by a script-like parent or by an untrusted or
+unsigned parent running from a user-writable path. Each matching process start produces one signal with full process
+context for correlation.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "File Transfer Utility Launched from Unusual Parent on macOS"
-note = """ ## Triage and analysis
+name = "File Transfer Utility Launched with Remote Target or Unusual Parent on macOS"
+note = """## Triage and analysis
 
-### Investigating File Transfer Utility Launched from Unusual Parent on macOS
+### Investigating File Transfer Utility Launched with Remote Target or Unusual Parent on macOS
 
 File transfer utilities such as `scp`, `sftp`, and `rsync` are commonly used for administration, but the same
 commands move tools and stolen files. A remote pull (`rsync -r user@host:remote_path local_path`) stages a payload
 locally. A remote push (`rsync -r local_path user@host:remote_path`) copies local files to another host. This rule
-does not match the remote `user@host:` syntax directly. It matches a launch of those utilities from a shell, a
-script, or an untrusted parent running out of a temporary or user-writable directory.
+matches a `user@host:` operand on any of these utilities, a `user@host` operand on `sftp` or `ftp`, and a transfer
+URL such as `rsync://` or `sftp://`, whatever the parent process. It also matches a launch of those utilities from a
+script or an untrusted parent running out of a temporary or user-writable directory, whatever the arguments. A remote
+operand without a user name, such as `host:path`, is not matched.
 
 ### Possible investigation steps
 
@@ -40,9 +43,9 @@ script, or an untrusted parent running out of a temporary or user-writable direc
 
 ### False positive analysis
 
-- An administrator or developer running `rsync` or `scp` from Terminal or iTerm will match. Filter on `process.Ext.effective_parent.executable` in correlation rules, or exclude the known script path after confirming the command.
+- An administrator or developer copying files to or from a remote host with `scp`, `sftp`, or `rsync` will match. Filter on `process.Ext.effective_parent.executable` in correlation rules, or exclude the known script path after confirming the command.
 - Backup and sync tools that shell out to `rsync` from an unsigned binary in a user-writable install path will match each time they run. Document the parent executable and add an exception for that path.
-- Ansible, Homebrew, and CI jobs that invoke `scp` or `rsync` from `bash` or `zsh` will match. Exclude the automation parent executable if the activity is expected.
+- Ansible, deployment scripts, and CI jobs that invoke `scp` or `rsync` with a `user@host` target will match. Exclude the automation parent executable if the activity is expected.
 
 ### Related rules
 
@@ -95,10 +98,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Exfiltration",
     "Tactic: Execution",
+    "Tactic: Lateral Movement",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
     "Rule Type: BBR",
     "Rule Type: Event Correlation (EQL)",
     "Platform: macOS",
@@ -109,7 +111,10 @@ query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
   process.name in ("scp", "ftp", "sftp", "sftp-server", "rsync") and
   (
-    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or
+    /* remote operand: user@host:path on any utility, user@host on sftp or ftp, or a transfer URL */
+    process.args like ("?*@?*:*", "rsync://*", "scp://*", "sftp://*", "ftp://*") or
+    (process.name in ("sftp", "ftp") and process.args like "?*@?*") or
+    /* script-like parent, or untrusted parent in a user-writable path */
     (
       (
         process.parent.name like (
@@ -118,7 +123,7 @@ process where host.os.type == "macos" and event.type == "start" and event.action
         process.parent.executable like (
           "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/var/folders/*",
           "/private/var/folders/*", "/Users/Shared/*", "/Users/*/Downloads/*", "/Users/*/Library/*",
-          "/Users/*/.*", "/var/root/*", "/private/var/root/*", "/Library/WebServer/*", "./*"
+          "/Users/*/.*", "/var/root/*", "/private/var/root/*", "/Library/WebServer/*"
         )
       ) and
       not (process.parent.code_signature.trusted == true and process.parent.code_signature.team_id != null)

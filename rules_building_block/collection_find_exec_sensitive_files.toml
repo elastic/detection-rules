@@ -1,18 +1,18 @@
 [metadata]
 bypass_bbr_timing = true
-creation_date = "2026/11/17"
+creation_date = "2026/11/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/18"
+updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
 Identifies the find utility started with -exec, -execdir, -ok, or -okdir and an argument that names a sensitive file.
-Adversaries use this to locate browser history and credential stores, keychains, SSH keys, cloud credentials, or
-cryptocurrency wallets and then run a command against each match, such as echo, cat, or cp. Each matching process
-start produces one signal with full process context for correlation.
+Adversaries use this to locate browser history and credential stores, keychains, SSH, TLS, and GnuPG keys, cloud,
+Terraform, and database credentials, or cryptocurrency wallets and then run a command against each match, such as
+echo, cat, or cp. Each matching process start produces one signal with full process context for correlation.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
@@ -25,7 +25,7 @@ note = """## Triage and analysis
 
 `find -exec` and `find -execdir` run a command on every path that matches. `-ok` and `-okdir` are the interactive forms of the same option. A search rooted at `/` or a home directory for browser profile files, keychains, SSH keys, cloud credentials, or a cryptocurrency wallet is a collection step used by information stealers. The command that follows `-exec` is often `echo` (to record the path), `cat` (to read the file), or `cp` (to copy it).
 
-Browser files covered here are Firefox `places.sqlite`, `cookies.sqlite`, `formhistory.sqlite`, `signons.sqlite`, `logins.json`, `key3.db` or `key4.db`, and `cert8.db` or `cert9.db`; Chromium `Login Data`, `Local State`, `Bookmarks`, `History`, `Cookies`, and `Web Data` for Chrome, Edge, Brave, Chromium, Opera, Vivaldi, and Arc; and Safari `Bookmarks.plist`, `History.db`, `CloudTabs.db`, and `Cookies.binarycookies`. Credential files covered here are login and System keychains, SSH private keys and `authorized_keys`, AWS, gcloud, and Azure credential files, kubeconfig, Docker config, `.netrc`, git credentials, `.npmrc`, a Vault token, and GitHub CLI hosts. Wallet paths covered here are Electrum, Exodus, Coinomi, Atomic, Trezor, Ledger Live, Wasabi, Monero, Bitcoin, Litecoin, Dash, Electron Cash, Guarda, and Dogecoin.
+Browser files covered here are Firefox `places.sqlite`, `cookies.sqlite`, `formhistory.sqlite`, `signons.sqlite`, `logins.json`, `key3.db` or `key4.db`, and `cert8.db` or `cert9.db`; Chromium `Login Data`, `Local State`, `Bookmarks`, `History`, `Cookies`, and `Web Data` for Chrome, Edge, Brave, Chromium, Opera, Vivaldi, and Arc; and Safari `Bookmarks.plist`, `History.db`, `CloudTabs.db`, and `Cookies.binarycookies`. Credential files covered here are login and System keychains, SSH private keys and `authorized_keys`, the GnuPG directory, TLS key and certificate files (`.pem`, `.key`, `.pfx`, `.p12`), AWS, gcloud, and Azure credential files, kubeconfig, Docker config, Terraform variable and state files, `.netrc`, git credentials, `.npmrc`, a Vault token, GitHub CLI hosts, and database client files (`.pgpass`, `.my.cnf`, `.mongorc.js`). Wallet paths covered here are Electrum, Exodus, Coinomi, Atomic, Trezor, Ledger Live, Wasabi, Monero, Bitcoin, Litecoin, Dash, Electron Cash, Guarda, and Dogecoin.
 
 ### Possible investigation steps
 
@@ -38,6 +38,8 @@ Browser files covered here are Firefox `places.sqlite`, `cookies.sqlite`, `formh
 
 - An administrator inventorying a browser profile, keychain, SSH directory, or cloud configuration may run `find` with `-exec`. Confirm the parent process and the user before excluding the activity.
 - Developers sometimes search a repository for `.npmrc`, `.netrc`, or `.aws` files. Confirm the working directory is a source tree before excluding that command.
+- Developers fix GnuPG directory permissions with `find ~/.gnupg -type f -exec chmod 600 {} +`. Confirm the command after `-exec` is `chmod` before excluding it.
+- A search for `.pem` or `.key` files is not always a search for private keys. Tooling that installs a certificate bundle looks for `cacert.pem`, and `.key` is also the Keynote document extension. Check which files the command matched before excluding it.
 - Security testing that emulates browser discovery, including Atomic Red Team T1217, runs `find -path` with `-exec echo`. Confirm the test window with the team that executed it.
 
 ### Response and remediation
@@ -89,8 +91,6 @@ tags = [
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
     "Rule Type: BBR",
     "Rule Type: Event Correlation (EQL)",
     "Platform: macOS",
@@ -116,12 +116,16 @@ process where host.os.type == "macos" and event.type == "start" and event.action
       "*Library/Keychains*", "*login.keychain*", "*System.keychain*",
       "*id_rsa*", "*id_ed25519*", "*id_ecdsa*", "*id_dsa*", "*id_xmss*",
       "*/.ssh/id_*", "*/.ssh/authorized_keys*",
+      /* GnuPG directory, and TLS key and certificate files by extension at the end of an argument */
+      "*.gnupg*", "*.pem *", "*.key *", "*.pfx *", "*.p12 *",
       /* Cloud, kube, and token files */
       "*/.aws/credentials*", "*/.aws/config*",
       "*gcloud/credentials.db*", "*gcloud/access_tokens.db*", "*application_default_credentials.json*",
       "*/.azure/accessTokens.json*", "*/.azure/azureProfile.json*", "*/.azure/msal_token_cache.json*",
       "*/.kube/config*", "*/.docker/config.json*",
       "*git-credentials*", "*.netrc*", "*.npmrc*", "*.vault-token*", "*/.config/gh/hosts.yml*",
+      /* Terraform variable and state files, and database client credential files */
+      "*.tfvars*", "*.tfstate*", "*.pgpass*", "*.my.cnf*", "*.mongorc.js*",
       /* Cryptocurrency wallets */
       "*/.electrum/*",
       "*Application Support/Electrum*", "*Application Support/Exodus*", "*Application Support/Coinomi*",

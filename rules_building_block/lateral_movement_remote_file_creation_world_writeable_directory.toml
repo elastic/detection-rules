@@ -1,9 +1,9 @@
 [metadata]
 bypass_bbr_timing = true
-creation_date = "2026/11/17"
+creation_date = "2026/11/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/17"
+updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ index = ["logs-endpoint.events.file*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Remote File Creation in World Writeable Directory on macOS"
-note = """ ## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Remote File Creation in World Writeable Directory on macOS
 
@@ -28,7 +28,9 @@ each user's `Public/Drop Box`. A remote pull such as `rsync -r user@host:remote_
 locally as `rsync`, `scp`, `sftp`, or `ftp`. An inbound copy over SSH writes it as `sftp-server` (default `scp` and
 `sftp`), `scp -t` (legacy `scp -O`), or `rsync --server`, each started under `sshd-session`. `rsync` writes a hidden
 temporary file and renames it into place, so both modifications and renames are matched. This rule alerts the first
-time a given transfer executable writes into one of those directories on a host. Writes by root are included.
+time a given transfer executable writes into one of those directories on a host. Writes by root are included. Bash
+here-document temporary files (`sh-thd-*`) are excluded, because they are attributed to the transfer utility when its
+input comes from a here-document and they are not transferred files.
 
 ### Possible investigation steps
 
@@ -47,7 +49,7 @@ time a given transfer executable writes into one of those directories on a host.
 ### Related rules
 
 - Remote File Creation in World Writeable Directory (Linux) - 3e528511-7316-4a6e-83da-61b5f1c07fd4
-- File Transfer Utility Launched from Unusual Parent on macOS - 7c5fcbcf-764d-4f9d-aaed-d5cdce217a61
+- File Transfer Utility Launched with Remote Target or Unusual Parent on macOS - 7c5fcbcf-764d-4f9d-aaed-d5cdce217a61
 
 ### Response and remediation
 
@@ -97,8 +99,6 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
     "Rule Type: BBR",
     "Rule Type: New Terms",
     "Platform: macOS",
