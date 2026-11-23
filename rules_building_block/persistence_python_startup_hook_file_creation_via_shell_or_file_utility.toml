@@ -1,0 +1,75 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies a Python path configuration file (.pth) or a usercustomize.py or sitecustomize.py module written to a
+site-packages directory by a shell, a download utility or a file copy utility on macOS. Python processes these files at
+interpreter startup, so an adversary can use them to run code every time Python starts. Developers and build scripts
+also write these files from a shell, so each match produces a building block signal for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Python Startup Hook File Created by Shell or File Utility"
+references = [
+    "https://attack.mitre.org/techniques/T1546/018/",
+    "https://docs.python.org/3/library/site.html",
+]
+risk_score = 21
+rule_id = "85845d02-16c2-4702-90a4-afc45672cc8a"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "macos" and event.action in ("modification", "rename") and
+ file.path like~ ("*/site-packages/*", "*/dist-packages/*") and
+ /* Python only processes startup hook files placed directly in a site directory, not in a package subdirectory */
+ not file.path like~ ("*/site-packages/*/*", "*/dist-packages/*/*") and
+ (
+  (file.extension == "pth" and
+   process.name in ("bash", "sh", "zsh", "dash", "ksh", "tcsh", "csh", "fish", "tee", "dd", "curl", "nscurl", "wget",
+                    "osascript")) or
+  (file.name in ("usercustomize.py", "sitecustomize.py") and
+   process.name in ("bash", "sh", "zsh", "dash", "ksh", "tcsh", "csh", "fish", "tee", "dd", "curl", "nscurl", "wget",
+                    "osascript", "cp", "mv", "ditto"))
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.018"
+name = "Python Startup Hooks"
+reference = "https://attack.mitre.org/techniques/T1546/018/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
