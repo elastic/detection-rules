@@ -26,7 +26,7 @@ author = ["Elastic"]
 description = """
 Detects one external address using curl plus at least two other HTTP client families in a single minute, with 20 or
 more requests and at least two distinct event outcomes. The other families are Python, norma (ARTEX web fetch), a
-browser, the Go HTTP client, and the AWS
+browser, and the AWS
 CLI, AWS SDK, or Boto3. A browser,
 Python, and the AWS CLI without curl is not a match. The same mix has been reported for agentic offensive
 frameworks, and it also comes from other automation. The look is limited to data streams that already carry
@@ -48,7 +48,7 @@ note = """## Triage and analysis
 ### Investigating Curl and Multiple HTTP Client Families from One External IP
 
 This is the tool-family burst from Elastic Security Labs' write-up on ARTEX, CyberStrikeAI, Cairn, PentAGI, and
-HexStrike. One external address used curl and at least two of Python, norma, a browser, the Go HTTP client, and the
+HexStrike. One external address used curl and at least two of Python, norma, a browser, and the
 AWS CLI, AWS SDK, or Boto3, sent at least 20 requests in one minute, and produced at least two distinct
 `event.outcome` values. A browser, Python, and the AWS CLI without
 curl does not match. The loop runs
@@ -156,7 +156,7 @@ from
     logs-okta.system-*
 | where user_agent.original is not null and source.ip is not null
 | eval Esql.ua_lower = to_lower(user_agent.original)
-// curl*, python*/Python*, norma*, Mozilla/5.0*, Boto3*, aws-cli*, aws-sdk*, Go-http-client/*
+// curl*, python*/Python*, norma*, Mozilla/5.0*, Boto3*, aws-cli*, aws-sdk*
 | where
     Esql.ua_lower like "curl*" or
     Esql.ua_lower like "python*" or
@@ -164,8 +164,7 @@ from
     Esql.ua_lower like "mozilla/5.0*" or
     Esql.ua_lower like "boto3*" or
     Esql.ua_lower like "aws-cli*" or
-    Esql.ua_lower like "aws-sdk*" or
-    Esql.ua_lower like "go-http-client*"
+    Esql.ua_lower like "aws-sdk*"
 // TO_IP handles indices where source.ip is mapped as keyword instead of ip
 | eval Esql.source_ip = to_ip(source.ip)
 | where Esql.source_ip is not null and not cidr_match(
@@ -181,7 +180,6 @@ from
     Esql.ua_lower like "curl*", "curl",
     Esql.ua_lower like "norma*", "norma",
     Esql.ua_lower like "mozilla/5.0*", "browser",
-    Esql.ua_lower like "go-http-client*", "go",
     "other"
 )
 | eval Esql.is_curl = case(Esql.ua_family == "curl", 1, 0)
