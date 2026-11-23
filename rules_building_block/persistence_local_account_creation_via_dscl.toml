@@ -6,13 +6,15 @@ updated_date = "2026/11/18"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the creation of a local user record with the dscl command line utility on macOS, including the attributes
-that complete an account or hide it from the login window. Adversaries create local accounts to maintain access to a
-host and may assign a low unique ID or the IsHidden attribute so that the account does not appear in the user interface.
+that complete an account. Adversaries create local accounts to maintain access to a host and may assign a low unique ID
+so that the account does not appear in the user interface.
 """
-from = "now-9m"
+from = "now-119m"
 index = ["logs-endpoint.events.process-*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Local Account Creation via Dscl"
@@ -20,7 +22,7 @@ note = """## Triage and analysis
 
 ### Investigating Local Account Creation via Dscl
 
-`dscl` is the macOS Directory Service command line utility. `dscl . -create /Users/<name>` creates a local user record, and further `-create` calls set the attributes that make the account usable, such as `UniqueID`, `PrimaryGroupID` and `NFSHomeDirectory`. Setting `IsHidden` to 1 or assigning a `UniqueID` below 500 hides the account from the login window and from System Settings. The rule matches the creation of the user record and the creation of these attributes. Alerts are suppressed per host and user for five minutes because one account creation issues several commands.
+`dscl` is the macOS Directory Service command line utility. `dscl . -create /Users/<name>` creates a local user record, and further `-create` calls set the attributes that make the account usable, such as `UniqueID`, `PrimaryGroupID` and `NFSHomeDirectory`. Assigning a `UniqueID` below 500 hides the account from the login window and from System Settings. The rule matches the creation of the user record and the creation of these attributes. Setting the `IsHidden` attribute is not matched by this rule. It is covered by the rule "Potential Hidden Local User Account Creation". Alerts are suppressed per host and user for five minutes because one account creation issues several commands.
 
 ### Possible investigation steps
 
@@ -47,7 +49,7 @@ references = [
     "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1136.001/T1136.001.md",
     "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1564.002/T1564.002.md",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "0a13f199-d0c4-4892-8b8f-b7b932915a30"
 setup = """## Setup
 
@@ -74,7 +76,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: macOS",
@@ -83,6 +85,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Rule Type: BBR",
     "Rule Type: Event Correlation (EQL)",
     "Platform: macOS",
 ]
@@ -94,7 +97,7 @@ process where host.os.type == "macos" and event.type == "start" and event.action
  process.name == "dscl" and process.args in ("-create", "create") and process.args like "/Users/*" and
  (
   process.args_count == 4 or
-  process.args in ("UniqueID", "PrimaryGroupID", "NFSHomeDirectory", "IsHidden")
+  process.args in ("UniqueID", "PrimaryGroupID", "NFSHomeDirectory")
  ) and
  not process.args regex ".*/Users/_nixbld[0-9]{1,3}" and
  not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
