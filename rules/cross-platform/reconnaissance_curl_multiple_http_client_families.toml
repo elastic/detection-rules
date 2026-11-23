@@ -185,7 +185,7 @@ from
     Esql.ua_distinct_count = count_distinct(user_agent.original),
     Esql.ua_values = values(user_agent.original),
     Esql.event_action_values = values(event.action)
-  by source.ip, Esql.time_window = date_trunc(1 minute, @timestamp)
+  by source.ip = Esql.source_ip, Esql.time_window = date_trunc(1 minute, @timestamp)
 | where Esql.curl_request_count > 0 and Esql.ua_family_distinct_count >= 3 and Esql.request_count >= 20
 | sort Esql.request_count desc
 | keep source.ip, Esql.*
