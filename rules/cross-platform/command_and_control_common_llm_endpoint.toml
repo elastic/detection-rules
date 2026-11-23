@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/25"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -234,7 +234,8 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
     "openclaw.ai"
   ) and
 
-  not process.executable : (
+  not (
+    process.executable : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Windows\\System32\\svchost.exe",
@@ -244,10 +245,15 @@ network where host.os.type in ("macos", "windows") and dns.question.name != null
           "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe"
-        ) and
-    not (?process.code_signature.trusted == true and
-         ?process.code_signature.subject_name : ("Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.", "Opera Norway AS",
-                                                  "OpenJS Foundation", "Developer ID Application: Node.js Foundation (HX7739G8FX)"))
+    ) or
+    (
+      ?process.code_signature.trusted == true and
+      ?process.code_signature.subject_name : (
+        "Anthropic, PBC", "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Island Technology Inc.",
+        "Opera Norway AS", "OpenJS Foundation", "Developer ID Application: Node.js Foundation (HX7739G8FX)"
+    )
+  )
+)
 '''
 
 

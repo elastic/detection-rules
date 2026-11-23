@@ -2,7 +2,7 @@
 creation_date = "2026/02/25"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
@@ -81,6 +81,12 @@ web where data_stream.dataset == "o365.audit" and
     event.provider == "Exchange" and
     event.action in ("SoftDelete", "HardDelete", "MoveToDeletedItems") and
     event.outcome == "success" and
+
+    /* Exclude server-side and automated Exchange processing */
+    o365.audit.ClientInfoString != null and
+    not o365.audit.ClientInfoString like~ "Client=OwsBackground*" and
+    not (o365.audit.ClientInfoString == "Client=MSExchangeRPC" and ?o365.audit.AppId == null) and
+
     (
         o365.audit.AffectedItems.Subject like~ (
             /* new + (mfa|multi-|factor|method|device|security) */

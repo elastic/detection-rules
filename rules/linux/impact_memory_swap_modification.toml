@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -101,13 +101,17 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-?process.parent.executable != null and
-process.name in ("swapon", "swapoff") or (
-  process.command_line like ("*vm.swappiness*", "*/proc/sys/vm/swappiness*") and (
-    (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
+process.parent.name != null and
+(
+  process.name in ("swapon", "swapoff") or
+  (
+    process.command_line like ("*vm.swappiness*", "*/proc/sys/vm/swappiness*") and
     (
-      process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
-      process.command_line like "*echo *"
+      (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
+      (
+        process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+        process.command_line like "*echo *"
+      )
     )
   )
 ) and

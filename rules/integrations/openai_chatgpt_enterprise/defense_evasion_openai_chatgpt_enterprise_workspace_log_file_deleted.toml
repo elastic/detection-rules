@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/10/08"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events where a workspace compliance log file is deleted (`delete_workspace_log_file`).
+Adversaries with privileged access may delete exported audit or conversation log archives to remove evidence from
+compliance workflows and hinder investigation.
+"""
+false_positives = ["Administrators deleting expired workspace log archives under an approved retention policy."]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Workspace Log File Deleted"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Workspace Log File Deleted
+
+A workspace compliance log archive was deleted. That can remove investigator access to authentication, conversation, or
+Codex exports and may be used to cover tracks after misuse.
+
+Escalate when the actor is unexpected, deletions follow downloads or privileged changes, or there is no retention-policy
+ticket. Close as a false positive for documented retention cleanup by approved admins.
+
+#### Possible investigation steps
+
+- Identify the actor (`user.id`, `user.email`) and source IP.
+- Note `openai_chatgpt_enterprise.audit_log.action_data.log_file_id` and related event type fields.
+- Correlate with nearby `list_workspace_log_files` or `download_workspace_log_file` activity from the same actor.
+- Confirm whether the deletion matches an approved retention or purge job.
+- Review other privileged audit activity by the same actor, such as role changes, invites, or feature toggles.
+
+### False positive analysis
+
+- Retention policies may delete aged workspace log archives on a schedule using approved admin accounts.
+
+### Response and remediation
+
+- Preserve remaining exports, review the actor's recent privileged activity, and tighten who can delete workspace logs.
+- If the deletion appears unauthorized, inventory other exports or deletions by the same actor and revoke sessions or
+  admin access as appropriate.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "f27c9302-a727-4e8e-b330-32f7e28da013"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+    "Mitre Atlas: AML.T0092",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "delete_workspace_log_file" and
+    openai_chatgpt_enterprise.audit_log.actor.type == "ACCOUNT_USER"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.event_type,
+    openai_chatgpt_enterprise.audit_log.action_data.log_file_id,
+    openai_chatgpt_enterprise.audit_log.action_privilege,
+    openai_chatgpt_enterprise.audit_log.actor.type, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0092"
+name = "Manipulate User LLM Chat History"
+reference = "https://atlas.mitre.org/techniques/AML.T0092/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.audit_log.action_data.event_type",
+    "openai_chatgpt_enterprise.audit_log.action_data.log_file_id",
+    "openai_chatgpt_enterprise.audit_log.action_privilege",
+    "openai_chatgpt_enterprise.audit_log.actor.type",
+    "source.ip",
+]
+

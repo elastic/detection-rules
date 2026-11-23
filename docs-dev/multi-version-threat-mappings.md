@@ -1,4 +1,4 @@
-# Multi-version threat mappings (MITRE ATT&CK v18 / v19 / …)
+# Multi-version threat mappings (MITRE ATT&CK)
 
 A rule's MITRE ATT&CK mapping lives in its `threat` field, which is shipped verbatim to Kibana. To
 support more than one ATT&CK version (or, in future, other frameworks) at once, a rule can also carry
@@ -6,17 +6,47 @@ additional, version-tagged mappings in a `threat_mappings` field. These are **re
 build selects exactly one mapping to emit as the API `threat` and strips `threat_mappings` from the
 shipped artifact.
 
-This makes it possible to author and review a v19 mapping today, while continuing to ship v18, and to
-flip the shipped version later with a single config/env change.
+This makes it possible to author and review a mapping for a newer ATT&CK version while continuing to
+ship the baseline, and to flip the shipped version later with a single config/env change.
+
+## Current versions
+
+Two ATT&CK versions are supported at a time. The rest of this document refers to them as the
+**baseline** and the **promoted** version, and uses `<baseline>` / `<promoted>` in examples.
+
+| Role | Version | Ships on | Set by |
+| --- | --- | --- | --- |
+| Baseline | v18 | Stack ≤ 9.4 | `DEFAULT_THREAT_MAPPING_VERSION` in `detection_rules/config.py` |
+| Promoted | v20 | Stack ≥ 9.5 | `PROMOTED_THREAT_MAPPING_VERSION` in `detection_rules/config.py` |
+
+The 9.5 gate is `PROMOTED_THREAT_MAPPING_MIN_STACK` in `detection_rules/attack.py`. Everything else
+(the emit transform id, CLI help text, tests) is derived from these constants.
+
+### Upgrading the promoted ATT&CK version
+
+1. Download the new STIX data with `python -m detection_rules dev attack refresh-data`, then delete
+   the previous promoted `attack-v*.json.gz` from `detection_rules/etc/` (keep the baseline file).
+2. Replace the map in `detection_rules/etc/attack-version-maps/` with a baseline -> new version file.
+   Start from the existing map, set `target_version`, and add an explicit entry for every baseline id
+   the new version revokes (follow the STIX `revoked-by` links).
+3. Set `PROMOTED_THREAT_MAPPING_VERSION` to the new major version.
+4. Update the table above and bump the `pyproject.toml` version.
+5. Run `tests/test_threat_mappings.py`. `TestShippedVersionMap` fails if the data file or map for the
+   new version is missing, if a mapped destination is not live in the new version, or if a revoked
+   baseline id has no entry.
+
+The emit transform id follows the constant (`mitre_attack_v<promoted>`), so `transforms` in new
+`version.lock.json` rows names the new version. Only rules whose emitted payload actually changes
+get a new `stack_emit` version at the next lock.
 
 ## Rule schema
 
-`threat` continues to hold the **baseline** mapping (MITRE ATT&CK v18). Additional versions are added
-as `threat_mappings` entries, each keeping the same structure as `threat` plus a `framework` and a
+`threat` continues to hold the **baseline** mapping. Additional versions are added as
+`threat_mappings` entries, each keeping the same structure as `threat` plus a `framework` and a
 `version`:
 
 ```toml
-[[rule.threat]]                       # baseline (v18) — shipped by default, consumed by Kibana
+[[rule.threat]]                       # baseline — shipped by default, consumed by Kibana
 framework = "MITRE ATT&CK"
   [[rule.threat.technique]]
   id = "T1078"
@@ -29,7 +59,7 @@ framework = "MITRE ATT&CK"
 
 [[rule.threat_mappings]]              # additional, version-tagged mapping (repo-side only)
 framework = "MITRE ATT&CK"
-version = "19"
+version = "<promoted>"
   [[rule.threat_mappings.threat]]
   framework = "MITRE ATT&CK"
   # ...same tactic/technique/subtechnique structure as `threat`...
@@ -43,9 +73,9 @@ matches its wrapper.
 At build time (`TOMLRuleContents.to_api_format`), the configured framework/version is emitted as
 `threat`:
 
-- **Stack ≤ 9.4** — v18 (the baseline `threat` field) is emitted unchanged.
-- **Stack ≥ 9.5** — v19 is auto-promoted: an explicit `threat_mappings` block wins when
-  present; otherwise the baseline is auto-converted via the version map + STIX data.
+- **Stack ≤ 9.4** — the baseline `threat` field is emitted unchanged.
+- **Stack ≥ 9.5** — the promoted version is emitted: an explicit `threat_mappings` block for it wins
+  when present; otherwise the baseline is auto-converted via the version map + STIX data.
   Tactic tags are rewritten to match the emitted mapping.
 - Setting `DR_THREAT_MAPPING_VERSION` (or `threat_mapping_version` in `_config.yaml`) explicitly
   overrides auto-promotion for both directions.
@@ -56,11 +86,11 @@ Set the output version with either config keys or environment variables (env tak
 ```yaml
 # _config.yaml
 threat_mapping_framework: "MITRE ATT&CK"
-threat_mapping_version: "19"
+threat_mapping_version: "<promoted>"
 ```
 
 ```bash
-DR_THREAT_MAPPING_FRAMEWORK="MITRE ATT&CK" DR_THREAT_MAPPING_VERSION=19 python -m detection_rules ...
+DR_THREAT_MAPPING_FRAMEWORK="MITRE ATT&CK" DR_THREAT_MAPPING_VERSION=<promoted> python -m detection_rules ...
 ```
 
 Because the baseline hash path strips `threat_mappings` and skips emit transforms, adding
@@ -76,11 +106,13 @@ version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** p
 entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
 
 - **Stack < 9.6** (8.19 / 9.4 / 9.5 packages) — ATLAS entries are stripped and never
-  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. This gate
-  lives in `apply_emit_transforms` and does **not** create a new `stack_emit` epoch,
-  so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
-- **Stack ≥ 9.6** — `apply_emit_transforms` appends ATLAS `threat_mappings` onto the
-  shipped `threat` array alongside ATT&CK.
+  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. The strip
+  lives in `apply_emit_transforms`; the `mitre_atlas` emit transform is not applicable
+  below 9.6, so release-branch version locks stay on the 9.5 ATT&CK row.
+- **Stack ≥ 9.6** — the `mitre_atlas` emit transform (`min_stack` 9.6) appends ATLAS
+  `threat_mappings` onto the shipped `threat` array alongside ATT&CK. That transform
+  opens a dedicated `stack_emit["9.6"]` epoch so 9.6 packages do not reuse a 9.5
+  `rule_id` + version with different threat content.
 
 Refresh ATLAS data the same way as ATT&CK:
 
@@ -103,15 +135,20 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
     "9.5": {
       "sha256": "<hash of transformed package payload>",
       "version": 13,
-      "transforms": ["mitre_attack_v19", "related_integrations_gte"]
+      "transforms": ["mitre_attack_v<promoted>", "related_integrations_gte"]
+    },
+    "9.6": {
+      "sha256": "<hash including ATLAS when present>",
+      "version": 14,
+      "transforms": ["mitre_attack_v<promoted>", "related_integrations_gte", "mitre_atlas"]
     }
   }
 }
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- 9.5 is the ATT&CK v19 epoch. ATLAS shipping is stack-gated in `apply_emit_transforms`
-  and does **not** add a `9.6` epoch, so 9.6 packages keep inheriting `stack_emit["9.5"]`.
+- 9.5 is the ATT&CK promotion epoch. 9.6 is the ATLAS epoch (`mitre_atlas`); packages on 9.6+
+  prefer `stack_emit["9.6"]` when locked, and inherit `9.5` only until that row exists.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 
@@ -132,9 +169,9 @@ rule's source mapping. It is **accuracy-first** — a mapping is never guessed. 
 tactic/technique/subtechnique id is resolved in order:
 
 1. An **explicit config entry** always wins — including an explicit `null`, which drops the id.
-2. If the id is absent from the config and the config sets `auto_derive_missing: true` (the shipped
-   default for v18 -> v19), the destination is **auto-derived from the target version's ATT&CK STIX
-   data**: ids that still exist in the target version keep their id with the target-version name and
+2. If the id is absent from the config and the config sets `auto_derive_missing: true` (as the
+   shipped baseline -> promoted map does), the destination is **auto-derived from the target
+   version's ATT&CK STIX data**: ids that still exist in the target version keep their id with the target-version name and
    reference, while ids that are revoked, deprecated, or gone are dropped. Techniques that moved to a
    different tactic are followed to their new target-version tactic(s) (the technique is
    authoritative).
@@ -145,14 +182,14 @@ Every dropped and migrated item is reported for review. The command also adds a 
 tag for each new target-version tactic while preserving the existing baseline tags.
 
 ```bash
-# preview the v18 -> v19 conversion for all rules
-python -m detection_rules dev attack convert-threat-mappings -t 19 --dry-run
+# preview the baseline -> promoted conversion for all rules
+python -m detection_rules dev attack convert-threat-mappings -t <promoted> --dry-run
 
-# write the v19 blocks (scope with -d/--directory, -f/--rule-file, -id/--rule-id)
-python -m detection_rules dev attack convert-threat-mappings -t 19 -d rules/
+# write the promoted-version blocks (scope with -d/--directory, -f/--rule-file, -id/--rule-id)
+python -m detection_rules dev attack convert-threat-mappings -t <promoted> -d rules/
 
 # use an explicit mapping config instead of the configured directory
-python -m detection_rules dev attack convert-threat-mappings -t 19 --config path/to/map.yaml
+python -m detection_rules dev attack convert-threat-mappings -t <promoted> --config path/to/map.yaml
 ```
 
 ## Mapping config format
@@ -170,15 +207,16 @@ How **absent** ids are treated depends on the `auto_derive_missing` flag:
 - `auto_derive_missing: true` — the file only needs to list **exceptions**: absent ids are
   auto-resolved from the target version's ATT&CK STIX data (requires the matching
   `attack-v<target>*.json.gz` file in `detection_rules/etc/`), and ids that are revoked, deprecated,
-  or missing in the target version are dropped. The shipped `attack_v18_to_v19.yaml` uses this mode,
-  so it stays small and only ever needs entries for overrides.
+  or missing in the target version are dropped. The shipped baseline -> promoted map
+  (`attack_v<baseline>_to_v<promoted>.yaml`) uses this mode, so it stays small and only ever needs
+  entries for overrides.
 
 A fully-explicit (self-contained) config looks like:
 
 ```yaml
 framework: "MITRE ATT&CK"
-source_version: "18"
-target_version: "19"
+source_version: "<baseline>"
+target_version: "<promoted>"
 tactics:
   TA0001: { id: TA0001, name: Initial Access, reference: "https://attack.mitre.org/tactics/TA0001/" }
 techniques:
@@ -188,18 +226,18 @@ subtechniques:
   T1078.004: { id: T1078.004, name: "Cloud Accounts", reference: "https://attack.mitre.org/techniques/T1078/004/" }
 ```
 
-while an exceptions-only config (the shipped v18 -> v19 shape) looks like:
+while an exceptions-only config (the shape of the shipped map) looks like:
 
 ```yaml
 framework: "MITRE ATT&CK"
-source_version: "18"
-target_version: "19"
+source_version: "<baseline>"
+target_version: "<promoted>"
 auto_derive_missing: true
-# only explicit overrides/drops go here; everything else resolves from v19 STIX data
+# only explicit overrides/drops go here; everything else resolves from the target version's STIX data
 ```
 
-Adding a new destination (e.g. v19 -> v20, or another framework) is just a new file declaring its own
-triple. Multiple destinations coexist as separate `threat_mappings` blocks per rule.
+Adding a new destination (another ATT&CK version, or another framework) is just a new file declaring
+its own triple. Multiple destinations coexist as separate `threat_mappings` blocks per rule.
 
 ### Scaffolding a config
 
@@ -210,7 +248,7 @@ name otherwise). Review and curate it against the target version's real changes 
 deprecations, splits) before relying on it:
 
 ```bash
-python -m detection_rules dev attack scaffold-version-map -t 19 -o detection_rules/etc/attack-version-maps/attack_v18_to_v19.yaml
+python -m detection_rules dev attack scaffold-version-map -t <promoted> -o detection_rules/etc/attack-version-maps/attack_v<baseline>_to_v<promoted>.yaml
 ```
 
 ## Detections-as-Code (custom rules)

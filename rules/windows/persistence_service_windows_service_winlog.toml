@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/06"
 
 [rule]
 author = ["Elastic"]
@@ -60,11 +60,14 @@ any where host.os.type == "windows" and
           winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe"""
         ) and
         not winlog.event_data.ServiceFileName: (
-              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+              "%SystemRoot%\\PSEXESVC.exe", "C:\\WINDOWS\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
               "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
               "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
               "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
-              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
+              "\"C:\\Program Files (x86)\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service",
+              "C:\\Users\\*\\AppData\\Local\\Temp\\VeeamVssSupport\\VeeamGuestHelper.exe*",
+              "C:\\WINDOWS\\TEMP\\\\TdkLimit64.sys", "C:\\WINDOWS\\TEMP\\\\oraremservicev2\\RemoteExecService.exe"
         )
       ) or
       winlog.event_data.ServiceName : (
@@ -83,17 +86,27 @@ any where host.os.type == "windows" and
           "*regsvr32*", "*msbuild*", "*winexesvc.exe*", "*DumpSvc.exe*", "*pwsh.exe*", "*PAExec*"
         ) and
         not winlog.event_data.ImagePath : (
-              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+              "%SystemRoot%\\PSEXESVC.exe", "C:\\WINDOWS\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
               "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
               "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
               "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
-              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
+              "\"C:\\Program Files (x86)\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service",
+              "C:\\Users\\*\\AppData\\Local\\Temp\\VeeamVssSupport\\VeeamGuestHelper.exe*",
+              "C:\\WINDOWS\\TEMP\\\\TdkLimit64.sys", "C:\\WINDOWS\\TEMP\\\\oraremservicev2\\RemoteExecService.exe"
         )
       ) or
       winlog.event_data.ServiceName : (
          "mssecsvc2.0", "WCESERVICE*", "WCE SERVICE*", "pwdump*", "gsecdump*", "cachedump*"
       )
     )
+  )
+) and
+not (
+  winlog.event_data.ServiceName : "cpuz???" and
+  (
+    winlog.event_data.ServiceFileName : ("C:\\WINDOWS\\temp\\cpuz???\\cpuz???_x64.sys", "C:\\Windows\\temp\\cpuz???\\cpuz???_x32.sys") or
+    winlog.event_data.ImagePath : ("C:\\Windows\\temp\\cpuz???\\cpuz???_x64.sys", "C:\\Windows\\temp\\cpuz???\\cpuz???_x32.sys")
   )
 )
 '''

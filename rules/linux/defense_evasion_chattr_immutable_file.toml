@@ -2,7 +2,7 @@
 creation_date = "2022/07/22"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -123,14 +123,14 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-?process.parent.executable != null and
+process.parent.name != null and
 process.name == "chattr" and process.args : ("-*i*", "+*i*") and
 not (
   ?process.parent.executable: (
     "/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd", "/usr/local/emps/sbin/php-fpm",
     "/usr/local/emps/bin/php"
   ) or
-  ?process.parent.name in (
+  process.parent.name in (
     "systemd", "cf-agent", "ntpdate", "xargs", "px", "preinst", "auth", "cf-agent", "dcservice", "dcagentupgrader",
     "sudo", "ephemeral-disk-warning"
   ) or

@@ -2,7 +2,7 @@
 creation_date = "2021/10/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -18,9 +18,35 @@ license = "Elastic License v2"
 name = "Screensaver Plist File Modified by Unexpected Process"
 note = """## Triage and analysis
 
-- Analyze the plist file modification event to identify whether the change was expected or not
-- Investigate the process that modified the plist file for malicious code or other suspicious behavior
-- Identify if any suspicious or known malicious screensaver (.saver) files were recently written to or modified on the host
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Screensaver Plist File Modified by Unexpected Process
+
+The `com.apple.screensaver.*.plist` files define the active screensaver module and its settings. Adversaries can drop a malicious `.saver` bundle and update these plist files so that the bundle is loaded and executes code every time the screensaver activates. This rule alerts when a screensaver plist file is modified by an unsigned or untrusted process, or by a script interpreter or native utility commonly abused by attackers.
+
+### Possible investigation steps
+
+- Identify the process that modified the plist (`process.executable`, `process.code_signature.*`) and determine why an untrusted process or interpreter changed screensaver settings. Review the process's execution event for its command line and parent.
+- Review the plist file (`file.path`) and its current contents on the host to identify the configured screensaver module and its path.
+- Locate the referenced `.saver` bundle and check its code signature, creation time, origin, and contents.
+- Review recent file events for `.saver` bundles written to `~/Library/Screen Savers/`, `/Library/Screen Savers/`, or unusual locations around the time of the alert.
+- Analyze the process tree of the modifying process for signs of initial access or execution, such as downloads, script interpreters, or other persistence activity.
+- Check for child processes of `ScreenSaverEngine` or `legacyScreenSaver` on the host after the modification, which may indicate the payload has already executed.
+
+### False positive analysis
+
+- Device management solutions or administrative scripts may configure screensaver settings with script interpreters. Verify the script and its origin with the team responsible for endpoint management.
+- Unsigned or ad hoc signed third-party utilities may change screensaver preferences. Confirm the tool is approved in the environment.
+- When the activity is confirmed benign, create an exception for the specific process executable or script rather than for the plist file path.
+
+### Response and remediation
+
+- Isolate the affected host from the network if the modification is determined to be malicious.
+- Revert the screensaver plist to a known good configuration and remove any malicious `.saver` bundle after preserving a copy for analysis.
+- Terminate the modifying process and any processes started by the malicious screensaver.
+- Investigate how the attacker gained access to the host and remediate the initial access vector.
+- Escalate to the incident response team and search for the same plist modification or `.saver` bundle on other macOS hosts.
 """
 references = [
     "https://posts.specterops.io/saving-your-access-d562bf5bf90b",

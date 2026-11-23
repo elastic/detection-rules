@@ -1,0 +1,215 @@
+[metadata]
+creation_date = "2026/10/19"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an Entra ID application (service principal) assigning itself to a privileged directory role. An application
+typically does not promote itself, and a multi-tenant vendor application is even more uncommon. Any service principal 
+self-assigning a privileged role should be investigated. Adversaries may compromise vendor application credentials and
+then escalate privileges to Exchange Administrator or Global Administrator, or subsequently add client secrets to
+other applications.
+"""
+false_positives = [
+    """
+    Vendor onboarding or reconfiguration where a consented third-party management or backup application is deliberately
+    granted a directory role by its own setup workflow. Confirm with the application owner and the change record, then
+    exclude the specific application ID.
+    """,
+    """
+    Local automation or provisioning applications that are designed to assign roles to themselves. Review the owner and
+    purpose, then exclude by application ID.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Application Self-Assigned to Privileged Role"
+note = """## Triage and analysis
+
+### Investigating Entra ID Application Self-Assigned to Privileged Role
+
+Identifies an Entra ID application (service principal) assigning itself to a privileged directory role. An application
+typically does not promote itself, and a multi-tenant vendor application is even more uncommon. Any service principal 
+self-assigning a privileged role should be investigated. Adversaries may compromise vendor application credentials and
+then escalate privileges to Exchange Administrator or Global Administrator, or subsequently add client secrets to
+other applications.
+
+#### Possible investigation steps
+
+- Identify the application with `azure.auditlogs.properties.initiated_by.app.displayName`, `azure.auditlogs.properties.initiated_by.app.appId` and `Esql.actor_sp_id`, and the role in `Esql.role_name`.
+- Determine the owner tenant. In Entra, open Enterprise applications and check the application's owner organization, or look up `app_owner_tenant_id` on its service principal sign-ins. A multi-tenant vendor app owned by another tenant that promotes itself is the highest-risk case.
+- Pull the service principal sign-ins for the same application around the alert. Compare source addresses and user agents against the application's expected egress. Hosting-provider or VPN addresses and scripting clients such as Python or curl are suspicious for an application that normally runs in its vendor's cloud.
+- Pull the audit log for the same service principal around the alert: `Add service principal credentials`, `Update application – Certificates and secrets management`, `Add app role assignment to service principal`, `Add owner to application`.
+- Review what the application did with the new role: mailbox, SharePoint, Teams and Graph activity, and any directory changes.
+- Check whether the same application ID exists in other tenants you manage; a compromised vendor credential can be used against many tenants in a short time.
+
+### False positive analysis
+
+- Vendor-initiated role grants during a documented onboarding or migration.
+- Local provisioning or automation applications that assign roles to themselves by design.
+
+### Response and remediation
+
+- Disable the application (do not delete it, so the configuration and evidence are preserved) and remove the role assignment.
+- Revoke sessions and review all credentials added to applications since the assignment.
+- Review and remove client secrets, certificates and federated credentials you did not create.
+- Follow the vendor's advisory for credential rotation before re-enabling the application.
+"""
+references = [
+    "https://www.huntress.com/blog/vendor-credential-enables-unauthorized-access",
+    "https://www.todyl.com/blog/investigation-unauthorized-access-through-the-connectwise-cloud-backup-microsoft-365-app",
+    "https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference",
+    "https://trustedsec.com/blog/managing-privileged-roles-in-microsoft-entra-id-a-pragmatic-approach",
+]
+risk_score = 73
+rule_id = "a069c60c-06c5-4b73-be9d-9f2201e020d4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+    "Profile: Beta"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+// role assignments performed by an application (service principal actor)
+| where data_stream.dataset == "azure.auditlogs"
+  and azure.auditlogs.operation_name in (
+    "Add member to role",
+    "Add member to role outside of PIM (permanent)",
+    "Add member to role in PIM completed (permanent)",
+    "Add member to role in PIM completed (timebound)",
+    "Add eligible member to role in PIM completed (permanent)",
+    "Add eligible member to role in PIM completed (timebound)"
+  )
+  and event.outcome in ("success", "Success")
+  and azure.auditlogs.properties.initiated_by.app.servicePrincipalId is not null
+// self-assignment: the acting service principal is the member being added
+| eval Esql.actor_sp_id = azure.auditlogs.properties.initiated_by.app.servicePrincipalId
+| where Esql.actor_sp_id == `azure.auditlogs.properties.target_resources.0.id`
+    or Esql.actor_sp_id == `azure.auditlogs.properties.target_resources.1.id`
+// the role name sits in a different modified_properties slot depending on the operation
+| eval Esql.role_name_raw = coalesce(
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.2.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null)
+  )
+| eval Esql.role_name = replace(Esql.role_name_raw, "\"", "")
+// privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, plus other
+// built-in roles with administrative control over major Entra and Microsoft 365 services or access to tenant data.
+// Matched by exact role name, not by pattern.
+| where to_lower(Esql.role_name) in (
+    // marked PRIVILEGED by Microsoft
+    "agent id administrator", "ai administrator", "ai reader", "application administrator", "application developer",
+    "attribute provisioning administrator", "attribute provisioning reader", "authentication administrator",
+    "authentication extensibility administrator", "authentication extensibility password administrator",
+    "b2c ief keyset administrator", "cloud application administrator", "cloud device administrator",
+    "conditional access administrator", "directory writers", "domain name administrator",
+    "entra soc identity responder", "external identity provider administrator", "global administrator",
+    "global reader", "helpdesk administrator", "hybrid identity administrator", "identity governance administrator",
+    "intune administrator", "lifecycle workflows administrator", "partner tier1 support", "partner tier2 support",
+    "password administrator", "privileged authentication administrator", "privileged role administrator",
+    "security administrator", "security operator", "security reader", "tenant governance administrator",
+    "user administrator",
+    // not marked privileged by Microsoft, but with administrative control over major services
+    "attribute assignment administrator", "authentication policy administrator", "cloud app security administrator",
+    "compliance administrator", "directory synchronization accounts", "dynamics 365 administrator",
+    "exchange administrator", "external id user flow administrator", "global secure access administrator",
+    "groups administrator", "knowledge administrator", "microsoft 365 backup administrator",
+    "microsoft 365 migration administrator", "on premises directory sync account", "power platform administrator",
+    "sharepoint administrator", "skype for business administrator", "teams administrator",
+    "teams telephony administrator", "windows 365 administrator", "yammer administrator",
+    // additional roles: mailbox permissions, local administrator on joined devices (current and previous display
+    // name), delegated partner access to the tenant, and approval of Microsoft support access to customer data
+    "exchange recipient administrator", "azure ad joined device local administrator",
+    "microsoft entra joined device local administrator", "customer delegated admin relationship administrator",
+    "customer lockbox access approver", "entra customer lockbox approver",
+    // legacy display name of Global Administrator
+    "company administrator"
+  )
+| drop Esql.role_name_raw
+| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index, data_stream.namespace
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.actor_sp_id",
+    "Esql.role_name",
+    "azure.auditlogs.operation_name",
+    "azure.auditlogs.properties.initiated_by.app.displayName",
+    "azure.auditlogs.properties.initiated_by.app.appId",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

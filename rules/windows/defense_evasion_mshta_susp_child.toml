@@ -2,7 +2,7 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -64,8 +64,10 @@ process where host.os.type == "windows" and event.type == "start" and
    ) or
    process.executable : ("C:\\Users\\*\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\*.exe")
   ) and
-  not (process.name : "cmd.exe" and process.command_line : "*\\HP\\HP*HPUDC*") and
-  not ?process.parent.command_line : "*\\HP\\*\\HPSolutionsPortal.hta*"
+  not (
+    (process.name : "cmd.exe" and process.command_line : "*\\HP\\HP*HPUDC*") or
+    ?process.parent.command_line : "*\\HP\\*\\HPSolutionsPortal.hta*"
+  )
 '''
 
 note = """## Triage and analysis

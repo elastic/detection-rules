@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -115,14 +115,16 @@ and (
     "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*bin/next*", "*.pnpm/next*", "*next/dist/server*", "*react-scripts*") or
   (
     process.parent.name in ("node", "bun", "node.exe", "bun.exe") and
-    process.parent.command_line : (
-      "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*next-server*", "* server.js*",  "*start-server.js*", "*bin/next*",
-      "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*next start*", "*next dev*", "*react-scripts start*", "*next/dist/server*"
+    (
+      ?process.parent.command_line : (
+        "*react-dom*", "*.next*", "*node_modules/next*", "*react-server*", "*next-server*", "* server.js*",  "*start-server.js*", "*bin/next*",
+        "*--experimental-https*", "*app/server*", "*.pnpm/next*", "*next start*", "*next dev*", "*react-scripts start*", "*next/dist/server*"
+      ) and ?process.parent.command_line != null
     )
   )
 ) and not (
-  ?process.parent.executable in ("./runc", "/opt/google/chrome/chrome") or
-  process.command_line like "/bin/sh -c git config*"
+  (?process.parent.executable in ("./runc", "/opt/google/chrome/chrome") and ?process.parent.executable != null) or
+  (?process.command_line like "/bin/sh -c git config*" and ?process.command_line != null)
 )
 '''
 
