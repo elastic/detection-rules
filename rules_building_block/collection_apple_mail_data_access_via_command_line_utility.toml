@@ -1,0 +1,84 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies a file copy, archive, read or delete utility started with a path inside the Apple Mail data store as an
+argument on macOS. Adversaries copy local mailbox data to collect email, and delete or modify it to remove evidence.
+Backup and troubleshooting scripts access the same location, so each match produces a building block signal for
+correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Apple Mail Data Access via Command-Line Utility"
+references = [
+    "https://attack.mitre.org/techniques/T1114/001/"
+]
+risk_score = 21
+rule_id = "916bb3c3-c5a8-4564-9079-e54088c955a4"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ process.name in ("cp", "mv", "rm", "ditto", "rsync", "scp", "tar", "zip", "cat", "sqlite3", "find") and
+ process.args like~ ("/Users/*/Library/Mail", "/Users/*/Library/Mail/*",
+                     "/Users/*/Library/Containers/com.apple.mail/Data/*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+[[rule.threat.technique.subtechnique]]
+id = "T1114.001"
+name = "Local Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.008"
+name = "Clear Mailbox Data"
+reference = "https://attack.mitre.org/techniques/T1070/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the first time a parent process uses sysctl, system_profiler or ioreg on a macOS host to read the hardware
+model, the hypervisor flag or a full hardware report. Malware reads these values to fingerprint the system and to detect
+a virtual machine or analysis sandbox before it continues execution.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.process-*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Hardware and Virtualization Discovery via Built-In Tools"
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1497.001/T1497.001.md",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1082/T1082.md",
+]
+risk_score = 21
+rule_id = "957998b0-648c-4a6d-8a2a-4b24c4d9e5d5"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:process and host.os.type:macos and event.type:start and event.action:exec and (
+  (process.name:sysctl and process.args:(hw.model or kern.hv_vmm_present)) or
+  (process.name:system_profiler and (process.args:(SPHardwareDataType or SPDisplaysDataType) or process.args_count:1)) or
+  (process.name:ioreg and process.args:"-l")
+) and
+not process.args:"-nospawn" and
+not process.parent.name:(system_profiler or SubmitDiagInfo) and
+not process.Ext.effective_parent.executable:(
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon" or
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService" or
+  "/usr/local/jamf/bin/jamf" or
+  "/opt/jc/bin/jumpcloud-agent" or
+  "/Library/Addigy/go-agent" or
+  "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon" or
+  "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM" or
+  "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager" or
+  "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable", "process.command_line"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+
