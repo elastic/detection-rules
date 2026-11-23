@@ -189,14 +189,14 @@ from
     Esql.event_action_values = values(event.action),
     Esql.outcome_distinct_count = count_distinct(event.outcome),
     Esql.outcome_values = values(event.outcome)
-  by source.ip = Esql.source_ip, Esql.time_window = date_trunc(1 minute, @timestamp)
+  by source.ip = Esql.source_ip, Esql.time_window = date_trunc(1 minute, @timestamp), data_stream.namespace
 | where
     Esql.curl_request_count > 0 and
     Esql.ua_family_distinct_count >= 3 and
     Esql.request_count >= 20 and
     Esql.outcome_distinct_count >= 2
 | sort Esql.request_count desc
-| keep source.ip, Esql.*
+| keep source.ip, Esql.*, data_stream.namespace
 '''
 
 [[rule.threat]]
