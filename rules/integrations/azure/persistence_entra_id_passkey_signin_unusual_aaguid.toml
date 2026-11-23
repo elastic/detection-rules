@@ -4,15 +4,16 @@ integration = ["azure"]
 maturity = "production"
 min_stack_comments = "FIELD_EXTRACT not available until 9.5.0"
 min_stack_version = "9.5.0"
-updated_date = "2026/10/22"
+updated_date = "2026/11/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID using an Authenticator Attestation GUID (AAGUID)
-not previously seen in the tenant. A tenant-new AAGUID is an authenticator model the organization has not used before,
-which can be a newly adopted authenticator or an attacker-registered shadow passkey from tooling such as ROADtools
-roadtx or DSInternals.Passkeys. The all-zero AAGUID is excluded here and handled by a companion rule.
+Identifies a successful passkey or FIDO2 authentication step in a Microsoft Entra ID sign-in using an Authenticator
+Attestation GUID (AAGUID) not previously seen in the tenant. A tenant-new AAGUID is an authenticator model the
+organization has not used before, which can be a newly adopted authenticator or an attacker-registered shadow passkey
+from tooling such as ROADtools roadtx or DSInternals.Passkeys. All-zero and malformed AAGUIDs carry no authenticator
+model information and are not evaluated by this rule.
 """
 false_positives = [
     """
@@ -32,12 +33,12 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Passkey Sign-In with Unusual Authenticator AAGUID
 
-A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID has not been seen for the tenant in the lookback window. The AAGUID identifies the authenticator model or provider; one that is new to the organization can be a newly adopted legitimate authenticator, or an attacker-registered shadow passkey being used for phishing-resistant persistence. Offensive tooling such as roadtx `registerpasskey` and DSInternals.Passkeys provisions software passkeys whose AAGUID does not match the organization's known authenticators.
+A user successfully completed a passkey or FIDO2 authentication step (the step's own `succeeded` flag is checked, not the sign-in level `event.outcome`) with an authenticator whose AAGUID has not been seen for the tenant in the lookback window. First-seen is evaluated on ingestion time so delayed sign-in logs are not missed. The AAGUID identifies the authenticator model or provider; one that is new to the organization can be a newly adopted legitimate authenticator, or an attacker-registered shadow passkey being used for phishing-resistant persistence. Offensive tooling such as roadtx `registerpasskey` and DSInternals.Passkeys can register software passkeys with an arbitrary AAGUID, which may not match the organization's known authenticators.
 
 ### Possible investigation steps
 
-- Resolve the AAGUID (`Esql.passkey_aaguid`) and provider string (`Esql.provider_values`) against the organization's known-good authenticators, the FIDO Metadata Service, or the public passkey AAGUID reference. An unknown or software-provider AAGUID on an account that normally uses a hardware key or platform passkey is higher priority. The all-zero AAGUID case (`00000000-0000-0000-0000-000000000000`, the ROADtools/DSInternals default) is excluded here and handled deterministically by the companion rule "Entra ID Passkey Sign-In with ROADtools or DSInternals Authenticator Fingerprint". Note that an operator can override the AAGUID to spoof a known-good value, so a familiar AAGUID does not clear the sign-in on its own.
-- Confirm the user actually registered this passkey: review the `User registered security info` / FIDO2 registration audit events for the user, who initiated them, and whether they were self-service and recent. Correlate with the companion rule for passkeys registered outside the self-service portal.
+- Resolve the AAGUID (`Esql.passkey_aaguid`) and provider string (`Esql.provider_values`) against the organization's known-good authenticators, the FIDO Metadata Service, or the public passkey AAGUID reference. An unknown or software-provider AAGUID on an account that normally uses a hardware key or platform passkey is higher priority. Note that an operator can set the AAGUID to spoof a known-good value, so a familiar AAGUID does not clear the sign-in on its own.
+- Confirm the user actually registered this passkey: review the `User registered security info` / FIDO2 registration audit events for the user, who initiated them, whether they were self-service, and whether the initiating application is the expected My Security Info portal rather than a script or API client.
 - Review the sign-in context (`Esql.user_values`, `Esql.source_ip_values`, `Esql.user_agent_values`, `Esql.app_values`) for a hosting or VPS origin, an anomalous user agent, or a first-party client inconsistent with the user's norm.
 - Determine whether the target holds privileged roles; a shadow passkey on a privileged account is high impact.
 
@@ -82,15 +83,25 @@ type = "esql"
 query = '''
 FROM logs-azure.signinlogs-*
 
-// successful sign-ins
 | WHERE azure.signinlogs.category == "SignInLogs"
-    AND event.outcome == "success"
     AND azure.signinlogs.properties.authentication_details IS NOT NULL
     AND azure.tenant_id IS NOT NULL
 
 // filter for Passkey or FIDO2 security key sign-ins
 | EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
 | WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
+
+// Pair each authentication method with its own success flag; event.outcome is sign-in level and is not tied to the passkey step
+| GROK ad """"authentication_method":%{DATA:method_raw},"authentication_"""
+| GROK ad """"succeeded":%{DATA:succeeded_raw}}"""
+| EVAL Esql.auth_methods = SPLIT(REPLACE(method_raw, """[\[\]"]""", ""), ","),
+       Esql.auth_method_succeeded = SPLIT(REPLACE(succeeded_raw, """[\[\]"]""", ""), ",")
+| EVAL Esql.method_outcome_pairs = MV_CONCAT(MV_ZIP(Esql.auth_methods, Esql.auth_method_succeeded, "~"), " || ")
+
+// Require the passkey or FIDO2 step itself to have succeeded
+| WHERE Esql.method_outcome_pairs LIKE "*Passkey (synced)~true*"
+    OR Esql.method_outcome_pairs LIKE "*Passkey (device-bound)~true*"
+    OR Esql.method_outcome_pairs LIKE "*FIDO2 security key~true*"
 
 // extract AAGUID from authentication method detail
 // a sign-in can carry several auth steps, so expand multi-valued details and evaluate each one
@@ -101,12 +112,13 @@ FROM logs-azure.signinlogs-*
 // the lookarounds reject longer hex/dash runs so a malformed value is not partially matched
 | GROK ad_detail """(?<![0-9A-Fa-f-])(?<aaguid_raw>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})(?![0-9A-Fa-f-])"""
 
-// lowercase to normalize case; ignore missing or zeroed AAGUIDs (separate rule)
+// lowercase to normalize case; ignore missing or zeroed AAGUIDs, which carry no authenticator model
 | EVAL aaguid_raw = TO_LOWER(aaguid_raw)
 | WHERE aaguid_raw IS NOT NULL AND aaguid_raw != "00000000-0000-0000-0000-000000000000"
 
 // aggregate sign-in statistics by tenant and AAGUID
-| STATS Esql.first_time_seen = MIN(@timestamp),
+| STATS Esql.first_ingested = MIN(event.ingested),
+        Esql.first_time_seen = MIN(@timestamp),
         Esql.last_time_seen = MAX(@timestamp),
         Esql.signin_count = COUNT(*),
         Esql.user_count = COUNT_DISTINCT(azure.signinlogs.properties.user_id),
@@ -133,8 +145,8 @@ FROM logs-azure.signinlogs-*
         Esql.unique_token_identifier_values = VALUES(azure.signinlogs.properties.unique_token_identifier)
       BY azure.tenant_id, Esql.passkey_aaguid = aaguid_raw
 
-// filter for recent sign-ins within the last 10 minutes
-| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+// first ingested within the last 10 minutes; ingestion time keeps delayed sign-in logs from aging out of the gate
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_ingested, NOW())
 | WHERE Esql.recent_minutes <= 10
 | KEEP Esql.*, azure.tenant_id
 '''
@@ -150,8 +162,6 @@ reference = "https://attack.mitre.org/techniques/T1098/"
 id = "T1098.001"
 name = "Additional Cloud Credentials"
 reference = "https://attack.mitre.org/techniques/T1098/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
