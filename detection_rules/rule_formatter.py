@@ -332,13 +332,16 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
         top_out = toml.dumps(OrderedDict({data: top}), encoder=encoder)  # type: ignore[reportUnknownMemberType]
 
         # we want to preserve the threat_query format, but want to modify it in the context of encoded dump
+        # NOTE: no trailing newline is added before the closing ''' - TOML only trims the newline
+        # immediately following the opening delimiter, so a trailing newline here would survive parsing
+        # and corrupt the query on every export/import round-trip (see #6081)
         if threat_query:
-            formatted_threat_query = "\nthreat_query = '''\n{}\n'''{}".format(threat_query, "\n\n" if bottom else "")
+            formatted_threat_query = "\nthreat_query = '''\n{}'''{}".format(threat_query, "\n\n" if bottom else "")
             top_out = top_out.replace('threat_query = "XXxXX"', formatted_threat_query)
 
         # we want to preserve the query format, but want to modify it in the context of encoded dump
         if query:
-            formatted_query = "\nquery = '''\n{}\n'''{}".format(query, "\n\n" if bottom else "")
+            formatted_query = "\nquery = '''\n{}'''{}".format(query, "\n\n" if bottom else "")
             top_out = top_out.replace('query = "XXxXX"', formatted_query)
 
         if f:
