@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/11/19"
+updated_date = "2026/11/24"
 
 [rule]
 author = ["Elastic"]
@@ -79,13 +79,19 @@ query = '''
     "FE80::/10" or
     "FF00::/8"
   ) and
-  not event.action:(
-    "flow_dropped" or "flow_denied" or "deny" or "denied" or "block" or
-    "timeout" or "client-rst" or "server-rst"
+  not (
+    (data_stream.dataset:fortinet_fortigate.log or event.dataset:fortinet_fortigate.log) and
+    event.action:deny
   ) and
   not (
-    data_stream.dataset:panw.panos and
-    network.application:("incomplete" or "insufficient-data" or "not-applicable")
+    (data_stream.dataset:pfsense.log or event.dataset:pfsense.log) and
+    event.action:block
+  ) and
+  not (
+    (data_stream.dataset:panw.panos or event.dataset:panw.panos) and (
+      event.action:("flow_dropped" or "flow_denied") or
+      network.application:("incomplete" or "insufficient-data" or "not-applicable")
+    )
   )
 '''
 note = """## Triage and analysis
