@@ -103,13 +103,20 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("java.exe", "javaw.exe") and
-  process.name : (
-    "cmd.exe", "powershell.exe", "pwsh.exe", "certutil.exe", "bitsadmin.exe", "curl.exe",
-    "mshta.exe", "rundll32.exe", "regsvr32.exe", "wscript.exe", "cscript.exe"
+  (
+    process.name : (
+      "cmd.exe", "powershell.exe", "pwsh.exe", "certutil.exe", "bitsadmin.exe", "curl.exe",
+      "mshta.exe", "rundll32.exe", "regsvr32.exe", "wscript.exe", "cscript.exe"
+    ) or
+    ?process.pe.original_file_name : (
+      "Cmd.Exe", "PowerShell.EXE", "pwsh.dll", "CertUtil.exe", "bitsadmin.exe", "curl.exe",
+      "MSHTA.EXE", "RUNDLL32.EXE", "REGSVR32.EXE", "wscript.exe", "cscript.exe"
+    )
   ) and
   process.command_line : (
-    "*http://*", "*https://*", "* -enc*", "* -ec *", "*EncodedCommand*", "*FromBase64String*",
-    "*Invoke-Expression*", "*IEX(*", "*IEX (*", "*Invoke-WebRequest*", "*iwr *", "*DownloadString*",
+    "*http://*", "*https://*", "* -e *", "* -en *", "* -enc*", "* -ec *", "* /e *", "* /en *", "* /enc*",
+    "* /ec *", "*EncodedCommand*", "*FromBase64String*", "*Invoke-Expression*", "*IEX(*", "*IEX (*",
+    "* iex *", "*;iex *", "*|iex*", "*| iex*", "*Invoke-WebRequest*", "*iwr *", "*DownloadString*",
     "*DownloadFile*", "*Net.WebClient*", "*-urlcache*", "*/transfer*", "*whoami*"
   )
 '''
