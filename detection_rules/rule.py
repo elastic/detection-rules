@@ -2210,12 +2210,13 @@ def set_esql_config(min_stack_version_val: str) -> Any:
 
     def _eql_parse(text: str) -> Any:
         # Nested EQL() (gated to 9.7+ by the parser) uses the same hook model as KQL.
-        # Prefer full event queries; fall back to expression fragments.
+        # Prefer full event queries; fall back to expression fragments. Only a syntax error means the text is
+        # not an event query. Semantic errors (e.g. an invalid Lucene regex pattern) are raised as is.
         eql_cfg = set_eql_config(str(min_stack_version))
         with eql_cfg, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             try:
                 return eql.parse_query(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            except eql.EqlParseError:
+            except eql.EqlSyntaxError:
                 return eql.parse_expression(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
     cfg.context["kql_parse"] = _kql_parse
