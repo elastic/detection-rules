@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an HTTP request with a mutating method (POST, PUT, PATCH, or DELETE) from an OpenShell sandbox that was
+denied by the supervisor's layer 7 (L7) policy. OpenShell L7 rules scope provider-credentialed endpoints such as source
+control or cloud APIs to specific methods and paths, typically read-only. A denied write attempt means the sandboxed
+agent tried to create, modify, or delete data on an external system beyond its approved scope, which can indicate a
+prompt-injected or misbehaving agent attempting to tamper with repositories, issues, deployments, or other
+business-critical records using the credentials injected into the sandbox.
+"""
+false_positives = [
+    """
+    Agents whose task legitimately requires write access (for example opening a pull request) but whose policy has not
+    yet been extended will produce L7 denials. Review the denied method and path; if the write is expected, approve a
+    narrowly scoped policy rule for that endpoint rather than excluding the sandbox from this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Mutating HTTP Request Denied by L7 Policy"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Mutating HTTP Request Denied by L7 Policy
+
+The OpenShell Sandbox Supervisor terminates TLS for provider-credentialed endpoints and evaluates each HTTP request
+against L7 policy rules that constrain the allowed methods and paths. Denied requests are logged as OCSF HTTP activity
+events with `event.action: denied` and `rule.category: l7`. This rule focuses on mutating methods, because a denied write
+shows the agent attempting to change state on an external system, for example pushing to a repository, modifying a
+workflow, or deleting resources, outside the boundaries an operator approved. The credentials are injected by the
+supervisor at request time, so an agent that finds a permitted write path could act with real authority.
+
+### Possible investigation steps
+
+- Review `http.request.method`, `url.domain`, and `url.path` to understand exactly what the agent tried to change, and
+  read `event.reason` and `message` for the policy decision detail.
+- Identify the sandbox (`container.name`, `container.id`) and the calling binary (`process.name`,
+  `process.executable`).
+- Check `rule.name` to determine which L7 policy rule produced the denial and whether a matching read-only rule exists
+  for the same endpoint, which would indicate scope escalation from read to write.
+- Pivot on the same `container.id` for additional denied or allowed requests to the same host to establish whether the
+  agent probed several paths or methods.
+- Review the agent transcript and consumed content for injected instructions directing the agent to modify external
+  resources.
+
+### False positive analysis
+
+- Tasks that genuinely require write access will hit this rule until policy is extended. Validate the request and, if
+  legitimate, approve a narrowly scoped rule through the policy advisor workflow.
+
+### Response and remediation
+
+- If the write was not requested by the operator, stop or isolate the sandbox and preserve supervisor logs and the agent
+  transcript.
+- Review the target system's audit logs for any successful writes from the sandbox's credentials and revert unauthorized
+  changes.
+- Consider rotating the provider credential attached to the sandbox if there is evidence of misuse.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in the OpenShell settings (globally or per sandbox) so the supervisor writes OCSF JSONL to
+`/var/log/openshell-ocsf.YYYY-MM-DD.log`, make that directory readable by Elastic Agent (for example by mounting the
+sandbox `/var/log` on a volume shared with the agent), and add the integration to the agent policy with **Paths** set to
+the mounted location. The integration's ingest pipeline normalizes the OCSF records to ECS, populating `observer.product`,
+`event.*`, `destination.*`, `process.*`, `container.*`, `http.*`, `url.*`, and `rule.*` in the `logs-openshell.ocsf-*`
+data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "8551c668-9b4d-4264-92da-36b54992a4af"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.category : "network" and network.direction : "egress" and
+  event.code : "4002" and event.type : "access" and event.action : "denied" and rule.category : "l7" and
+  http.request.method : ("DELETE" or "PATCH" or "POST" or "PUT")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "http.request.method",
+    "http.response.status_code",
+    "url.domain",
+    "url.path",
+    "destination.domain",
+    "destination.port",
+    "rule.name",
+    "rule.category",
+    "message",
+]
+

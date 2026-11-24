@@ -215,6 +215,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Network Traffic",
     "Data Source: Okta",
     "Data Source: Okta System Logs",
+    "Data Source: OpenShell",
     "Data Source: OpenAI ChatGPT Enterprise",
     "Data Source: PAN-OS",
     "Data Source: PowerShell Logs",

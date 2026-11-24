@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an OpenShell security finding for an HTTP request authority mismatch. OpenShell raises this finding when a
+sandbox attempts to send a request through an authorized tunnel using a host authority that differs from the approved
+endpoint. This can indicate domain fronting, tunnel reuse, or an attempt to bypass hostname-based egress controls.
+"""
+false_positives = [
+    """
+    Applications that legitimately redirect requests or use an alternate authority behind a reviewed proxy can trigger
+    this rule when the OpenShell policy does not include the resulting endpoint. Validate the requested authority before
+    changing policy.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell HTTP Request Authority Mismatch"
+note = """## Triage and analysis
+
+### Investigating OpenShell HTTP Request Authority Mismatch
+
+OpenShell emits a Detection Finding when the authority in a sandbox HTTP request does not match the endpoint authorized
+for the tunnel. The supervisor blocks the request before it reaches the mismatched destination. This behavior can result
+from an agent attempting domain fronting, reusing an approved tunnel for another host, or following prompt-injected
+instructions intended to evade the sandbox network policy.
+
+### Possible investigation steps
+
+- Review `rule.name`, `rule.description`, `message`, and `event.action` to confirm the finding and enforcement outcome.
+- Identify the affected sandbox using `container.name` and `container.id`.
+- Pivot on the same `container.id` for preceding `event.code: "4001"` and `event.code: "4002"` events to identify the
+  approved endpoint, request path, calling process, and any repeated attempts.
+- Review the agent task, prompt history, tool calls, and recently consumed content for instructions to contact an
+  alternate host or proxy traffic through an approved domain.
+- Check the target service's audit logs for successful activity from the sandbox credentials before or after the blocked
+  attempt.
+
+### False positive analysis
+
+- Redirects, alternate service authorities, and reviewed proxy architectures can cause mismatches when policy is stale.
+  Confirm the complete request path and business requirement before adding another endpoint.
+
+### Response and remediation
+
+- Stop or isolate the sandbox if the mismatch was not requested by the operator.
+- Preserve the supervisor logs and agent transcript, and rotate attached credentials if other suspicious activity
+  suggests attempted misuse.
+- Keep policy scoped to the exact required authority. Do not add broad wildcard hosts to suppress this alert.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 73
+rule_id = "f59dac93-72ed-434e-a512-ae5c6958f12f"
+severity = "high"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "2004" and event.kind : "alert" and
+  event.action : "denied" and rule.id : "openshell.http.request_authority_mismatch"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "destination.domain",
+    "destination.ip",
+    "destination.port",
+    "url.domain",
+    "url.path",
+    "rule.id",
+    "rule.name",
+    "rule.description",
+    "openshell.ocsf.confidence",
+    "openshell.ocsf.risk_level",
+    "openshell.ocsf.remediation.desc",
+    "message",
+]
+

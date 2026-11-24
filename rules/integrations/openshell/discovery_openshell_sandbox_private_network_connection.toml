@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a network connection attempt from an OpenShell sandbox to a private, link-local, or loopback address (RFC
+1918, 169.254.0.0/16, 127.0.0.0/8, fc00::/7). OpenShell sandboxes are designed to reach approved external endpoints
+only, so a sandboxed agent addressing internal infrastructure indicates reconnaissance of the host network, an attempt
+to pivot to adjacent services such as the container runtime, gateway, or other sandboxes, or a prompt-injected agent
+following attacker instructions. OpenShell's own synthetic 198.18.0.0/15 range used for policy-resolved destinations is
+excluded. Cloud metadata-service destinations are also excluded because a dedicated higher-confidence rule covers them.
+"""
+false_positives = [
+    """
+    Sandboxes intentionally configured to reach internal services (for example a private package mirror, an internal
+    model gateway, or host.docker.internal on a developer workstation) will generate allowed connections to private
+    addresses. Baseline those destinations per sandbox and add exceptions for the specific container and destination
+    pair.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Connection to Private Network Address"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Connection to Private Network Address
+
+The OpenShell Sandbox Supervisor evaluates every outbound connection from a sandboxed agent against its network policy and
+records the decision as an OCSF network activity event. This rule flags connections whose destination falls in a private,
+link-local, or loopback range. Because a sandbox is normally confined to a small set of approved public endpoints, an
+agent reaching for internal addresses is most often probing the host network, looking for the container runtime socket,
+the gateway, or other workloads, or attempting to move laterally after being compromised through prompt injection.
+
+### Possible investigation steps
+
+- Check `event.action` and `event.reason` to see whether the connection was allowed or denied by policy, and review
+  `rule.name` for the policy rule that made the decision.
+- Identify the sandbox (`container.name`, `container.id`) and the calling binary (`process.name`, `process.executable`).
+- Look at `destination.ip` and `destination.port` to understand the targeted service (for example 2375/2376 for the
+  Docker API, 6443 for Kubernetes, 22 for SSH, or 53 for an internal resolver).
+- Pivot on the same `container.id` to determine whether multiple private addresses or ports were tried within a short
+  window, which indicates scanning rather than a single misconfigured client.
+- Correlate with the agent transcript and any recently ingested content to determine whether the behavior was requested by
+  the operator or introduced by untrusted input.
+
+### False positive analysis
+
+- Sandboxes that legitimately depend on internal services (private registries, internal model endpoints,
+  `host.docker.internal`) will produce allowed connections here. Add scoped exceptions by container and destination after
+  confirming the dependency.
+
+### Response and remediation
+
+- If the destination is a sensitive internal service and the connection was allowed, investigate that service for
+  follow-on activity and rotate any credentials it exposes.
+- Stop or isolate the sandbox, preserve supervisor logs and agent transcripts, and review the sandbox's network policy to
+  ensure private ranges are denied by default.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in the OpenShell settings (globally or per sandbox) so the supervisor writes OCSF JSONL to
+`/var/log/openshell-ocsf.YYYY-MM-DD.log`, make that directory readable by Elastic Agent (for example by mounting the
+sandbox `/var/log` on a volume shared with the agent), and add the integration to the agent policy with **Paths** set to
+the mounted location. The integration's ingest pipeline normalizes the OCSF records to ECS, populating `observer.product`,
+`event.*`, `destination.*`, `process.*`, `container.*`, `http.*`, `url.*`, and `rule.*` in the `logs-openshell.ocsf-*`
+data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "2c666718-cc50-4b49-a5c0-adec2af9aafd"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Lateral Movement",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.category : "network" and network.direction : "egress" and
+  event.code : "4001" and event.type : "connection" and event.action : ("allowed" or "denied") and
+  destination.ip : (
+    not ("169.254.169.254" or "169.254.170.2" or "fd00:ec2::254") and
+    ("10.0.0.0/8" or "127.0.0.0/8" or "169.254.0.0/16" or "172.16.0.0/12" or "192.168.0.0/16" or "fc00::/7") and
+    not "198.18.0.0/15"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "destination.ip",
+    "destination.domain",
+    "destination.port",
+    "rule.name",
+    "message",
+]
+

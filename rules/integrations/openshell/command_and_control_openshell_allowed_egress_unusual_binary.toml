@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an executable making its first allowed outbound network connection across monitored OpenShell sandboxes
+within a 14-day history window. OpenShell policies can authorize destinations and binaries, but a newly observed
+executable successfully using egress may indicate a downloaded tool, repurposed interpreter, policy scope that is
+broader than intended, or a prompt-injected agent communicating through an approved endpoint.
+"""
+false_positives = [
+    """
+    New sandbox images, updated developer tools, and the first normal use of an authorized client across the monitored
+    OpenShell environment can trigger this rule. Validate the executable path, destination, and policy rule before
+    adding an exception.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Allowed Egress by Unusual Binary"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Allowed Egress by Unusual Binary
+
+The OpenShell Sandbox Supervisor records the executable responsible for each outbound connection and whether policy
+allowed it. This new terms rule baselines `process.executable` over 14 days and alerts when an executable not previously
+observed making an allowed outbound connection across monitored OpenShell sandboxes successfully reaches the network.
+Because the connection was allowed, review whether the process and destination were intentionally covered by policy.
+
+### Possible investigation steps
+
+- Review `process.executable`, `process.command_line`, and `process.parent.*` to identify the binary and how it started.
+- Examine `destination.domain`, `destination.ip`, `destination.port`, and `rule.name` to determine which policy rule
+  authorized the connection.
+- Confirm whether the binary is part of the approved sandbox image or was downloaded, compiled, uploaded, or invoked
+  through an interpreter.
+- Pivot on the same `container.id` for preceding downloads, denied connections, policy changes, and subsequent activity
+  by the executable.
+- Review the agent task, prompt history, and recently consumed content for instructions that caused the network access.
+
+### False positive analysis
+
+- New images and approved tooling will alert on first use. Prefer exceptions scoped to the sandbox and full executable
+  path after confirming the destination and policy are expected.
+
+### Response and remediation
+
+- If the executable is unexpected, stop or isolate the sandbox and preserve the binary, supervisor logs, and agent
+  transcript.
+- Remove overly broad binary or destination authorization from the OpenShell policy.
+- Block suspicious destinations and rotate attached credentials if the connection may have exposed data or authority.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "899133b4-ab5d-4006-8cea-720b8b491a0b"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "4001" and event.category : "network" and
+  event.type : "connection" and network.direction : "egress" and event.action : "allowed" and process.executable : *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.name",
+    "process.parent.executable",
+    "destination.domain",
+    "destination.ip",
+    "destination.port",
+    "rule.name",
+    "message",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

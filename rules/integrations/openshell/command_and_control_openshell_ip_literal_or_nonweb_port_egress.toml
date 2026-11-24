@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an outbound connection from an OpenShell sandbox that either targets an IP literal with no resolved hostname
+or uses a destination port other than 80 or 443. Sandboxed agents ordinarily talk to named HTTPS endpoints that are
+declared in policy; a raw IP destination bypasses the DNS-based policy resolution path, and non-web ports point to
+protocols such as SSH, SMB, RDP, SMTP, DNS, or custom listeners that are characteristic of tunnelling, reverse shells,
+and command-and-control channels rather than API access. Both allowed and denied connections are alerted. Cloud
+metadata-service destinations are excluded because a dedicated higher-confidence rule covers them.
+"""
+false_positives = [
+    """
+    Sandboxes with policies that legitimately allow raw TCP endpoints (for example database clients, SSH to a build
+    host, or an internal service on a custom port) will generate allowed connections here. Baseline these per sandbox
+    and add exceptions for the specific container, destination, and port combination.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Egress to IP Literal or Non-Web Port"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Egress to IP Literal or Non-Web Port
+
+The OpenShell Sandbox Supervisor proxies egress from the agent and records each connection decision as an OCSF network
+activity event containing the destination address, resolved hostname when available, and port. This rule alerts on two
+shapes of egress that fall outside the normal named-HTTPS pattern of an agent workload: a destination that is an IP
+literal with no associated domain, which sidesteps hostname-based policy and is typical of hard-coded C2 addresses or
+scanner output, and a destination port other than 80 or 443, which implies a non-web protocol such as SSH, SMB, RDP,
+SMTP, or an arbitrary listener used for a reverse shell or tunnel.
+
+### Possible investigation steps
+
+- Check `event.action` and `event.reason` to determine whether the supervisor allowed or denied the connection, and
+  review `rule.name` for the policy rule involved.
+- Examine `destination.ip`, `destination.domain`, and `destination.port` to characterize the target. Look up the IP for
+  ownership and reputation, and map the port to a likely protocol.
+- Identify the calling binary (`process.name`, `process.executable`) and confirm whether it is expected in the sandbox
+  image. Network utilities such as `nc`, `socat`, `openssl s_client`, or scripting interpreters are more concerning than
+  a package manager.
+- Pivot on the same `container.id` to see whether multiple ports or addresses were tried in sequence (scanning) or the
+  same address was contacted repeatedly (beaconing).
+- Review the agent transcript and consumed content for injected instructions.
+
+### False positive analysis
+
+- Policies that intentionally permit raw TCP endpoints (databases, SSH build hosts, custom internal services) will
+  produce allowed events. After validating the dependency, add an exception scoped to the container, destination, and
+  port.
+
+### Response and remediation
+
+- If the destination is unknown or the connection was allowed to an unexpected host, stop or isolate the sandbox and
+  preserve supervisor logs and the agent transcript.
+- Block the destination at the sandbox policy and perimeter, and hunt for the same destination across other sandboxes and
+  hosts.
+- Review how the agent obtained the destination address and remediate the source (poisoned content, compromised
+  dependency, or malicious tool).
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in the OpenShell settings (globally or per sandbox) so the supervisor writes OCSF JSONL to
+`/var/log/openshell-ocsf.YYYY-MM-DD.log`, make that directory readable by Elastic Agent (for example by mounting the
+sandbox `/var/log` on a volume shared with the agent), and add the integration to the agent policy with **Paths** set to
+the mounted location. The integration's ingest pipeline normalizes the OCSF records to ECS, populating `observer.product`,
+`event.*`, `destination.*`, `process.*`, `container.*`, `http.*`, `url.*`, and `rule.*` in the `logs-openshell.ocsf-*`
+data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "5057a257-a507-44e1-8a68-450f9670fe9d"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.category : "network" and network.direction : "egress" and
+  event.code : "4001" and event.type : "connection" and event.action : ("allowed" or "denied") and
+  not (
+    destination.ip : ("100.100.100.200" or "169.254.169.254" or "169.254.170.2" or "fd00:ec2::254") or
+    destination.domain : "metadata.google.internal"
+  ) and
+  (
+    (destination.ip : * and not destination.domain : *) or
+    destination.port : (* and not (80 or 443))
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+[[rule.threat.technique]]
+id = "T1571"
+name = "Non-Standard Port"
+reference = "https://attack.mitre.org/techniques/T1571/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "destination.ip",
+    "destination.domain",
+    "destination.port",
+    "rule.name",
+    "message",
+]
+
