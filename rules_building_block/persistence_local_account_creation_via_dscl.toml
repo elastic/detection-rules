@@ -18,64 +18,11 @@ interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Local Account Creation via Dscl"
-note = """## Triage and analysis
-
-### Investigating Local Account Creation via Dscl
-
-`dscl` is the macOS Directory Service command line utility. `dscl . -create /Users/<name>` creates a local user record, and further `-create` calls set the attributes that make the account usable, such as `UniqueID`, `PrimaryGroupID` and `NFSHomeDirectory`. Assigning a `UniqueID` below 500 hides the account from the login window and from System Settings. The rule matches the creation of the user record and the creation of these attributes. Setting the `IsHidden` attribute is not matched by this rule. It is covered by the rule "Potential Hidden Local User Account Creation". Alerts are suppressed per host and user for five minutes because one account creation issues several commands.
-
-### Possible investigation steps
-
-- Review `process.command_line` to identify the account name and the attributes that were set, in particular `IsHidden` and the value of `UniqueID`.
-- Examine `process.parent.executable`, `process.parent.command_line` and `process.Ext.effective_parent.executable` to determine whether the command was run from an interactive terminal, a script, a remote session or an unsigned binary.
-- Search for related commands from the same parent in the same time frame, such as `dscl . -passwd` to set a password, `dscl . -append /Groups/admin GroupMembership` or `dseditgroup` to grant administrator rights, and `createhomedir`.
-- Confirm with the system owner whether the new account is expected and who requested it.
-- Review authentication and remote login activity for the new account after it was created.
-
-### False positive analysis
-
-- Device management agents and provisioning scripts create local service or administrator accounts with `dscl`. Common management agents are excluded by the query. Add an exception for other agents in `process.Ext.effective_parent.executable` after confirming the product.
-- Administrators may create local accounts manually. Confirm the change with the administrator and the parent process.
-
-### Response and remediation
-
-- If the account is not authorized, disable or delete it with `sysadminctl -deleteUser` or `dscl . -delete /Users/<name>` and remove it from any group it was added to.
-- Review the process tree that created the account and investigate how the creating process gained root privileges.
-- Check the host for logins, scheduled jobs, launch items or SSH keys associated with the account.
-- Reset credentials for accounts that were used to create it and review other hosts for the same account name.
-"""
 references = [
     "https://attack.mitre.org/techniques/T1136/001/",
-    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1136.001/T1136.001.md",
-    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1564.002/T1564.002.md",
 ]
 risk_score = 21
 rule_id = "0a13f199-d0c4-4892-8b8f-b7b932915a30"
-setup = """## Setup
-
-This rule requires data coming in from Elastic Defend.
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
