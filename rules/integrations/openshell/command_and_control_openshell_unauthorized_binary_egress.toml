@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time a given process within an OpenShell sandbox has an outbound TCP connection denied by the
+supervisor's transparent proxy policy. OpenShell evaluates the calling binary as part of every egress decision, so a
+denial attributed to a process that has not previously been seen attempting egress from that sandbox indicates a newly
+dropped or newly abused tool (for example a downloaded binary, an interpreter, or a network utility such as nc, socat,
+or openssl) trying to reach a destination that policy does not permit. This is a common precursor to ingress tool
+transfer and command-and-control from a compromised agent.
+"""
+false_positives = [
+    """
+    Newly installed but legitimate developer tooling (package managers, language runtimes, updaters) will generate a
+    first-seen denial the first time they attempt to reach an unapproved host. Review the destination and, if the tool
+    is expected, extend the sandbox network policy rather than excluding the process from this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Policy-Denied Egress by Unusual Process"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Policy-Denied Egress by Unusual Process
+
+The OpenShell Sandbox Supervisor transparently proxies TCP egress from the agent and enforces a per-sandbox policy that
+considers the destination, port, and the identity of the calling binary. When a connection is refused, the supervisor
+emits an OCSF network activity event with `event.action: denied` and `event.reason: transparent_tcp_policy_denied` along
+with the process that made the attempt. This new terms rule baselines the `container.name` and `process.executable` pair over a
+14-day window and alerts on the first denial from a process not seen before in that sandbox, surfacing tools that were
+brought into the sandbox or repurposed to reach unapproved destinations.
+
+### Possible investigation steps
+
+- Identify the process (`process.name`, `process.executable`, `process.pid`) and confirm whether it is part of the
+  sandbox image or was introduced at runtime (downloaded, compiled, or copied in via the relay file transfer).
+- Review `destination.ip`, `destination.domain`, and `destination.port` for the attempted target. IP-literal
+  destinations, unusual ports, and known file-hosting or paste services increase suspicion.
+- Pivot on the same `container.id` to see whether the process retried several destinations or whether other denied or
+  allowed events from the same sandbox reveal the source of the tool (for example an allowed download shortly before).
+- Review the agent transcript for instructions that led to running the tool, and check whether the content the agent
+  consumed contained injected instructions.
+
+### False positive analysis
+
+- The first invocation of a legitimate but newly installed tool will trigger this rule once. Validate the destination;
+  if it is expected, update the sandbox network policy so subsequent connections are allowed and audited normally.
+
+### Response and remediation
+
+- If the process is unexpected, stop or isolate the sandbox and preserve the supervisor logs, the binary, and the agent
+  transcript.
+- Determine how the binary entered the sandbox and close that path (image contents, allowed download hosts, file relay).
+- Hunt across other sandboxes for the same process name or destination.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in the OpenShell settings (globally or per sandbox) so the supervisor writes OCSF JSONL to
+`/var/log/openshell-ocsf.YYYY-MM-DD.log`, make that directory readable by Elastic Agent (for example by mounting the
+sandbox `/var/log` on a volume shared with the agent), and add the integration to the agent policy with **Paths** set to
+the mounted location. The integration's ingest pipeline normalizes the OCSF records to ECS, populating `observer.product`,
+`event.*`, `destination.*`, `process.*`, `container.*`, `http.*`, `url.*`, and `rule.*` in the `logs-openshell.ocsf-*`
+data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "72e4c965-f81b-420b-936e-9e7850da305e"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.category : "network" and network.direction : "egress" and
+  event.code : "4001" and event.type : "connection" and event.action : "denied" and
+  event.reason : "transparent_tcp_policy_denied" and
+  process.executable : *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.pid",
+    "destination.ip",
+    "destination.domain",
+    "destination.port",
+    "rule.name",
+    "message",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["container.name", "process.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

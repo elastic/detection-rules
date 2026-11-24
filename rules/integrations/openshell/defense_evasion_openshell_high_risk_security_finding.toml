@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a high- or critical-risk OpenShell Detection Finding that is not handled by a more specific rule. OpenShell
+uses findings for security conditions such as nonce replay, proxy bypass, and unsafe policy behavior. These events
+indicate an attempted or actual weakening of sandbox controls and require prompt investigation.
+"""
+false_positives = [
+    """
+    Security testing, policy development, and troubleshooting can intentionally exercise OpenShell protections and
+    generate findings. Confirm the operator, test scope, and affected sandbox before adding a narrowly scoped exception.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell High-Risk Security Finding"
+note = """## Triage and analysis
+
+### Investigating OpenShell High-Risk Security Finding
+
+OpenShell emits OCSF Detection Finding events for security conditions that require more context than a network or
+configuration decision. This rule provides durable coverage for high- and critical-risk findings, including newly added
+finding types, while excluding the HTTP authority mismatch covered by a dedicated rule.
+
+### Possible investigation steps
+
+- Review `rule.id`, `rule.name`, `rule.description`, `openshell.ocsf.risk_level`, and
+  `openshell.ocsf.confidence` to identify the finding and its reported impact.
+- Inspect `openshell.ocsf.evidences`, `openshell.ocsf.remediation.desc`, `message`, and `event.reason` for the
+  triggering policy, endpoint, protocol, and recommended response.
+- Identify the affected sandbox using `container.name` and `container.id`, then correlate preceding network,
+  configuration, process, and SSH activity.
+- Review the agent task, prompt history, tool calls, and consumed content for instructions attempting to bypass or
+  weaken sandbox controls.
+- Determine whether the same finding, destination, or process appears across other sandboxes.
+
+### False positive analysis
+
+- Approved security validation can produce findings. Confirm that the activity occurred within the documented scope and
+  that OpenShell blocked or contained the behavior as expected.
+
+### Response and remediation
+
+- Stop or isolate the sandbox when the finding is unexplained or indicates that a control was bypassed.
+- Follow `openshell.ocsf.remediation.desc`, preserve supervisor logs and the agent transcript, and rotate attached
+  credentials if the finding involved network or provider access.
+- Correct unsafe or overly broad policy rather than suppressing the finding globally.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 73
+rule_id = "d1fd01a8-5b52-4de5-ba4f-69092f548732"
+severity = "high"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "2004" and event.kind : "alert" and
+  (openshell.ocsf.risk_level : ("High" or "Critical") or event.severity >= 4) and
+  not rule.id : "openshell.http.request_authority_mismatch"
+'''
+
+
+[[rule.severity_mapping]]
+field = "openshell.ocsf.risk_level"
+operator = "equals"
+severity = "critical"
+value = "Critical"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "destination.domain",
+    "destination.ip",
+    "destination.port",
+    "rule.id",
+    "rule.name",
+    "rule.description",
+    "openshell.ocsf.confidence",
+    "openshell.ocsf.risk_level",
+    "openshell.ocsf.evidences",
+    "openshell.ocsf.remediation.desc",
+    "message",
+]
+

@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a burst of policy-denied outbound connections from a single OpenShell sandbox to many distinct destination
+hostnames within a short window. A sandboxed agent that repeatedly hits the network policy across a wide set of hosts is
+enumerating what it is allowed to reach, either because it is scanning for an exfiltration or command-and-control path,
+or because injected instructions are driving it to contact many unapproved destinations. Normal agent workloads that
+encounter a denial typically retry the same host a few times rather than fanning out across many.
+"""
+false_positives = [
+    """
+    An agent asked to crawl or fetch many URLs without a matching network policy, or a dependency installer resolving
+    packages from many mirrors, can produce a burst of denials across distinct hosts. Review the destinations; if the
+    activity is expected, extend the sandbox policy or raise the threshold for that sandbox.
+    """,
+]
+from = "now-6m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Denied Connection Burst"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Denied Connection Burst
+
+The OpenShell Sandbox Supervisor denies any outbound connection that is not permitted by the sandbox's network policy and
+logs each denial as an OCSF network activity event with `event.action: denied`. This threshold rule groups denials by
+`container.id` and alerts when a single sandbox accumulates at least 25 denied connections spanning at least 10 distinct
+destination hostnames within the rule window. The breadth of hostnames is the signal: an agent probing many hosts is
+mapping the boundary of its policy, which commonly precedes an attempt to find an open egress path for data theft or
+remote control.
+
+### Possible investigation steps
+
+- Enumerate the distinct `destination.domain` and `destination.ip` values denied for the sandbox and look for patterns
+  such as sequential subdomains, dynamic DNS providers, paste or file-sharing services, or wildcard hostnames.
+- Review `event.reason` values to distinguish DNS-policy denials from transparent TCP or L7 denials, and check
+  `process.name` to identify the tool generating the traffic.
+- Determine the sandbox owner and task from `container.name` and the agent transcript, and check whether the operator
+  requested broad web access.
+- Look for any allowed connections from the same `container.id` in the same window, which would show the destinations the
+  agent successfully reached during or after the probing.
+
+### False positive analysis
+
+- Crawling or bulk-fetch tasks and package installations without matching policy can generate many denials to distinct
+  hosts. If expected, extend the sandbox network policy or raise the threshold for that sandbox.
+
+### Response and remediation
+
+- If the destinations are unexpected, stop or isolate the sandbox and preserve the supervisor logs and agent transcript.
+- Review the sandbox policy to confirm it remains default-deny and that no broad wildcard rules were added.
+- Hunt for the same destination set across other sandboxes to determine whether the behavior is driven by shared content
+  or a shared tool.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in the OpenShell settings (globally or per sandbox) so the supervisor writes OCSF JSONL to
+`/var/log/openshell-ocsf.YYYY-MM-DD.log`, make that directory readable by Elastic Agent (for example by mounting the
+sandbox `/var/log` on a volume shared with the agent), and add the integration to the agent policy with **Paths** set to
+the mounted location. The integration's ingest pipeline normalizes the OCSF records to ECS, populating `observer.product`,
+`event.*`, `destination.*`, `process.*`, `container.*`, `http.*`, `url.*`, and `rule.*` in the `logs-openshell.ocsf-*`
+data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 21
+rule_id = "d6057099-fc66-4385-aea5-177ea06ebd0f"
+severity = "low"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: Threshold",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.category : "network" and network.direction : "egress" and
+  event.code : "4001" and event.type : "connection" and event.action : "denied" and destination.domain : *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "destination.domain",
+    "destination.ip",
+    "destination.port",
+    "rule.name",
+]
+
+[rule.threshold]
+field = ["container.id"]
+value = 25
+[[rule.threshold.cardinality]]
+field = "destination.domain"
+value = 10
+
+

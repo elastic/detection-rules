@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an OpenShell Process Activity termination reported with critical or fatal severity. OpenShell uses critical
+process events for conditions such as workload timeout kills. An unexpected forced termination can indicate resource
+exhaustion, denial of service, runaway agent behavior, or an attempt to interrupt a sandbox workload or security task.
+"""
+false_positives = [
+    """
+    Operator-defined execution timeouts, intentionally terminated tests, and resource-constrained development sandboxes
+    can produce critical process terminations. Confirm the task limits and termination reason before tuning the rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Critical Sandbox Process Termination"
+note = """## Triage and analysis
+
+### Investigating OpenShell Critical Sandbox Process Termination
+
+OpenShell records sandbox process lifecycle activity using OCSF Process Activity events. Critical and fatal termination
+events represent forced or abnormal process endings, including timeout enforcement. These events can be operational, but
+they can also show a workload consuming resources, hanging during suspicious activity, or being deliberately disrupted.
+
+### Possible investigation steps
+
+- Review `message`, `event.reason`, `event.severity`, `process.exit_code`, and `openshell.ocsf.status` for the
+  termination cause.
+- Identify the process and ancestry using `process.executable`, `process.command_line`, and `process.parent.*`.
+- Determine whether the process was the sandbox entrypoint, an agent tool, a security control, or a newly introduced
+  binary.
+- Correlate network, HTTP, configuration, and Detection Finding events from the same `container.id` before termination.
+- Review sandbox CPU, memory, and execution-time limits and determine whether repeated failures indicate resource
+  exhaustion or deliberate denial of service.
+
+### False positive analysis
+
+- Expected timeout enforcement for untrusted or long-running commands can trigger this rule. Confirm that the command,
+  timeout, and task were approved and that the sandbox returned to a healthy state.
+
+### Response and remediation
+
+- Stop or isolate the sandbox if the terminated process was unexpected or suspicious activity preceded the event.
+- Preserve the process command line, supervisor logs, agent transcript, and relevant artifacts.
+- Correct resource or timeout settings only after ruling out malicious or runaway behavior.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 99
+rule_id = "d670607b-9a77-4ac6-bd89-b4a528ed4b2a"
+severity = "critical"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "1007" and event.category : "process" and
+  event.type : "end" and openshell.ocsf.activity_name : "Terminate" and event.severity >= 5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.pid",
+    "process.exit_code",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "openshell.ocsf.status",
+    "message",
+]
+

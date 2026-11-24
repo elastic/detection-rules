@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first allowed inbound SSH session opened to an OpenShell sandbox within a 14-day history window. SSH is a
+supported administrative access path, but a first-seen session can indicate unexpected interactive access to an agent
+sandbox, investigation outside the normal workflow, or an attacker attempting to control or inspect the workload.
+"""
+false_positives = [
+    """
+    Initial sandbox setup, approved debugging, incident response, and routine administration can produce a first-seen
+    SSH session. Confirm the operator, change record, and reason for interactive access.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual SSH Session Opened to OpenShell Sandbox"
+note = """## Triage and analysis
+
+### Investigating Unusual SSH Session Opened to OpenShell Sandbox
+
+OpenShell records inbound SSH activity to a sandbox as OCSF SSH Activity events. This new terms rule alerts on the first
+allowed SSH session opened for a sandbox name during the preceding 14 days. Interactive access may be legitimate, but it
+changes the execution path from agent-driven activity to a human or remote client controlling the sandbox.
+
+### Possible investigation steps
+
+- Identify the sandbox using `container.name` and `container.id`, and determine its owner and assigned task.
+- Confirm which operator initiated the SSH session and whether an approved debugging, maintenance, or response activity
+  exists.
+- Review surrounding relay-open and relay-close events and determine the duration of the session.
+- Pivot on the sandbox for process and network activity during the SSH window, especially commands or destinations not
+  present before the session.
+- Review policy changes, uploaded files, and agent transcript activity immediately before and after the connection.
+
+### False positive analysis
+
+- The first approved administrative connection to a new or renamed sandbox is expected to alert. Retain the signal for
+  auditability or add a narrowly scoped exception for a documented administrative sandbox.
+
+### Response and remediation
+
+- If the session is unauthorized, terminate access, stop or isolate the sandbox, and preserve supervisor and gateway
+  logs.
+- Rotate credentials attached to the sandbox when the operator cannot be verified.
+- Review how the SSH access path was exposed and restrict it to approved administrators and management networks.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 21
+rule_id = "7fc7e72e-5fdf-4775-b921-186d214557df"
+severity = "low"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "4007" and event.category : "network" and
+  event.type : "start" and event.action : "allowed" and network.direction : "ingress" and
+  openshell.ocsf.activity_name : "Open" and container.name : *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0015"
+name = "Lateral Movement"
+reference = "https://atlas.mitre.org/tactics/AML.TA0015/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "observer.hostname",
+    "source.ip",
+    "source.port",
+    "destination.ip",
+    "destination.port",
+    "openshell.ocsf.activity_name",
+    "message",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["container.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a failed or elevated-severity OpenShell configuration event involving a sandbox security control. OpenShell
+configuration events report policy, Landlock, TLS, provider, and settings state. Failures or degraded enforcement can
+leave filesystem, network, credential, or transport protections weaker than intended.
+"""
+false_positives = [
+    """
+    Policy development, sandbox image incompatibilities, unavailable optional paths, and approved TLS or provider
+    maintenance can generate configuration warnings. Confirm whether OpenShell continued in a degraded mode and whether
+    the affected control was required for the workload.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Security Control Configuration Degraded"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Security Control Configuration Degraded
+
+OpenShell emits OCSF Device Config State Change events when it loads or reloads policy, applies Landlock filesystem
+restrictions, configures TLS and providers, or changes runtime settings. This rule focuses on failed configuration
+events and medium-or-higher events that name a security-sensitive control.
+
+### Possible investigation steps
+
+- Review `message`, `event.reason`, `event.outcome`, `event.severity`, `openshell.ocsf.state`, and
+  `openshell.ocsf.status` to identify the affected control and whether OpenShell continued in degraded mode.
+- Identify the sandbox and supervisor using `container.name`, `container.id`, and `observer.hostname`.
+- For Landlock events, determine which path was skipped and whether compatibility was configured as `best_effort` or
+  `hard_requirement`.
+- For policy events, compare the previous and current policy revision or hash and identify the operator or automation
+  responsible for the change.
+- Correlate subsequent network, process, and Detection Finding events to determine whether the degraded control was
+  followed by suspicious activity.
+
+### False positive analysis
+
+- Best-effort filesystem policy can intentionally skip unavailable paths. Confirm that the path is non-sensitive and
+  that the resulting sandbox permissions still match the security requirement.
+
+### Response and remediation
+
+- Stop or isolate the sandbox when a required control failed or the resulting enforcement state is unknown.
+- Restore the intended policy or configuration, restart the affected component when required, and verify a successful
+  configuration event.
+- Preserve the failed event and change context, and investigate unauthorized configuration changes as possible defense
+  evasion.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 47
+rule_id = "d202197e-fa02-493f-920a-88ab063bc9e9"
+severity = "medium"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "5019" and event.category : "configuration" and
+  event.type : "change" and
+  (
+    event.outcome : "failure" or openshell.ocsf.status : "Failure" or
+    (
+      event.severity >= 3 and
+      message : ("*Landlock*" or "*policy*" or "*TLS*" or "*credential*" or "*provider*")
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "observer.hostname",
+    "observer.version",
+    "openshell.ocsf.activity_name",
+    "openshell.ocsf.state",
+    "openshell.ocsf.status",
+    "openshell.ocsf.unmapped",
+    "message",
+]
+

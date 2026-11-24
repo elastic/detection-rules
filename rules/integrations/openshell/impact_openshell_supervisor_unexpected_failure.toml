@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["openshell"]
+maturity = "production"
+min_stack_comments = "The NVIDIA OpenShell integration requires Elastic Stack 9.4.0 or later."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an OpenShell Sandbox Supervisor application lifecycle stop with a failure outcome. An unexpected supervisor
+failure can remove policy enforcement and audit visibility for the affected sandbox, interrupt workloads, or indicate
+resource exhaustion, configuration errors, or deliberate attempts to impair the sandbox security control.
+"""
+false_positives = [
+    """
+    Failed upgrades, port conflicts, resource exhaustion, or operator troubleshooting can stop the supervisor
+    unexpectedly. Correlate the failure message with approved maintenance and host-level service logs.
+    """,
+]
+from = "now-9m"
+index = ["logs-openshell.ocsf-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenShell Sandbox Supervisor Unexpected Failure"
+note = """## Triage and analysis
+
+### Investigating OpenShell Sandbox Supervisor Unexpected Failure
+
+The OpenShell Sandbox Supervisor enforces network policy, injects provider credentials, and records security activity.
+This rule detects an application lifecycle stop that OpenShell reports as failed. A failed supervisor can interrupt the
+sandbox or create a visibility and enforcement gap that requires immediate review.
+
+### Possible investigation steps
+
+- Review `message`, `event.reason`, `event.outcome`, and `openshell.ocsf.status` for the reported failure.
+- Identify the sandbox and supervisor host using `container.name`, `container.id`, and `observer.hostname`.
+- Check for configuration changes (`event.code: "5019"`), resource pressure, port conflicts, upgrades, or process
+  termination events immediately before the failure.
+- Determine whether the sandbox continued running and whether any network activity occurred after the supervisor stopped.
+- Review host, container-runtime, and OpenShell gateway logs for crashes, out-of-memory termination, or administrative
+  actions.
+
+### False positive analysis
+
+- Approved upgrades and troubleshooting can produce lifecycle failures. Confirm the maintenance window and verify that
+  policy enforcement and OCSF logging resumed promptly.
+
+### Response and remediation
+
+- Isolate or stop the affected sandbox until the supervisor is healthy and policy enforcement is confirmed.
+- Restart the supervisor through the approved OpenShell operational procedure and verify fresh OCSF events arrive.
+- Investigate repeated failures as possible tampering or denial of service, and preserve host and supervisor logs.
+
+## Setup
+
+This rule requires OpenShell Sandbox Supervisor OCSF audit events collected with the NVIDIA OpenShell integration.
+Enable `ocsf_json_enabled` in OpenShell, make the OCSF JSONL path readable by Elastic Agent, and configure the
+integration to collect that path into the `logs-openshell.ocsf-*` data stream.
+"""
+references = [
+    "https://docs.nvidia.com/openshell/observability/logging",
+    "https://docs.nvidia.com/openshell/observability/ocsf-json-export",
+    "https://www.elastic.co/docs/reference/integrations/openshell",
+]
+risk_score = 73
+rule_id = "33a29048-3080-41b4-a6e1-7256e886945f"
+severity = "high"
+tags = [
+    "Domain: Container",
+    "Domain: GenAI",
+    "Data Source: OpenShell",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : "openshell.ocsf" and event.code : "6002" and event.category : "process" and
+  event.type : "end" and event.outcome : "failure" and openshell.ocsf.activity_name : "Stop" and
+  openshell.ocsf.status : "Failure"
+'''
+
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "critical"
+value = "5"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.outcome",
+    "event.reason",
+    "event.severity",
+    "container.name",
+    "container.id",
+    "observer.hostname",
+    "observer.version",
+    "openshell.ocsf.activity_name",
+    "openshell.ocsf.status",
+    "openshell.ocsf.app.name",
+    "openshell.ocsf.app.version",
+    "message",
+]
+
