@@ -6,7 +6,7 @@ ES|QL COMPLETION command requires Elastic Inference Service Claude Sonnet 4.6 (.
 available in 9.3.0+
 """
 min_stack_version = "9.4.0"
-updated_date = "2026/11/03"
+updated_date = "2026/11/16"
 
 [rule]
 author = ["Elastic"]
@@ -149,21 +149,26 @@ from .alerts-security.* METADATA _id, _version, _index
 | eval prompt = CONCAT("Security alerts for user account triage: ", alert_summary, instructions)
 | COMPLETION triage_result = prompt WITH { "inference_id": ".anthropic-claude-4.6-sonnet-completion"}
 
-// parse LLM response
-| DISSECT triage_result """verdict=%{Esql.verdict} confidence=%{Esql.confidence} summary=%{Esql.summary}"""
+// Validate the entire response; malformed output becomes an explicit review result.
+| EVAL triage_clean = TRIM(COALESCE(triage_result, ""))
+| GROK triage_clean """(?i)\Averdict=(?<parsed_verdict>TP|FP|SUSPICIOUS)[ \t]+confidence=(?<parsed_confidence>0(?:\.[0-9]+)?|1(?:\.0+)?)[ \t]+summary=(?![^\r\n]*(?:verdict|confidence|summary)=)(?<parsed_summary>[^\r\n]+)\z"""
+| EVAL Esql.triage_error = parsed_verdict IS NULL OR parsed_confidence IS NULL OR COALESCE(LENGTH(TRIM(parsed_summary)), 0) == 0
+| EVAL Esql.verdict = CASE(Esql.triage_error, "TRIAGE_ERROR", TO_UPPER(parsed_verdict)),
+       Esql.confidence = TO_DOUBLE(parsed_confidence),
+       Esql.summary = CASE(Esql.triage_error, "LLM output failed validation; analyst review required.", TRIM(parsed_summary)),
+       Esql.triage_raw = triage_result
 
-// filter to surface compromised accounts or suspicious activity
-| where (TO_LOWER(Esql.verdict) == "tp" or TO_LOWER(Esql.verdict) == "suspicious") and TO_DOUBLE(Esql.confidence) > 0.7
+// Never silently discard malformed or missing model output.
+| WHERE Esql.triage_error OR (Esql.verdict IN ("TP", "SUSPICIOUS") AND Esql.confidence > 0.7)
 
-// map to ECS fields for timeline visibility and alert exclusion
-| eval message = Esql.summary,
+| EVAL message = Esql.summary,
        event.reason = Esql.summary,
-       event.outcome = TO_LOWER(Esql.verdict),
+       event.outcome = CASE(Esql.triage_error, "unknown", TO_LOWER(Esql.verdict)),
        event.category = "intrusion_detection",
        event.action = "compromised_user_triage",
-       host.name = mv_min(Esql.host_name_values),
-       user.email = mv_min(Esql.user_email_values)
+       host.name = MV_MIN(Esql.host_name_values),
+       user.email = MV_MIN(Esql.user_email_values)
 
-| keep user.name, user.id, user.email, host.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
+| KEEP user.name, user.id, user.email, host.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 
