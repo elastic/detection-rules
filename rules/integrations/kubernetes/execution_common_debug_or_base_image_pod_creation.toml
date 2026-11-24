@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/05/04"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Kubernetes pod creation requests using commonly abused base and debugging container images such as
+BusyBox, Alpine, Ubuntu, Netshoot, and network multitool variants, as well as container runtime and image-build images
+such as Docker-in-Docker (dind), Podman, BuildKit, Buildah, and Kaniko. Base and debug images are frequently used by
+attackers to deploy short-lived or interactive "throwaway" containers for reconnaissance, payload staging, or command
+execution. Container runtime and build images are used to run nested containers or build images on-host, bypassing
+registry-based image controls. This is a New Terms rule that surfaces the first time a given source, user agent, and
+user deploy such an image within the lookback window.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Pod Creation Using Common Debug or Base Images"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Pod Creation Using Common Debug or Base Images
+
+This rule identifies successful, first-seen pod deployments that use commonly abused troubleshooting, base, container-runtime, or image-building images, which can signal unauthorized execution or attempts to bypass image controls. An attacker may launch a short-lived BusyBox or Netshoot pod to enumerate cluster services and stage commands, or deploy a nested-container image to build and run unapproved workloads directly within the cluster.
+
+### Possible investigation steps
+
+- Attribute the request to a workload or human owner and confirm the namespace, service account, source address, authentication method, and change ticket are expected.
+- Review the complete pod specification for interactive commands, privileged mode, added capabilities, host namespaces, hostPath mounts, sensitive environment variables, and access to secrets or high-privilege service accounts.
+- Validate the image registry, repository, tag, digest, signature, admission-policy result, and vulnerability scan against approved debugging or build workflows.
+- Correlate nearby audit activity from the same identity and source for secret access, discovery, exec or attach sessions, privilege changes, workload creation, and rapid pod deletion.
+- Preserve pod logs, events, runtime telemetry, and network connections, then isolate or remove the pod and revoke exposed credentials if the deployment is unauthorized.
+
+### False positive analysis
+
+- An authorized administrator may create a short-lived BusyBox, Alpine, Ubuntu, Netshoot, or network-multitool pod for troubleshooting; verify the user, namespace, source address, pod commands, and associated change record.
+- An approved build workflow may create a pod using Docker-in-Docker, Podman, BuildKit, Buildah, or Kaniko; confirm the service account, image registry and digest, pod configuration, and expected build activity.
+
+### Response and remediation
+
+- Isolate the malicious pod by applying a deny-all network policy or quarantining its namespace, then suspend the responsible service account and preserve the pod specification, logs, events, and container runtime evidence.
+- Delete unauthorized pods, controllers, jobs, cron jobs, daemonsets, role bindings, admission webhooks, and nested-container or image-building artifacts created by the attacker.
+- Revoke and rotate exposed service-account tokens, registry credentials, secrets, cloud credentials, and node credentials, and terminate active exec, attach, or port-forward sessions.
+- Rebuild affected workloads or nodes from trusted images and declarative manifests, verify image digests and signatures, and confirm that no unauthorized containers, hostPath mounts, privileged settings, or modified resources remain.
+- Escalate immediately to incident response if the pod accessed secrets, used privileged or host-level access, contacted external infrastructure, created additional workloads, or affected multiple namespaces or nodes.
+- Prevent recurrence by enforcing approved registries and signed images, restricting debug and build images, denying privileged pods and risky host mounts, applying least-privilege RBAC, and alerting on unusual pod creation and exec activity.
+"""
+risk_score = 21
+rule_id = "93120a05-caf5-47f6-a305-e8abee463fb9"
+severity = "low"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Rule Type: New Terms",
+    "Platform: Kubernetes",
+    "Domain: Containers",
+    "Domain: Cloud",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:"kubernetes.audit_logs" and
+kubernetes.audit.stage:"ResponseComplete" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.objectRef.resource:"pods" and
+kubernetes.audit.verb:"create" and
+kubernetes.audit.requestObject.spec.containers.image:(alpine* or busybox* or ubuntu\:* or debian\:* or *netshoot\:* or *network-multitool\:* or *dind* or *podman* or *buildkit* or *buildah* or *kaniko*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[[rule.threat.technique]]
+id = "T1612"
+name = "Build Image on Host"
+reference = "https://attack.mitre.org/techniques/T1612/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "user_agent.original", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+

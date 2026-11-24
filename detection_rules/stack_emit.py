@@ -34,12 +34,15 @@ from . import atlas, attack
 from .config import (
     DEFAULT_THREAT_MAPPING_FRAMEWORK,
     DEFAULT_THREAT_MAPPING_VERSION,
+    PROMOTED_THREAT_MAPPING_VERSION,
     load_current_package_version,
 )
 from .integrations import RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK
 
 # Re-export attack's gate so emit registry / callers share one constant.
-MITRE_V19_MIN_STACK = attack.MITRE_V19_MIN_STACK
+PROMOTED_THREAT_MAPPING_MIN_STACK = attack.PROMOTED_THREAT_MAPPING_MIN_STACK
+# Recorded in version.lock.json stack_emit rows; follows the promoted ATT&CK version.
+MITRE_ATTACK_TRANSFORM_ID = f"mitre_attack_v{PROMOTED_THREAT_MAPPING_VERSION}"
 # ATLAS threat entries ship only on 9.6+ (Kibana framework support).
 MITRE_ATLAS_MIN_STACK = Version(*atlas.MITRE_ATLAS_MIN_STACK_MAJOR_MINOR, 0)
 RELATED_INTEGRATIONS_GTE_MIN_STACK = RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK
@@ -69,8 +72,8 @@ class EmitTransform:
     apply: EmitApplyFn
 
 
-def _apply_mitre_attack_v19(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
-    """Promote / convert threat (+ tactic tags) for stacks that ship ATT&CK v19."""
+def _apply_mitre_attack_promotion(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
+    """Promote / convert threat (+ tactic tags) for stacks that ship the promoted ATT&CK version."""
     # Pass stack so auto-promotion matches the transform registry gate, not a divergent
     # package-version lookup when apply_emit_transforms is called with an explicit stack.
     framework, version = attack.resolve_output_threat_version(stack)
@@ -147,10 +150,10 @@ def _apply_mitre_atlas(obj: dict[str, Any], stack: Version, context: EmitContext
 # Lock epochs key off min_stack — do not add a row per package minor.
 EMIT_TRANSFORMS: tuple[EmitTransform, ...] = (
     EmitTransform(
-        id="mitre_attack_v19",
-        min_stack=MITRE_V19_MIN_STACK,
+        id=MITRE_ATTACK_TRANSFORM_ID,
+        min_stack=PROMOTED_THREAT_MAPPING_MIN_STACK,
         affects=("threat", "tags"),
-        apply=_apply_mitre_attack_v19,
+        apply=_apply_mitre_attack_promotion,
     ),
     EmitTransform(
         id="related_integrations_gte",
