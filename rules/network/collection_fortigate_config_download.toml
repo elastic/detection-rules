@@ -2,7 +2,7 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -77,6 +77,14 @@ any where data_stream.dataset == "fortinet_fortigate.log" and
     event.code == "0100032095" and
     fortinet.firewall.action == "download"
 '''
+
+[rule.alert_suppression]
+group_by = ["observer.name", "source.user.name"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
 
 
 [[rule.threat]]
