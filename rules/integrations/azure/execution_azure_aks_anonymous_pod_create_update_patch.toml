@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/11/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects unauthenticated or anonymous clients attempting to create, update, or patch pods on AKS (Azure Kubernetes
+Service). A rejected attempt (401 or 403) shows a client trying to deploy workloads on an exposed API server without
+credentials. A successful request means anonymous access is bound to write permissions, a critical misconfiguration that
+allows unauthenticated code execution in the cluster.
+"""
+false_positives = [
+    """
+    Legitimate clients always authenticate before creating pods, so matches are rare. Internal attack surface scanners
+    that test write access without credentials can match; exclude their source after validation.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Anonymous Pod Create Update or Patch"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Anonymous Pod Create Update or Patch
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. When anonymous
+authentication is disabled, an unauthenticated request is rejected with `401` and recorded without any `user` field.
+When anonymous authentication is enabled, the request is recorded as `system:anonymous` and evaluated by RBAC. The rule
+matches both, and requires a response code so the `RequestReceived` stage does not produce a second alert.
+
+### Possible investigation steps
+
+- Check `azure.platformlogs.properties.log.responseStatus.code` first. `401` or `403` is a rejected attempt; `200` or
+  `201` means an anonymous client changed a pod and should be handled as an active compromise.
+- Review `azure.platformlogs.properties.log.sourceIPs` (the last entry is the originating client on AKS) and
+  `userAgent`, and determine whether the API server is public or restricted by authorized IP ranges.
+- For successful requests, inspect `azure.platformlogs.properties.log.requestObject` (available with the `kube-audit`
+  category) for the image, command, privileged settings, and host mounts, and locate the resulting pod.
+- Correlate the source with other unauthenticated requests, such as anonymous endpoint enumeration, in the same window.
+
+### False positive analysis
+
+- Legitimate clients authenticate before writing to the API, so matches should be rare. Exclude a validated internal
+  scanner by source IP rather than disabling the rule.
+
+### Response and remediation
+
+- For a successful request, delete the pod, isolate the node it ran on, and review what it accessed.
+- Remove any RBAC bindings that grant permissions to `system:anonymous` or `system:unauthenticated`, and restrict API
+  server access with authorized IP ranges or a private cluster.
+- Block the source if external and collect kube-audit artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests",
+    "https://learn.microsoft.com/en-us/azure/aks/api-server-authorized-ip-ranges",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+]
+risk_score = 73
+rule_id = "5c8ab574-7654-4a85-bb59-fd1db67319fa"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Domain: Containers",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: Custom Query (KQL)",
+    "Noise: Low",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"pods" and
+  azure.platformlogs.properties.log.verb:("create" or "update" or "patch") and
+  azure.platformlogs.properties.log.responseStatus.code:* and
+  (
+    azure.platformlogs.properties.log.user.username:(
+      "system:anonymous" or "system:unauthenticated" or "system:unsecured" or not *
+    ) or
+    azure.platformlogs.properties.log.impersonatedUser.username:(
+      "system:anonymous" or "system:unauthenticated" or "system:unsecured"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
+

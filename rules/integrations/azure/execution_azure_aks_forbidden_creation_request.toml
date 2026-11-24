@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/11/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects create requests on AKS (Azure Kubernetes Service) that RBAC denied (`authorization.k8s.io/decision: forbid`). An
+identity attempting to create resources it is not authorized for, such as pods, secrets, role bindings, or token
+requests, can indicate an adversary probing a stolen credential for write access. Admission denials from Azure Policy,
+Pod Security, or quotas, which also return 403 but are authorized by RBAC, are not matched. Node, control-plane, and
+kube-system identities and default client-go user agents (`kubernetes/$Format`) are excluded.
+"""
+false_positives = [
+    """
+    Developers and CI jobs without the required permissions generate forbidden creates, especially after RBAC changes.
+    Validate the identity and resource, and exclude stable automation after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Forbidden Creation Request"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Forbidden Creation Request
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. The rule keys on the RBAC
+decision annotation rather than the 403 status code. On AKS, 403 is also returned for requests RBAC allowed but that
+were rejected later, for example by Azure Policy (Gatekeeper), Pod Security admission, resource quotas, or a namespace
+that is being deleted.
+
+### Possible investigation steps
+
+- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs` (the last entry is the
+  originating client on AKS) to identify who made the request and from where.
+- Review `objectRef.resource`, `objectRef.namespace`, and `objectRef.subresource` to see what the identity tried to
+  create. Attempts against `pods`, `secrets`, `serviceaccounts/token`, `rolebindings`, `clusterrolebindings`, or
+  `pods/exec` are higher risk than application resources.
+- Check for other forbidden or successful requests from the same identity in the surrounding window to determine
+  whether it is systematically probing for write access.
+- For a service account, identify the workload using it and check for exec sessions or image changes on that pod.
+
+### False positive analysis
+
+- Developers and CI jobs missing a permission generate forbidden creates; these usually repeat the same resource
+  rather than spanning several. Exclude stable automation by service account after review.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials or kubeconfig and review what else it accessed successfully.
+- Confirm RBAC remains least privilege for the identity and remove unused bindings.
+- Collect kube-audit artifacts per incident response procedures.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+]
+risk_score = 47
+rule_id = "e6db07cc-d012-49b7-a68b-ecddbee27d9b"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Domain: Containers",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: Custom Query (KQL)",
+    "Noise: Medium",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.verb:"create" and
+  azure.platformlogs.properties.log.stage:"ResponseComplete" and
+  azure.platformlogs.properties.log.annotations.authorization.k8s.io/decision:"forbid" and
+  azure.platformlogs.properties.log.userAgent:(* and not *kubernetes/$Format) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
+

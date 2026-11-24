@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/11/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Kubernetes API requests on AKS (Azure Kubernetes Service) that RBAC denied (`authorization.k8s.io/decision:
+forbid`) from a user agent not seen in the previous 7 days. Adversary tooling often uses non-standard clients, and a
+denied request from a new client is a strong reconnaissance or exploitation signal. Admission denials that return 403
+after RBAC allowed the request are not matched. Platform control-plane identities, default client-go user agents, and
+Elastic Agent monitoring requests are excluded.
+"""
+false_positives = [
+    """
+    New automation with custom user agents that lacks RBAC will alert until learned. Exclude validated clients after
+    review rather than removing the New Terms condition.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Forbidden Request from Unusual User Agent"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Forbidden Request from Unusual User Agent
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree. This New Terms
+rule flags requests with an RBAC `forbid` decision where `userAgent` is not a default client-go agent
+(`kubernetes/$Format`) and has not been seen in the 7-day history window. Keying on the decision rather than the 403
+status code avoids Azure Policy, Pod Security admission, and quota rejections.
+
+### Possible investigation steps
+
+- Identify `user.username`, the new `userAgent`, `sourceIPs`, and the denied `objectRef` / `verb`.
+- Determine whether the client is scripting (curl/python/Go-http) or spoofed kubectl.
+- Hunt for successful follow-on activity from the same identity or source.
+
+### False positive analysis
+
+- First deploy of a custom controller can deny until RBAC is fixed; exclude the stable UA after validation.
+- Default `kubernetes/$Format` agents are excluded by query.
+- Monitoring agents produce a new user agent on every version upgrade. Elastic Agent requests (`Elastic-*` or
+  `elastic-*` user agents from an `elastic-agent` service account) that are denied on `/metrics` or cluster-scoped
+  resources are excluded; add similar exclusions for other monitoring agents with restricted RBAC.
+
+### Response and remediation
+
+- If unauthorized, revoke credentials, block the source if external, and fix RBAC gaps that were probed.
+- Collect kube-audit artifacts per incident response procedures.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://research.nccgroup.com/2021/11/10/detection-engineering-for-kubernetes-clusters/#part3-kubernetes-detections",
+]
+risk_score = 47
+rule_id = "842071d3-6483-457c-8ff6-ec74f6e1bc51"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+into the `azure.platformlogs` data stream is required for this rule.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+    "Domain: Containers",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: New Terms",
+    "Noise: Medium",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.stage:"ResponseComplete" and
+  azure.platformlogs.properties.log.annotations.authorization.k8s.io/decision:"forbid" and
+  azure.platformlogs.properties.log.userAgent:(* and not (*kubernetes/$Format)) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  ) and
+  not (
+    azure.platformlogs.properties.log.user.username:system\:serviceaccount\:*\:elastic-agent and
+    azure.platformlogs.properties.log.userAgent:(Elastic-* or elastic-*)
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.platformlogs.properties.log.userAgent"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
