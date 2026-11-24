@@ -2,7 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/24"
 
 [rule]
 author = ["Elastic"]
@@ -30,11 +30,12 @@ note = """## Triage and analysis
 
 Service Principals are identities used by applications, services, and automation tools to access specific resources. They grant specific access based on the assigned API permissions. Most organizations that work a lot with Azure AD make use of service principals. Whenever an application is registered, it automatically creates an application object and a service principal in an Azure AD tenant.
 
-This rule looks for the addition of service principals. This behavior may enable attackers to impersonate legitimate service principals to camouflage their activities among noisy automations/apps.
+This rule looks for the addition of service principals. This behavior may enable attackers to impersonate legitimate service principals to camouflage their activities among noisy automations/apps. Service principals that Entra ID records with a `ServicePrincipalProvisioningType` of `AzureResourceProvider` are excluded, as they are created by an Azure resource provider when an Azure service is onboarded.
 
 #### Possible investigation steps
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
+- Review `azure.auditlogs.properties.additional_details` for `ServicePrincipalProvisioningType`. `Other` covers delegated and app-only creation, including agent identities created by an agent blueprint; confirm that the initiating app or blueprint is one the organization uses.
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Consider the source IP address and geolocation for the user who issued the command. Do they look normal for the user?
 - Consider the time of day. If the user is a human, not a program or script, did the activity take place during a normal time of day?
@@ -102,6 +103,7 @@ data_stream.dataset:azure.auditlogs
         "AAD App Management" or
         "Power Virtual Agents Service"
         )
+    and not azure.auditlogs.properties.additional_details.value: "AzureResourceProvider"
 '''
 
 
