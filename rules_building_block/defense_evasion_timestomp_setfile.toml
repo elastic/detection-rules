@@ -2,18 +2,20 @@
 creation_date = "2026/11/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/17"
+updated_date = "2026/11/24"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the use of SetFile on macOS to change a file's creation or modification timestamp. SetFile, included with
 Xcode Command Line Tools, sets the creation date with -d and the modification date with -m. Unlike touch, it can alter
 the file birth time. Adversaries use it to timestomp files so they blend in with legitimate content and hinder forensic
 analysis.
 """
-from = "now-9m"
+from = "now-119m"
 index = ["logs-endpoint.events.process-*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Timestomping using SetFile"
@@ -50,7 +52,7 @@ note = """## Triage and analysis
 - Isolate the host if the timestomped file is malicious or if follow-on activity is identified, and escalate to the incident response team.
 """
 references = ["https://ss64.com/mac/setfile.html", "https://attack.mitre.org/techniques/T1070/006/"]
-risk_score = 47
+risk_score = 21
 rule_id = "d093c7c1-d6cb-4277-b2c9-74477b393b7f"
 setup = """## Setup
 
@@ -77,12 +79,13 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: macOS",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Rule Type: BBR",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
     "Rule Type: Event Correlation (EQL)",
