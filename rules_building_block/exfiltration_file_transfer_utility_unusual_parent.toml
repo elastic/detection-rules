@@ -55,17 +55,18 @@ process where host.os.type == "macos" and event.type == "start" and event.action
     (process.name in ("sftp", "ftp") and process.args like "?*@?*") or
     /* script-like parent, or untrusted parent in a user-writable path */
     (
+      process.parent.name in ("osascript", "node", "perl", "ruby") or
+      process.parent.name like (
+        "python*", ".*", "*.sh", "*.command", "*.scpt", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", "*.js"
+      ) or
       (
-        process.parent.name like (
-          ".*", "*.sh", "*.command", "*.scpt", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", "*.js"
-        ) or
         process.parent.executable like (
           "/tmp/*", "/private/tmp/*", "/var/tmp/*", "/private/var/tmp/*", "/var/folders/*",
           "/private/var/folders/*", "/Users/Shared/*", "/Users/*/Downloads/*", "/Users/*/Library/*",
           "/Users/*/.*", "/var/root/*", "/private/var/root/*", "/Library/WebServer/*"
-        )
-      ) and
-      not (process.parent.code_signature.trusted == true and process.parent.code_signature.team_id != null)
+        ) and
+        not (process.parent.code_signature.trusted == true and process.parent.code_signature.team_id != null)
+      )
     )
   )
 '''
