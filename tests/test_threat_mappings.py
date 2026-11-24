@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Tests for multi-version threat mappings (e.g. MITRE ATT&CK v18/v19) support."""
+"""Tests for multi-version threat mappings (baseline and promoted MITRE ATT&CK versions)."""
 
 import contextlib
 import importlib.util
@@ -19,19 +19,30 @@ from marshmallow import ValidationError
 
 from detection_rules import attack
 from detection_rules.config import (
+    DEFAULT_THREAT_MAPPING_VERSION,
+    PROMOTED_THREAT_MAPPING_VERSION,
     THREAT_MAPPING_VERSION_ENV,
 )
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_stack_schemas
-from detection_rules.stack_emit import MITRE_V19_MIN_STACK
+from detection_rules.stack_emit import PROMOTED_THREAT_MAPPING_MIN_STACK
+from detection_rules.utils import get_etc_path
+
+# Versions under test come from config, so an ATT&CK upgrade does not need edits here.
+BASELINE = DEFAULT_THREAT_MAPPING_VERSION
+PROMOTED = PROMOTED_THREAT_MAPPING_VERSION
 
 TACTIC = {
     "id": "TA0001",
     "name": "Initial Access",
     "reference": "https://attack.mitre.org/tactics/TA0001/",
 }
-TECH_V18 = {"id": "T1078", "name": "Valid Accounts", "reference": "https://attack.mitre.org/techniques/T1078/"}
-TECH_V19 = {"id": "T1078", "name": "Valid Accounts (v19)", "reference": "https://attack.mitre.org/techniques/T1078/"}
+TECH_BASELINE = {"id": "T1078", "name": "Valid Accounts", "reference": "https://attack.mitre.org/techniques/T1078/"}
+TECH_PROMOTED = {
+    "id": "T1078",
+    "name": "Valid Accounts (promoted)",
+    "reference": "https://attack.mitre.org/techniques/T1078/",
+}
 
 
 class TestAttackVersionInitialization(unittest.TestCase):
@@ -69,7 +80,7 @@ def _metadata() -> dict[str, Any]:
 
 
 def _rule(threat_mappings: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Return a minimal rule dict with a baseline v18 threat block."""
+    """Return a minimal rule dict with a baseline threat block."""
     rule: dict[str, Any] = {
         "author": ["Elastic"],
         "description": "Test rule.",
@@ -80,7 +91,7 @@ def _rule(threat_mappings: list[dict[str, Any]] | None = None) -> dict[str, Any]
         "severity": "low",
         "type": "eql",
         "query": "any where true",
-        "threat": [{"framework": "MITRE ATT&CK", "tactic": TACTIC, "technique": [TECH_V18]}],
+        "threat": [{"framework": "MITRE ATT&CK", "tactic": TACTIC, "technique": [TECH_BASELINE]}],
     }
     if threat_mappings is not None:
         rule["threat_mappings"] = threat_mappings
@@ -88,13 +99,13 @@ def _rule(threat_mappings: list[dict[str, Any]] | None = None) -> dict[str, Any]
 
 
 @contextlib.contextmanager
-def _pin_v19_stack() -> Any:
-    """Pin the emit stack to the v19 gate so stack-gated transforms apply on release branches (< 9.5)."""
+def _pin_promoted_stack() -> Any:
+    """Pin the emit stack to the promotion gate so stack-gated transforms apply on release branches (< 9.5)."""
     # `load_current_package_version` is imported by name into both the rule module and the schemas
     # module. Pinning only the rule module makes `get_required_fields` ask `get_stack_schemas()` for a
     # version the schemas module (still reading the real package) never lists on a < 9.5 branch. Pin
     # both, and drop the memoized `get_stack_schemas` result so it is rebuilt for the pinned version.
-    pinned = str(MITRE_V19_MIN_STACK)
+    pinned = str(PROMOTED_THREAT_MAPPING_MIN_STACK)
     get_stack_schemas.clear()
     try:
         with (
@@ -106,11 +117,11 @@ def _pin_v19_stack() -> Any:
         get_stack_schemas.clear()
 
 
-def _v19_block(technique: dict[str, Any] = TECH_V19) -> dict[str, Any]:
-    """Return a v19 threat_mappings block dict for use in test fixtures."""
+def _promoted_block(technique: dict[str, Any] = TECH_PROMOTED) -> dict[str, Any]:
+    """Return a promoted-version threat_mappings block dict for use in test fixtures."""
     return {
         "framework": "MITRE ATT&CK",
-        "version": "19",
+        "version": PROMOTED,
         "threat": [{"framework": "MITRE ATT&CK", "tactic": TACTIC, "technique": [technique]}],
     }
 
@@ -148,7 +159,7 @@ class TestThreatHashStability(unittest.TestCase):
         return self._load(rule_dict).contents.get_hash()
 
     def test_tactic_id_change_changes_hash(self) -> None:
-        """Assert that changing a tactic ID produces a different hash (v18 context)."""
+        """Assert that changing a tactic ID produces a different hash (baseline context)."""
         tactic_a = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tactic_b = {"id": "TA0002", "name": "Execution", "reference": "https://attack.mitre.org/tactics/TA0002/"}
         tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
@@ -156,11 +167,11 @@ class TestThreatHashStability(unittest.TestCase):
         rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_a, "technique": [tech]}]
         rule_b = _rule()
         rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_b, "technique": [tech]}]
-        with ThreatMappingEnv("18"):
+        with ThreatMappingEnv(BASELINE):
             self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
 
     def test_technique_id_change_changes_hash(self) -> None:
-        """Assert that changing a technique ID produces a different hash (v18 context)."""
+        """Assert that changing a technique ID produces a different hash (baseline context)."""
         tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tech_a = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
         tech_b = {"id": "T1027", "name": "Obfuscated Files", "reference": "https://attack.mitre.org/techniques/T1027/"}
@@ -168,18 +179,18 @@ class TestThreatHashStability(unittest.TestCase):
         rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_a]}]
         rule_b = _rule()
         rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_b]}]
-        with ThreatMappingEnv("18"):
+        with ThreatMappingEnv(BASELINE):
             self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
 
     def test_removing_technique_changes_hash(self) -> None:
-        """Assert that removing a technique from a threat block produces a different hash (v18 context)."""
+        """Assert that removing a technique from a threat block produces a different hash (baseline context)."""
         tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
         with_tech = _rule()
         with_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech]}]
         without_tech = _rule()
         without_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic}]
-        with ThreatMappingEnv("18"):
+        with ThreatMappingEnv(BASELINE):
             self.assertNotEqual(self._hash(with_tech), self._hash(without_tech))
 
 
@@ -191,61 +202,61 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         return RuleCollection().load_dict({"metadata": _metadata(), "rule": rule_dict})
 
     def test_loads_and_round_trips(self) -> None:
-        """Assert that a rule with a v19 block loads and preserves the version field."""
-        rule = self._load(_rule(threat_mappings=[_v19_block()]))
+        """Assert that a rule with a promoted-version block loads and preserves the version field."""
+        rule = self._load(_rule(threat_mappings=[_promoted_block()]))
         self.assertEqual(len(rule.contents.data.threat_mappings), 1)
-        self.assertEqual(rule.contents.data.threat_mappings[0].version, "19")
+        self.assertEqual(rule.contents.data.threat_mappings[0].version, PROMOTED)
 
     def test_default_emits_baseline_and_strips_field(self) -> None:
-        """Assert that v18 output emits the baseline threat and strips threat_mappings."""
-        rule = self._load(_rule(threat_mappings=[_v19_block()]))
-        with ThreatMappingEnv("18"):
+        """Assert that baseline output emits the baseline threat and strips threat_mappings."""
+        rule = self._load(_rule(threat_mappings=[_promoted_block()]))
+        with ThreatMappingEnv(BASELINE):
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts")
 
-    def test_selects_v19_when_configured(self) -> None:
-        """Assert that v19 output emits the v19 threat block when configured."""
-        rule = self._load(_rule(threat_mappings=[_v19_block()]))
-        with ThreatMappingEnv("19"), _pin_v19_stack():
+    def test_selects_promoted_when_configured(self) -> None:
+        """Assert that promoted output emits the promoted threat block when configured."""
+        rule = self._load(_rule(threat_mappings=[_promoted_block()]))
+        with ThreatMappingEnv(PROMOTED), _pin_promoted_stack():
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
-        self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (v19)")
+        self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (promoted)")
 
     def test_falls_back_to_baseline_when_no_threat_mappings_block(self) -> None:
         """Assert that an unknown target version without a map falls back to the baseline threat."""
         rule = self._load(_rule())  # no threat_mappings — baseline only
-        with ThreatMappingEnv("20"):
+        with ThreatMappingEnv("99"):
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
-        # No v18->v20 map: baseline threat should be emitted unchanged
+        # No baseline->v99 map: baseline threat should be emitted unchanged
         tactic = api["threat"][0]["tactic"]
         self.assertEqual(tactic["id"], TACTIC["id"])
         self.assertEqual(tactic["name"], TACTIC["name"])
         tech = api["threat"][0]["technique"][0]
-        self.assertEqual(tech["id"], TECH_V18["id"])
+        self.assertEqual(tech["id"], TECH_BASELINE["id"])
 
     def test_auto_converts_when_no_threat_mappings_block(self) -> None:
-        """Assert that v19 output auto-converts from baseline when no threat_mappings exist."""
+        """Assert that promoted output auto-converts from baseline when no threat_mappings exist."""
         rule = self._load(_rule())
-        with ThreatMappingEnv("19"), _pin_v19_stack():
+        with ThreatMappingEnv(PROMOTED), _pin_promoted_stack():
             api = rule.contents.to_api_format(apply_emit_transforms=True)
         self.assertNotIn("threat_mappings", api)
         self.assertTrue(api.get("threat"))
-        # T1078 still exists in v19 under Initial Access
+        # T1078 still exists in the promoted version under Initial Access
         tech_ids = {t["id"] for entry in api["threat"] for t in entry.get("technique") or []}
         self.assertIn("T1078", tech_ids)
 
     def test_baseline_hash_ignores_emit_transforms(self) -> None:
         """Assert baseline get_hash is identical whether or not emit would transform threat."""
         rule = self._load(_rule())
-        with ThreatMappingEnv("18"):
-            hash_v18 = rule.contents.get_hash()
-        with ThreatMappingEnv("19"):
-            hash_v19_context = rule.contents.get_hash()
+        with ThreatMappingEnv(BASELINE):
+            hash_baseline = rule.contents.get_hash()
+        with ThreatMappingEnv(PROMOTED):
+            hash_promoted_context = rule.contents.get_hash()
             emit_hash = rule.contents.get_emit_hash()
-        self.assertEqual(hash_v18, hash_v19_context)
-        self.assertNotEqual(hash_v18, emit_hash)
+        self.assertEqual(hash_baseline, hash_promoted_context)
+        self.assertNotEqual(hash_baseline, emit_hash)
 
     def test_explicit_threat_mappings_overrides_auto_conversion(self) -> None:
         """Assert that an explicit threat_mappings block takes precedence over auto-conversion."""
@@ -261,30 +272,30 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         }
         override_block = {
             "framework": "MITRE ATT&CK",
-            "version": "19",
+            "version": PROMOTED,
             "threat": [{"framework": "MITRE ATT&CK", "tactic": custom_tactic, "technique": [custom_tech]}],
         }
         rule = self._load(_rule(threat_mappings=[override_block]))
-        with ThreatMappingEnv("19"), _pin_v19_stack():
+        with ThreatMappingEnv(PROMOTED), _pin_promoted_stack():
             api = rule.contents.to_api_format()
         self.assertEqual(api["threat"][0]["tactic"]["name"], "Custom Name Override")
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Custom Tech Name")
 
     def test_missing_version_falls_back_to_default(self) -> None:
         """Assert that requesting an unconfigured version falls back to the baseline threat."""
-        rule = self._load(_rule(threat_mappings=[_v19_block()]))
-        with ThreatMappingEnv("20"):
+        rule = self._load(_rule(threat_mappings=[_promoted_block()]))
+        with ThreatMappingEnv("99"):
             api = rule.contents.to_api_format()
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts")
 
     def test_duplicate_framework_version_rejected(self) -> None:
         """Assert that duplicate (framework, version) entries in threat_mappings are rejected."""
         with self.assertRaises(ValidationError):
-            self._load(_rule(threat_mappings=[_v19_block(), _v19_block()]))
+            self._load(_rule(threat_mappings=[_promoted_block(), _promoted_block()]))
 
     def test_inner_framework_mismatch_rejected(self) -> None:
         """Assert that an inner threat framework disagreeing with the outer framework is rejected."""
-        block = _v19_block()
+        block = _promoted_block()
         block["threat"][0]["framework"] = "MITRE ATLAS"
         with self.assertRaises(ValidationError):
             self._load(_rule(threat_mappings=[block]))
@@ -296,15 +307,15 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
 
     def test_get_primary_tactic_names_includes_versioned_blocks(self) -> None:
         """Assert that get_primary_tactic_names includes tactic names from versioned threat_mappings blocks."""
-        v19_tactic = {
+        promoted_tactic = {
             "id": "TA0005",
             "name": "Stealth",
             "reference": "https://attack.mitre.org/tactics/TA0005/",
         }
         block = {
             "framework": "MITRE ATT&CK",
-            "version": "19",
-            "threat": [{"framework": "MITRE ATT&CK", "tactic": v19_tactic, "technique": [TECH_V19]}],
+            "version": PROMOTED,
+            "threat": [{"framework": "MITRE ATT&CK", "tactic": promoted_tactic, "technique": [TECH_PROMOTED]}],
         }
         rule = self._load(_rule(threat_mappings=[block]))
         self.assertEqual(rule.contents.data.get_primary_tactic_names(), ["Initial Access", "Stealth"])
@@ -315,10 +326,10 @@ class TestAttackVersionMapLoader(unittest.TestCase):
 
     MAP: ClassVar[dict[str, Any]] = {
         "framework": "MITRE ATT&CK",
-        "source_version": "18",
-        "target_version": "19",
+        "source_version": BASELINE,
+        "target_version": PROMOTED,
         "tactics": {"TA0001": TACTIC},
-        "techniques": {"T1078": TECH_V19, "T1100": None},
+        "techniques": {"T1078": TECH_PROMOTED, "T1100": None},
         "subtechniques": {},
     }
 
@@ -335,8 +346,8 @@ class TestAttackVersionMapLoader(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = self._write(Path(tmp), "m.yaml", self.MAP)
             vmap = attack.parse_attack_version_map(path)
-            self.assertEqual(vmap.key, ("MITRE ATT&CK", "18", "19"))
-            self.assertEqual(vmap.lookup("technique", "T1078"), TECH_V19)
+            self.assertEqual(vmap.key, ("MITRE ATT&CK", BASELINE, PROMOTED))
+            self.assertEqual(vmap.lookup("technique", "T1078"), TECH_PROMOTED)
             # explicit null and absent both resolve to None (dropped)
             self.assertIsNone(vmap.lookup("technique", "T1100"))
             self.assertIsNone(vmap.lookup("technique", "T9999"))
@@ -347,10 +358,10 @@ class TestAttackVersionMapLoader(unittest.TestCase):
         """Assert that get_attack_version_map retrieves a map by (framework, source, target) and raises on missing."""
         with TemporaryDirectory() as tmp:
             self._write(Path(tmp), "m.yaml", self.MAP)
-            vmap = attack.get_attack_version_map("MITRE ATT&CK", "18", "19", [Path(tmp)])
-            self.assertEqual(vmap.target_version, "19")
+            vmap = attack.get_attack_version_map("MITRE ATT&CK", BASELINE, PROMOTED, [Path(tmp)])
+            self.assertEqual(vmap.target_version, PROMOTED)
             with self.assertRaises(ValueError):
-                attack.get_attack_version_map("MITRE ATT&CK", "18", "99", [Path(tmp)])
+                attack.get_attack_version_map("MITRE ATT&CK", BASELINE, "99", [Path(tmp)])
 
     def test_missing_required_keys_rejected(self) -> None:
         """Assert that a map file missing required keys raises ValueError."""
@@ -381,9 +392,9 @@ class TestAttackVersionMapLoader(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = self._write(Path(tmp), "m.yaml", self.MAP)
             vmap = attack.parse_attack_version_map(path)
-            lookups = attack.build_attack_lookups_for_version("19")
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
             # T1078 is in the explicit config → must return that, not STIX
-            self.assertEqual(vmap.resolve("technique", "T1078", lookups), TECH_V19)
+            self.assertEqual(vmap.resolve("technique", "T1078", lookups), TECH_PROMOTED)
             # T1100 is explicitly null → must return None even with lookups present
             self.assertIsNone(vmap.resolve("technique", "T1100", lookups))
 
@@ -393,18 +404,18 @@ class TestAttackVersionMapLoader(unittest.TestCase):
             path = self._write(Path(tmp), "m.yaml", self.MAP)
             vmap = attack.parse_attack_version_map(path)
             self.assertFalse(vmap.auto_derive_missing)
-            lookups = attack.build_attack_lookups_for_version("19")
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
             self.assertIsNone(vmap.resolve("technique", "T9999", lookups))
 
     def test_resolve_absent_with_auto_derive(self) -> None:
-        """Assert that resolve() auto-derives from STIX when auto_derive_missing is True and id exists in v19."""
+        """Assert that resolve() auto-derives from STIX when auto_derive_missing is True and id exists in the target."""
         lean_map = {**self.MAP, "auto_derive_missing": True, "techniques": {}}
         with TemporaryDirectory() as tmp:
             path = self._write(Path(tmp), "lean.yaml", lean_map)
             vmap = attack.parse_attack_version_map(path)
             self.assertTrue(vmap.auto_derive_missing)
-            lookups = attack.build_attack_lookups_for_version("19")
-            # T1078 (Valid Accounts) exists in v19 and is not revoked
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
+            # T1078 (Valid Accounts) exists in the promoted version and is not revoked
             result = vmap.resolve("technique", "T1078", lookups)
             self.assertIsNotNone(result)
             assert result is not None
@@ -418,13 +429,52 @@ class TestAttackVersionMapLoader(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = self._write(Path(tmp), "lean.yaml", lean_map)
             vmap = attack.parse_attack_version_map(path)
-            lookups = attack.build_attack_lookups_for_version("19")
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
             result = vmap.resolve("tactic", "TA0001", lookups)
             self.assertIsNotNone(result)
             assert result is not None
             self.assertEqual(result["id"], "TA0001")
             self.assertIn("name", result)
             self.assertIn("reference", result)
+
+
+class TestShippedVersionMap(unittest.TestCase):
+    """The shipped baseline -> promoted map stays consistent with the ATT&CK STIX data it converts between."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        maps_dir = get_etc_path([attack.ATTACK_VERSION_MAPS_DIRNAME])
+        cls.vmap = attack.get_attack_version_map("MITRE ATT&CK", BASELINE, PROMOTED, [maps_dir])
+        cls.source = attack.build_attack_lookups_for_version(BASELINE)
+        cls.target = attack.build_attack_lookups_for_version(PROMOTED)
+
+    def test_explicit_destinations_are_active_in_target(self) -> None:
+        """Every explicit destination is a live promoted-version id carrying that version's name."""
+        for table in (self.vmap.techniques, self.vmap.subtechniques):
+            for source_id, dest in table.items():
+                if dest is None:
+                    continue
+                item = self.target.technique_lookup.get(dest["id"])
+                self.assertIsNotNone(item, f"{source_id} maps to {dest['id']}, which is not in v{PROMOTED}")
+                assert item is not None
+                self.assertFalse(item.get("revoked"), f"{source_id} maps to revoked id {dest['id']}")
+                self.assertFalse(item.get("x_mitre_deprecated"), f"{source_id} maps to deprecated id {dest['id']}")
+                self.assertEqual(dest["name"], item["name"], f"{source_id} -> {dest['id']} name is stale")
+
+    def test_ids_revoked_in_target_have_explicit_entries(self) -> None:
+        """Ids active in the baseline but revoked in the promoted version need an explicit entry.
+
+        Auto-derive would otherwise drop them.
+        """
+        for source_id in self.source.technique_lookup:
+            if source_id in self.source.revoked or source_id in self.source.deprecated:
+                continue
+            if source_id not in self.target.revoked:
+                continue
+            table = self.vmap.subtechniques if "." in source_id else self.vmap.techniques
+            self.assertIn(
+                source_id, table, f"{source_id} is revoked in v{PROMOTED} but has no entry in {self.vmap.path.name}"
+            )
 
 
 class TestRemapThreatEntries(unittest.TestCase):
@@ -436,8 +486,8 @@ class TestRemapThreatEntries(unittest.TestCase):
 
         data = {
             "framework": "MITRE ATT&CK",
-            "source_version": "18",
-            "target_version": "19",
+            "source_version": BASELINE,
+            "target_version": PROMOTED,
             "auto_derive_missing": True,
         }
         path = tmp / "lean.yaml"
@@ -467,13 +517,13 @@ class TestRemapThreatEntries(unittest.TestCase):
         )
 
     def test_technique_under_correct_tactic_passes(self) -> None:
-        """Assert that a technique still under its source tactic in v19 is kept."""
+        """Assert that a technique still under its source tactic in the promoted version is kept."""
         from detection_rules.devtools import _remap_threat_entries
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
-            lookups = attack.build_attack_lookups_for_version("19")
-            # T1078 (Valid Accounts) is under TA0001 (Initial Access) in both v18 and v19
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
+            # T1078 (Valid Accounts) is under TA0001 (Initial Access) in both versions
             entry = self._entry("TA0001", "Initial Access", "T1078", "Valid Accounts")
             dropped: list[str] = []
             result = _remap_threat_entries([entry], vmap, "MITRE ATT&CK", dropped, lookups)
@@ -482,13 +532,13 @@ class TestRemapThreatEntries(unittest.TestCase):
             self.assertEqual(dropped, [])
 
     def test_technique_moved_to_new_tactic_follows_migration(self) -> None:
-        """Assert that a technique that migrated to a new tactic in v19 is emitted under that tactic."""
+        """Assert that a technique that migrated to a new tactic is emitted under that tactic."""
         from detection_rules.devtools import _remap_threat_entries
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
-            lookups = attack.build_attack_lookups_for_version("19")
-            # T1112 (Modify Registry) was under TA0005 in v18 but migrated to TA0112 in v19
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
+            # T1112 (Modify Registry) is under TA0005 in the baseline and moved to TA0112 in ATT&CK v19
             entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
             dropped: list[str] = []
             moved: list[str] = []
@@ -511,8 +561,8 @@ class TestRemapThreatEntries(unittest.TestCase):
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
-            lookups = attack.build_attack_lookups_for_version("19")
-            # T1543 stays under TA0003 (Persistence) in v19; T1112 migrates from TA0005 (Defense
+            lookups = attack.build_attack_lookups_for_version(PROMOTED)
+            # T1543 stays under TA0003 (Persistence); T1112 migrates from TA0005 (Defense
             # Evasion) into TA0112 AND TA0003 — it must merge into the existing TA0003 entry.
             entries = [
                 self._entry("TA0003", "Persistence", "T1543", "Create or Modify System Process"),
@@ -540,8 +590,8 @@ class TestRemapThreatEntries(unittest.TestCase):
 
             data = {
                 "framework": "MITRE ATT&CK",
-                "source_version": "18",
-                "target_version": "19",
+                "source_version": BASELINE,
+                "target_version": PROMOTED,
                 "tactics": {
                     "TA0005": {
                         "id": "TA0005",
@@ -580,7 +630,7 @@ class TestOutputVersionResolution(unittest.TestCase):
 
         cfg = dataclasses.replace(
             parse_rules_config(),
-            threat_mapping_version="18",
+            threat_mapping_version=BASELINE,
             threat_mapping_version_pinned=pinned,
         )
         with (
@@ -590,15 +640,15 @@ class TestOutputVersionResolution(unittest.TestCase):
         ):
             return attack.resolve_output_threat_version()
 
-    def test_auto_promotes_to_v19_on_9_5_when_unpinned(self) -> None:
-        """Assert that stack >= 9.5 auto-promotes to v19 when no version is pinned."""
+    def test_auto_promotes_on_9_5_when_unpinned(self) -> None:
+        """Assert that stack >= 9.5 auto-promotes when no version is pinned."""
         _, version = self._resolve_with(pinned=False)
-        self.assertEqual(version, "19")
+        self.assertEqual(version, PROMOTED)
 
     def test_config_pin_suppresses_auto_promotion(self) -> None:
         """Assert that an explicit config-pinned version suppresses auto-promotion."""
         _, version = self._resolve_with(pinned=True)
-        self.assertEqual(version, "18")
+        self.assertEqual(version, BASELINE)
 
 
 class TestPatchTomlMinimal(unittest.TestCase):
@@ -648,7 +698,7 @@ class TestPatchTomlMinimal(unittest.TestCase):
             path = Path(tmp) / "rule.toml"
             _ = path.write_text(
                 '[metadata]\nupdated_date = "2020/01/01"\n\n[rule]\nname = "x"\n\n'
-                '[[rule.threat_mappings]]\nframework = "MITRE ATT&CK"\nversion = "19"\n\n'
+                '[[rule.threat_mappings]]\nframework = "MITRE ATT&CK"\nversion = "1"\n\n'
                 "[rule.other]\nvalue = 1\n"
             )
             original = path.read_text()
@@ -664,9 +714,9 @@ class TestIdentityScaffold(unittest.TestCase):
 
     def test_build_identity_version_map(self) -> None:
         """Assert that build_identity_version_map produces a valid identity skeleton."""
-        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
-        self.assertEqual(skeleton["source_version"], "18")
-        self.assertEqual(skeleton["target_version"], "19")
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", BASELINE, PROMOTED)
+        self.assertEqual(skeleton["source_version"], BASELINE)
+        self.assertEqual(skeleton["target_version"], PROMOTED)
         self.assertGreater(len(skeleton["techniques"]), 0)
         # identity entries map an id to itself with a name/reference
         sample_id, sample = next(iter(skeleton["techniques"].items()))
@@ -677,41 +727,41 @@ class TestIdentityScaffold(unittest.TestCase):
             self.assertNotIn(revoked_id, skeleton["techniques"])
             self.assertNotIn(revoked_id, skeleton["subtechniques"])
 
-    def test_scaffold_uses_v18_source_keys(self) -> None:
-        """Source keys must come from v18; new v19-only IDs must not appear as source keys."""
-        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
-        v18_lookups = attack.build_attack_lookups_for_version("18")
-        v19_lookups = attack.build_attack_lookups_for_version("19")
-        # TA0112 is new in v19; it must not appear as a source key in a v18->v19 map
-        v19_only_tactics = set(v19_lookups.tactics_map.values()) - set(v18_lookups.tactics_map.values())
-        for tactic_id in v19_only_tactics:
+    def test_scaffold_uses_baseline_source_keys(self) -> None:
+        """Source keys must come from the baseline; promoted-only IDs must not appear as source keys."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", BASELINE, PROMOTED)
+        baseline_lookups = attack.build_attack_lookups_for_version(BASELINE)
+        promoted_lookups = attack.build_attack_lookups_for_version(PROMOTED)
+        # e.g. TA0112 was added in ATT&CK v19; it must not appear as a source key in a baseline map
+        promoted_only_tactics = set(promoted_lookups.tactics_map.values()) - set(baseline_lookups.tactics_map.values())
+        for tactic_id in promoted_only_tactics:
             self.assertNotIn(tactic_id, skeleton["tactics"])
 
-    def test_scaffold_uses_v19_tactic_names(self) -> None:
-        """Tactic names in the scaffold must come from v19, not v18."""
-        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
-        v19_lookups = attack.build_attack_lookups_for_version("19")
-        v19_tactic_id_to_name = {v: k for k, v in v19_lookups.tactics_map.items()}
+    def test_scaffold_uses_promoted_tactic_names(self) -> None:
+        """Tactic names in the scaffold must come from the promoted version, not the baseline."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", BASELINE, PROMOTED)
+        promoted_lookups = attack.build_attack_lookups_for_version(PROMOTED)
+        promoted_tactic_id_to_name = {v: k for k, v in promoted_lookups.tactics_map.items()}
         for tactic_id, entry in skeleton["tactics"].items():
-            if tactic_id in v19_tactic_id_to_name:
+            if tactic_id in promoted_tactic_id_to_name:
                 self.assertEqual(
                     entry["name"],
-                    v19_tactic_id_to_name[tactic_id],
-                    f"Scaffold tactic {tactic_id} has v18 name '{entry['name']}' "
-                    f"instead of v19 name '{v19_tactic_id_to_name[tactic_id]}'",
+                    promoted_tactic_id_to_name[tactic_id],
+                    f"Scaffold tactic {tactic_id} has baseline name '{entry['name']}' "
+                    f"instead of promoted name '{promoted_tactic_id_to_name[tactic_id]}'",
                 )
 
-    def test_scaffold_uses_v19_technique_names(self) -> None:
-        """Technique names that exist in v19 must reflect the v19 name."""
-        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
-        v19_lookups = attack.build_attack_lookups_for_version("19")
+    def test_scaffold_uses_promoted_technique_names(self) -> None:
+        """Technique names that exist in the promoted version must reflect that version's name."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", BASELINE, PROMOTED)
+        promoted_lookups = attack.build_attack_lookups_for_version(PROMOTED)
         for technique_id, entry in skeleton["techniques"].items():
-            if technique_id in v19_lookups.technique_lookup:
-                expected = v19_lookups.technique_lookup[technique_id]["name"]
+            if technique_id in promoted_lookups.technique_lookup:
+                expected = promoted_lookups.technique_lookup[technique_id]["name"]
                 self.assertEqual(
                     entry["name"],
                     expected,
-                    f"Scaffold technique {technique_id} has name '{entry['name']}' instead of v19 name '{expected}'",
+                    f"Scaffold technique {technique_id} has name '{entry['name']}' instead of '{expected}'",
                 )
 
 
@@ -719,14 +769,14 @@ class TestBuildThreatMapEntry(unittest.TestCase):
     """Threat entries built from technique IDs."""
 
     def test_defense_evasion_name_resolves(self) -> None:
-        """The v18 tactic name still builds an entry after the v19 rename."""
+        """The baseline tactic name still builds an entry after the TA0005 rename."""
         entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
         self.assertEqual(entry["tactic"]["id"], "TA0005")
         self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
         self.assertEqual(entry["technique"][0]["id"], "T1055")
 
-    def test_defense_evasion_alias_when_baseline_is_v19(self) -> None:
-        """A v19-only dataset still accepts the v18 tactic name."""
+    def test_defense_evasion_alias_when_tactic_is_renamed(self) -> None:
+        """A dataset that only has the renamed tactic still accepts the baseline tactic name."""
         tactic_id = attack.tactics_map["Defense Evasion"]
         techniques = list(attack.matrix["Defense Evasion"])
         with (

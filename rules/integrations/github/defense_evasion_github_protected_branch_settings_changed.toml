@@ -2,19 +2,25 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects setting modifications for protected branches of a GitHub repository. Branch protection rules can be
-used to enforce certain workflows or requirements before a contributor can push changes to a branch in your repository.
-Changes to these protected branch settings should be investigated and verified as legitimate activity. Unauthorized
-changes could be used to lower your organization's security posture and leave you exposed for future attacks.
+This rule detects protected branch setting changes on a GitHub repository originating from a user agent not previously
+seen performing protected branch changes in the last 7 days. Branch protection rules enforce workflows and requirements
+before a contributor can push changes to a branch. Unauthorized changes could be used to lower your organization's
+security posture and leave you exposed for future attacks. Both push-time enforcement events
+(`protected_branch.rejected_ref_update`, a push blocked by branch protection) and administrative bypasses
+(`protected_branch.policy_override`) are retained, because a failed modification attempt and an admin override are each
+security-relevant indicators, particularly during CI/CD compromise once administrative access is obtained. Keying on a
+new user agent suppresses the recurring, expected automation that drives most of the event volume while surfacing
+changes from unfamiliar tooling or clients. If a specific user agent is noisy in a given environment, scope it with an
+exception rather than removing the action from the query.
 """
 from = "now-9m"
 index = ["logs-github.audit-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "GitHub Protected Branch Settings Changed"
 note = """## Triage and analysis
@@ -64,17 +70,27 @@ tags = [
     "Noise: High",
     "Performance: Fast",
     "Profile: Aggressive",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: New Terms",
     "Platform: GitHub",
     "Domain: SaaS",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-configuration where data_stream.dataset == "github.audit"
-  and github.category == "protected_branch" and event.type == "change"
+data_stream.dataset: "github.audit" and
+    github.category: "protected_branch" and
+    event.type: "change"
 '''
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 
 [[rule.threat]]

@@ -20,49 +20,62 @@
       ]
     },
     "alert_suppression": {
-      "additionalProperties": false,
-      "properties": {
-        "duration": {
+      "anyOf": [
+        {
           "additionalProperties": false,
           "properties": {
-            "unit": {
+            "duration": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "s",
+                        "m",
+                        "h"
+                      ],
+                      "enumNames": []
+                    },
+                    "value": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "unit"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "group_by": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 3,
+              "minItems": 1,
+              "type": "array"
+            },
+            "missing_fields_strategy": {
               "enum": [
-                "s",
-                "m",
-                "h"
+                "suppress",
+                "doNotSuppress"
               ],
               "enumNames": [],
               "type": "string"
-            },
-            "value": {
-              "minimum": 1,
-              "type": "integer"
             }
           },
-          "required": [
-            "unit"
-          ],
           "type": "object"
         },
-        "group_by": {
-          "items": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 3,
-          "minItems": 1,
-          "type": "array"
-        },
-        "missing_fields_strategy": {
-          "enum": [
-            "suppress",
-            "doNotSuppress"
-          ],
-          "enumNames": [],
-          "type": "string"
+        {
+          "type": "null"
         }
-      },
-      "type": "object"
+      ]
     },
     "author": {
       "items": {
@@ -71,11 +84,14 @@
       "type": "array"
     },
     "building_block_type": {
+      "anyOf": [
+        {},
+        {
+          "type": "null"
+        }
+      ],
       "enum": [
         "default"
-      ],
-      "type": [
-        "string"
       ]
     },
     "data_view_id": {
@@ -151,26 +167,32 @@
       "type": "string"
     },
     "investigation_fields": {
-      "additionalProperties": false,
-      "properties": {
-        "field_names": {
-          "items": {
-            "minLength": 1,
-            "type": "string"
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field_names": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            }
           },
-          "type": "array"
+          "required": [
+            "field_names"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
         }
-      },
-      "required": [
-        "field_names"
-      ],
-      "type": "object"
+      ]
     },
     "language": {
       "enum": [
         "eql"
-      ],
-      "type": "string"
+      ]
     },
     "license": {
       "type": [
@@ -291,11 +313,14 @@
             "type": "string"
           },
           "operator": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
             "enum": [
               "equals"
-            ],
-            "type": [
-              "string"
             ]
           },
           "value": {
@@ -336,8 +361,7 @@
         "high",
         "critical"
       ],
-      "enumNames": [],
-      "type": "string"
+      "enumNames": []
     },
     "severity_mapping": {
       "items": {
@@ -347,11 +371,14 @@
             "type": "string"
           },
           "operator": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
             "enum": [
               "equals"
-            ],
-            "type": [
-              "string"
             ]
           },
           "severity": {
@@ -391,8 +418,7 @@
               "MITRE ATT&CK",
               "MITRE ATLAS"
             ],
-            "enumNames": [],
-            "type": "string"
+            "enumNames": []
           },
           "tactic": {
             "additionalProperties": false,
@@ -484,8 +510,7 @@
               "MITRE ATT&CK",
               "MITRE ATLAS"
             ],
-            "enumNames": [],
-            "type": "string"
+            "enumNames": []
           },
           "threat": {
             "items": {
@@ -496,8 +521,7 @@
                     "MITRE ATT&CK",
                     "MITRE ATLAS"
                   ],
-                  "enumNames": [],
-                  "type": "string"
+                  "enumNames": []
                 },
                 "tactic": {
                   "additionalProperties": false,
@@ -629,8 +653,7 @@
     "type": {
       "enum": [
         "eql"
-      ],
-      "type": "string"
+      ]
     },
     "version": {
       "minimum": 1,

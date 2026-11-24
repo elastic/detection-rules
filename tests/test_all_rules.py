@@ -698,18 +698,13 @@ class TestRuleTags(BaseRuleTest):
     def test_genai_rules_have_mitre_atlas_tags(self):
         """Domain: GenAI detections carry an ATLAS technique tag or a tactic-only mapping.
 
-        ES|QL COMPLETION rules are labeled Resources: LLM and are not GenAI-domain detections.
-        A tactic-only ``threat_mappings`` entry is enough when ATLAS has no technique yet.
+        A GenAI-domain rule may also use ES|QL COMPLETION (Resources: LLM is checked separately).
+        A tactic-only `threat_mappings` entry is enough when ATLAS has no technique yet.
         """
         invalid = []
-        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
         for rule in self.all_rules:
             tags = rule.contents.data.tags or []
             if "Domain: GenAI" not in tags:
-                continue
-            query = rule.contents.data.get("query") or ""
-            if completion_re.search(query):
-                invalid.append(f"{self.rule_str(rule)} has Domain: GenAI but invokes ES|QL COMPLETION")
                 continue
             has_technique_tag = any(tag.startswith("Mitre Atlas:") for tag in tags)
             has_atlas_mapping = any(
