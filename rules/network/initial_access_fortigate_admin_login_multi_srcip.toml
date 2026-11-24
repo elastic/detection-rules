@@ -2,13 +2,13 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects successful logins to the FortiGate management interface using the same Administrator account from
-multiple distinct source IP addresses within an 24-hour period. Administrator logins from multiple locations in a short
+This rule detects successful logins to the FortiGate management interface using the same Administrator account on the same
+device from multiple distinct source IP addresses within a 24-hour period. Administrator logins from multiple locations in a short
 time window may indicate credential sharing, compromised credentials, or unauthorized access and should be investigated.
 """
 from = "now-24h"
@@ -20,7 +20,9 @@ note = """## ## Triage and Analysis
 
 ### Investigating FortiGate Administrator Login from Multiple IP Addresses
 
-This alert indicates that the same **Administrator** account successfully logged in to the FortiGate management interface from **multiple distinct source IP addresses** within an 24-hour period.
+This alert indicates that the same **Administrator** account successfully logged in to the FortiGate management interface from **multiple distinct source IP addresses** within a 24-hour period. Logins are grouped by `source.user.name` and the FortiGate device's `observer.serial_number` so identical account names on different firewalls are evaluated separately.
+
+Repeated alerts for the same administrator, device, and complete source-IP set are suppressed for one hour. A change in the source-IP set can generate a new alert. If the device serial number is missing, logins are still evaluated by account within the missing-device group, but resulting alerts are not suppressed; confirm the affected device from the original events.
 
 Because FortiGate administrator credentials grant full control over network security infrastructure, this behavior may indicate credential compromise, account sharing, or misuse of administrative access.
 
@@ -101,16 +103,17 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
         Esql.max_timestamp = MAX(@timestamp),
         Esql.source_ip_values = VALUES(source.ip),
         Esql.message_values = VALUES(message),
-        Esql.source_geo_country_name_values = VALUES(source.geo.country_name) by source.user.name
+        Esql.source_geo_country_name_values = VALUES(source.geo.country_name) by source.user.name, observer.serial_number
 
-// last logon event timestamp is within 6m of the rule execution time to avoid duplicates
+// Require recent login activity; alert suppression handles repeated account/device/source-IP sets.
 | eval Esql.recent = DATE_DIFF("minute", Esql.max_timestamp, now())
 | where Esql.recent <= 6 and Esql.logon_count >= 2 and Esql.source_ip_count_distinct >= 2
 
-// move dynamic fields to ECS equivalent for rule exceptions
+// Stabilize the complete source-IP set for suppression before selecting an IP for rule exceptions.
+| eval Esql.source_ip_values = MV_SORT(Esql.source_ip_values)
 | eval source.ip = MV_FIRST(Esql.source_ip_values)
 
-| keep source.ip, source.user.name, Esql.*
+| keep source.ip, source.user.name, observer.serial_number, Esql.*
 '''
 
 
@@ -126,4 +129,12 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["source.user.name", "observer.serial_number", "Esql.source_ip_values"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
 
