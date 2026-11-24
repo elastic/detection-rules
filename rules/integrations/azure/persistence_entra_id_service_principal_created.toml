@@ -36,6 +36,7 @@ This rule looks for the addition of service principals. This behavior may enable
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Review `azure.auditlogs.properties.additional_details` for `ServicePrincipalProvisioningType`. `Other` covers delegated and app-only creation, including agent identities created by an agent blueprint; confirm that the initiating app or blueprint is one the organization uses.
+- Alerts are suppressed for 12 hours per `azure.auditlogs.properties.initiated_by.app.servicePrincipalId`. If the alert shows suppressed duplicates, search the audit logs for other service principals created by the same initiator in that window and review each `azure.auditlogs.properties.target_resources.0.display_name`, since a single app or blueprint can create several identities at once.
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Consider the source IP address and geolocation for the user who issued the command. Do they look normal for the user?
 - Consider the time of day. If the user is a human, not a program or script, did the activity take place during a normal time of day?
@@ -124,4 +125,12 @@ reference = "https://attack.mitre.org/techniques/T1136/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["azure.auditlogs.properties.initiated_by.app.servicePrincipalId"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 12
 
