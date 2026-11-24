@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/24"
 
 [rule]
 author = ["Elastic"]
@@ -92,10 +92,13 @@ query = '''
     192.168.0.0/16
   ) and
   not (
-    data_stream.dataset:"panw.panos" and (
+    (data_stream.dataset:panw.panos) and (
       event.action:("flow_dropped" or "flow_denied") or
-      network.application:("incomplete" or "insufficient-data" or "not-applicable")
+      network.application:("incomplete" or "insufficient-data" or "not-applicable" or "traceroute")
     )
+  ) and
+  not (
+    (data_stream.dataset:pfsense.log) and event.action:block
   )
 '''
 note = """## Triage and analysis
@@ -106,6 +109,8 @@ note = """## Triage and analysis
 ### Investigating RDP (Remote Desktop Protocol) from the Internet
 
 RDP allows administrators to remotely manage systems, but exposing it to the internet poses security risks. Adversaries exploit RDP for unauthorized access, often using it as an entry point for attacks. The detection rule identifies suspicious RDP traffic by monitoring TCP connections on port 3389 from external IPs, flagging potential threats for further investigation.
+
+Repeated observations of the same source IP, destination IP, and destination port are suppressed for one hour, including observations from different network data sources. A different source, destination, or destination port can generate a separate alert. Events missing a suppression field are not suppressed.
 
 ### Possible investigation steps
 
@@ -177,3 +182,11 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["source.ip", "destination.ip", "destination.port"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
