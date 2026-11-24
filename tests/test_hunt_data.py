@@ -6,14 +6,27 @@
 """Test for hunt toml files."""
 
 import unittest
+from functools import lru_cache
+from pathlib import Path
 
-from hunting.definitions import HUNTING_DIR
+from hunting.definitions import HUNTING_DIR, Hunt
 from hunting.markdown import load_toml
 from hunting.utils import load_all_toml, load_index_file
 
 
+@lru_cache
+def load_all_hunts() -> list[tuple[Hunt, Path]]:
+    """Glob and parse every hunting TOML file once for all tests in this module."""
+    return load_all_toml(HUNTING_DIR)
+
+
 class TestHunt(unittest.TestCase):
     """Test hunt toml files."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Load the hunt TOML files once for all tests."""
+        cls.all_hunts = load_all_hunts()
 
     def test_toml_loading(self):
         """Test loading a hunt toml file content."""
@@ -37,11 +50,43 @@ class TestHunt(unittest.TestCase):
         self.assertEqual(config.name, "Denial of Service or Resource Exhaustion Attacks Detection")
         self.assertEqual(config.language, "ES|QL")
 
+    def test_invalid_esql_query_is_rejected(self):
+        """A hunt query that is not valid ES|QL fails before the keep/stats check."""
+        with self.assertRaises(ValueError) as caught:
+            Hunt(
+                author="Elastic",
+                description="Broken syntax.",
+                integration=["endpoint"],
+                uuid="00000000-0000-0000-0000-000000000001",
+                name="Broken hunt",
+                language=["ES|QL"],
+                license="Elastic License v2",
+                query=["FROM logs-* | WHERE"],
+            )
+        self.assertIn("invalid ES|QL", str(caught.exception))
+
+    def test_elastic_esql_query_needs_keep_or_stats_by(self):
+        """Elastic hunts need a KEEP or STATS ... BY; a subquery KEEP counts."""
+        base = {
+            "author": "Elastic",
+            "description": "Keep/stats check.",
+            "integration": ["endpoint"],
+            "uuid": "00000000-0000-0000-0000-000000000002",
+            "name": "Keep check hunt",
+            "language": ["ES|QL"],
+            "license": "Elastic License v2",
+        }
+        with self.assertRaises(ValueError) as caught:
+            Hunt(**base, query=['FROM logs-* | WHERE host.name == "x" | STATS c = COUNT(*)'])
+        self.assertIn("'stats by' or 'keep'", str(caught.exception))
+
+        Hunt(**base, query=["FROM logs-* | STATS c = COUNT(*) BY host.name"])
+        Hunt(**base, query=["FROM logs-* | KEEP host.name"])
+
     def test_load_toml_files(self):
         """Test loading and validating all Hunt TOML files in the hunting directory."""
 
-        for toml_path in HUNTING_DIR.rglob("*.toml"):
-            hunt = load_toml(toml_path)
+        for hunt, _ in self.all_hunts:
             self.assertTrue(hunt.author)
             self.assertTrue(hunt.description)
             self.assertTrue(hunt.integration)
@@ -51,7 +96,7 @@ class TestHunt(unittest.TestCase):
 
     def test_markdown_existence(self):
         """Ensure each TOML file has a corresponding Markdown file in the docs directory."""
-        for toml_file in HUNTING_DIR.rglob("*.toml"):
+        for _, toml_file in self.all_hunts:
             expected_markdown_path = toml_file.parent.parent / "docs" / toml_file.with_suffix(".md").name
 
             self.assertTrue(
@@ -99,8 +144,7 @@ class TestHuntIndex(unittest.TestCase):
     def test_all_files_in_index(self):
         """Ensure all TOML files are included in the index."""
         missing_index_entries = []
-        all_toml_data = load_all_toml(HUNTING_DIR)
-        uuids = [hunt.uuid for hunt, path in all_toml_data]
+        uuids = [hunt.uuid for hunt, _ in load_all_hunts()]
 
         for queries in self.hunting_index.values():
             missing_index_entries.extend([query_uuid for query_uuid in queries if query_uuid not in uuids])

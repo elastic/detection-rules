@@ -1,0 +1,295 @@
+[metadata]
+creation_date = "2026/09/28"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/10/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious commands written to the Windows Explorer address bar history (TypedPaths). Adversaries socially
+engineer users to paste a command into the address bar of File Explorer or of a browser's file upload dialog, a
+pattern known as FileFix; the writing process is therefore explorer.exe or the browser hosting the dialog. Stored
+commands that invoke PowerShell, cmd, mshta, msiexec, rundll32, or another living-off-the-land binary are unusual for
+this key, which normally contains file and folder paths. Investigate the process tree for a child of the writing
+process that matches the stored command.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential FileFix Command via Windows Explorer Address Bar"
+note = """## Triage and analysis
+
+### Investigating Potential FileFix Command via Windows Explorer Address Bar
+
+#### Possible investigation steps
+
+- What command was stored in the Explorer address bar history?
+  - Why: TypedPaths records the string submitted through the File Explorer address bar. FileFix pages instruct the victim to paste that string, often padding it so the visible end looks like a document path while the command sits at the front.
+  - Focus: `registry.data.strings` and `registry.path`.
+  - Implication: escalate when the string invokes PowerShell, pwsh, cmd, mshta, msiexec, rundll32, curl, wget, certutil, certreq, bitsadmin, wscript, cscript, conhost, or forfiles. A quiet local install such as msiexec with `/q`, `/qb`, or `/qn` against a user-profile or Downloads package is the same pattern. Lower suspicion only when the string is a real folder path from a recognized workflow and contains no command switches, URL, or shell operator.
+
+- Did the writing process launch a child that matches the stored command?
+  - Why: the alerting process is whichever process hosted the address bar: explorer.exe for File Explorer, or chrome.exe, msedge.exe, or firefox.exe for a file upload dialog. The pasted command runs as a child of that process.
+  - Focus: child process starts where `process.parent.entity_id` equals the alert `process.entity_id`. Compare child `process.name`, `process.executable`, and `process.command_line` with `registry.data.strings`.
+  - Implication: escalate when a child shell, script host, installer, or living-off-the-land binary matches the TypedPaths string. A browser as the writer is the expected FileFix shape, not an anomaly. No matching child leaves execution unproven.
+
+- What did that child do next?
+  - Focus: descendants of the recovered child `process.entity_id`, plus file and network events scoped to that child. Review `process.command_line`, `file.path`, `dns.question.name`, and `destination.ip`.
+  - Hint: if the child entity id is absent, fall back to `host.id` plus the child `process.pid` in a tight window. Missing file or network telemetry leaves those questions unresolved.
+  - Implication: escalate when the child retrieves a payload, writes a script or executable under a user-writable path, installs a package, spawns further shells, or contacts an unusual destination.
+
+- Does the user and host context fit a planned paste-and-run action?
+  - Focus: `user.id`, `user.name`, `host.id`, and `host.name`, plus browser, chat, or mail activity just before the TypedPaths write. The decoy path at the end of `registry.data.strings` is the file the page told the user to open.
+  - Implication: escalate when an end-user host has no change window for the command. A lab or awareness exercise is lower suspicion only when the command, user, and host all match that exercise.
+
+- Escalate when the TypedPaths command shows a living-off-the-land binary, a quiet installer, download, decode, or hidden execution, and the process tree, artifacts, destinations, or related alerts support execution. Close only when the stored command, launched child, user, and host bind to one authorized simulation or lab workflow with no contradiction. If evidence is mixed or visibility is incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Security-awareness, phishing-simulation, red-team, and malware-analysis labs can paste these commands into the File Explorer address bar. Confirm one workflow: the `registry.data.strings` value, the expected child `process.executable` and `process.command_line`, and a bounded `user.id` / `host.id`, with recovered children and destinations inside the exercise.
+- Administrators sometimes launch a signed installer or diagnostic through the address bar. Close only when the stored command and child process are that exact tool, with no download cradle, encoded command, hidden window, or second-stage child.
+- A typed folder path can contain a tool name followed by a space, such as a directory named "powershell scripts". Close only when the full string is that directory, the user opened it, and no child process matches a command in the string.
+- Before an exception, require the same `registry.data.strings` fragment, `user.id`, and `host.id` across prior alerts from this rule. Avoid exceptions on the writing process.name, the TypedPaths path, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the command, child identity, `user.id`, and `host.id` that proved the workflow. Create an exception only when that exact workflow recurs.
+- If suspicious but unconfirmed, export the registry event, `registry.data.strings`, the explorer `process.entity_id`, and the child process tree, command lines, file paths, and destinations before cleanup. Apply reversible controls first, such as temporary destination blocks, a browser-session reset, or heightened monitoring. Isolate the host when retrieval, package installation, or second-stage execution makes continued connectivity risky.
+- If confirmed malicious, isolate the host, then terminate the child process and suspicious descendants after recording identifiers. Remove staged scripts, installers, archives, and payloads, and block confirmed domains, IPs, hashes, or URLs. Reset credentials only when the investigation shows account misuse.
+- Post-incident hardening: retain registry and process telemetry for Explorer address bar triage, review browser and paste-execution controls, and record the lure wording and paste-run chain in the case notes.
+"""
+references = [
+  "https://mrd0x.com/filefix-clickfix-alternative/",
+  "https://www.elastic.co/security-labs/threat-command/telepuz-maas-malware-clickfix",
+  "https://www.elastic.co/security-labs/threat-command/mimicrat-custom-rat-mimics-c2-frameworks",
+]
+risk_score = 73
+rule_id = "56099694-8a36-444c-a918-2141b613d293"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+    "Threat: ClickFix",
+    "Threat: Living off the Land",
+    "Rule Type: ES|QL",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*, winlogbeat-*,
+  logs-windows.forwarded-*, logs-m365_defender.event-*, logs-sentinel_one_cloud_funnel.*,
+  logs-crowdstrike.fdr* metadata _id, _version, _index
+| where KQL(""" host.os.type : "windows" AND event.category:"registry" AND event.type : ("creation" or "change") """)
+  and registry.data.strings is not null
+  and (
+    to_lower(registry.path) like """hkey_users\\*\\software\\microsoft\\windows\\currentversion\\explorer\\typedpaths\\*"""
+    or to_lower(registry.path) like """\\registry\\user\\*\\software\\microsoft\\windows\\currentversion\\explorer\\typedpaths\\*"""
+    or to_lower(registry.path) like """hku\\*\\software\\microsoft\\windows\\currentversion\\explorer\\typedpaths\\*"""
+    or to_lower(registry.path) like """hkcu\\software\\microsoft\\windows\\currentversion\\explorer\\typedpaths\\*"""
+    or to_lower(registry.path) like """hkey_current_user\\software\\microsoft\\windows\\currentversion\\explorer\\typedpaths\\*"""
+  )
+| eval registry_data = to_lower(mv_concat(registry.data.strings, " "))
+| where
+  // Command form only. A bare path to the binary, such as ...\\powershell.exe, does not match.
+  // PowerShell / PowerShell 7
+  registry_data like "*powershell *" or
+  registry_data like "*powershell.exe *" or
+  registry_data like "*powershell.exe\" *" or
+  registry_data like "*pwsh *" or
+  registry_data like "*pwsh.exe *" or
+  registry_data like "*pwsh.exe\" *" or
+  // Mshta
+  registry_data like "*mshta *" or
+  registry_data like "*mshta.exe *" or
+  registry_data like "*mshta.exe\" *" or
+  // Msiexec, including a quiet local package such as msiexec /i "\\users\\...\\file.msi" /qb
+  registry_data like "*msiexec *" or
+  registry_data like "*msiexec.exe *" or
+  registry_data like "*msiexec.exe\" *" or
+  // Rundll32
+  registry_data like "*rundll32 *" or
+  registry_data like "*rundll32.exe *" or
+  registry_data like "*rundll32.exe\" *" or
+  // Cmd. Require /c, /k, cmd.exe, or comspec so a folder name containing "cmd" does not match.
+  registry_data like "*cmd.exe *" or
+  registry_data like "*cmd.exe\" *" or
+  registry_data like "*cmd /c *" or
+  registry_data like "*cmd /k *" or
+  registry_data like "*cmd.exe /c *" or
+  registry_data like "*cmd* /d /c for /r*" or 
+  registry_data like "*cmd* in (f_*" or 
+  registry_data like "*%comspec%*" or
+  // Other living-off-the-land binaries used in FileFix and ClickFix paste chains
+  registry_data like "*curl *" or
+  registry_data like "*curl.exe *" or
+  registry_data like "*curl.exe\" *" or
+  registry_data like "*wget *" or
+  registry_data like "*wget.exe *" or
+  registry_data like "*wget.exe\" *" or
+  registry_data like "*certutil *" or
+  registry_data like "*certutil.exe *" or
+  registry_data like "*certutil.exe\" *" or
+  registry_data like "*certreq *" or
+  registry_data like "*certreq.exe *" or
+  registry_data like "*certreq.exe\" *" or
+  registry_data like "*bitsadmin *" or
+  registry_data like "*bitsadmin.exe *" or
+  registry_data like "*bitsadmin.exe\" *" or
+  registry_data like "*wscript *" or
+  registry_data like "*wscript.exe *" or
+  registry_data like "*wscript.exe\" *" or
+  registry_data like "*cscript *" or
+  registry_data like "*cscript.exe *" or
+  registry_data like "*cscript.exe\" *" or
+  registry_data like "*conhost *" or
+  registry_data like "*conhost.exe *" or
+  registry_data like "*conhost.exe\" *" or
+  registry_data like "*forfiles *" or
+  registry_data like "*forfiles.exe *" or
+  registry_data like "*forfiles.exe\" *"
+| keep _id, _version, _index, data_stream.namespace, @timestamp, event.dataset, user.id, user.name, user.domain, host.id, host.name, agent.id, process.name, process.entity_id, process.executable, process.pid, registry.data.strings, registry.path, registry.value
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.004"
+name = "Malicious Copy and Paste"
+reference = "https://attack.mitre.org/techniques/T1204/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "registry.path",
+    "registry.value",
+    "registry.data.strings",
+]

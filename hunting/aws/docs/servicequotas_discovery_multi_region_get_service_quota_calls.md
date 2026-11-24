@@ -19,7 +19,7 @@ from logs-aws.cloudtrail-*
 | where @timestamp > now() - 7 day
 
 // filter for GetServiceQuota API calls
-| where event.dataset == "aws.cloudtrail" and event.provider = "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
+| where event.dataset == "aws.cloudtrail" and event.provider == "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
 
 // truncate the timestamp to a 30-second window
 | eval target_time_window = DATE_TRUNC(30 seconds, @timestamp)

@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -76,6 +76,12 @@ tags = [
     "Data Source: Crowdstrike",
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Script-Based Execution",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -105,7 +111,6 @@ process where host.os.type == "windows" and event.type == "start" and
           "*[*Convert]*",
           "*.Compression.*",
           "*-join($*",
-          "*.replace*",
           "*MemoryStream*",
           "*WriteAllBytes*",
           "* -enc *",
@@ -160,6 +165,15 @@ process where host.os.type == "windows" and event.type == "start" and
           "*XmlDocument*IEX*"
     ) or
 
+    (
+      process.command_line : "*.replace*" and
+      /* exclude known process and network inventory collection patterns */
+      not process.command_line : (
+        "*Get-CimInstance -Class Win32_Process*ConvertTo-Csv*Select-Object*$_.Replace*",
+        "*function replace_unallowed*$s.replace*Get-Counter*Network Adapter*"
+      )
+    ) or
+
     (process.args : "-c" and process.args : "&{'*") or
 
     (process.args : "-Outfile" and process.args : "Start*") or
@@ -179,7 +193,9 @@ process where host.os.type == "windows" and event.type == "start" and
     ) and
     not process.command_line : (
       "*Use-Icinga -Minimal*",
-      "*& {$j = sajb {Add-Type -AssemblyName*"
+      "*& {$j = sajb {Add-Type -AssemblyName*",
+      "\"?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"  -noprofile -ExecutionPolicy Bypass -Command \"((New-Object System.Net.WebClient).OpenRead('https://www.google.com')).CanRead\" ",
+      "\"?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe   -noprofile -ExecutionPolicy Bypass -Command \"((New-Object System.Net.WebClient).OpenRead('https://www.google.com')).CanRead\" "
     )
 '''
 

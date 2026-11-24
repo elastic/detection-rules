@@ -9,6 +9,7 @@ import re
 import eql.ast
 from eql import Walker, EqlCompileError, utils
 from eql.functions import CidrMatch
+from .ast import Wildcard
 from .errors import KqlRuntimeError, KqlCompileError
 from .parser import is_ipaddress
 
@@ -65,12 +66,18 @@ class FilterGenerator(Walker):
                 v = value
 
                 if utils.is_string(v) and isinstance(term, (bool, int, float)):
-                    if isinstance(v, bool):
-                        v = v == "false"
-                    if isinstance(term, int):
-                        v = int(v)
-                    elif isinstance(v, float):
-                        v = float(v)
+                    if isinstance(term, bool):
+                        # only the literal true/false can match a boolean term
+                        if v not in ("true", "false"):
+                            return False
+                        v = v == "true"
+                    else:
+                        try:
+                            v = float(v) if isinstance(term, float) else int(v)
+                        except ValueError:
+                            # the string can't coerce to the term's type, so it can never
+                            # match (mirrors Elasticsearch's lenient behavior)
+                            return False
 
                 elif utils.is_string(term) and isinstance(v, (bool, int, float)):
                     v = utils.to_unicode(v)
@@ -97,6 +104,34 @@ class FilterGenerator(Walker):
             terms = get_terms(document, path)
             terms = list(terms)
             return terms
+
+        return callback
+
+    @classmethod
+    def get_all_terms(cls, document):
+        """Yield every leaf value in the document, for values searched without a field."""
+        if isinstance(document, (tuple, list)):
+            for item in document:
+                for term in cls.get_all_terms(item):
+                    yield term
+        elif isinstance(document, dict):
+            for item in document.values():
+                for term in cls.get_all_terms(item):
+                    yield term
+        elif document is not None:
+            yield document
+
+    def _walk_free_text(self, tree):
+        check = self.walk(tree.value)
+        get_all_terms = self.get_all_terms
+        # wildcard matching only applies to strings; other leaf values can never match
+        strings_only = isinstance(tree.value, Wildcard)
+
+        def callback(document):
+            terms = list(get_all_terms(document))
+            if strings_only:
+                terms = [term for term in terms if utils.is_string(term)]
+            return check(terms)
 
         return callback
 

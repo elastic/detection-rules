@@ -21,6 +21,7 @@ from semver import Version
 from .config import (
     DEFAULT_THREAT_MAPPING_FRAMEWORK,
     DEFAULT_THREAT_MAPPING_VERSION,
+    PROMOTED_THREAT_MAPPING_VERSION,
     THREAT_MAPPING_FRAMEWORK_ENV,
     THREAT_MAPPING_VERSION_ENV,
     load_current_package_version,
@@ -32,8 +33,8 @@ PLATFORMS = ["Windows", "macOS", "Linux"]
 CROSSWALK_FILE = get_etc_path(["attack-crosswalk.json"])
 TECHNIQUES_REDIRECT_FILE = get_etc_path(["attack-technique-redirects.json"])
 ATTACK_VERSION_MAPS_DIRNAME = "attack-version-maps"
-# Stack at which ATT&CK v19 becomes the default shipped threat mapping (emit transform gate).
-MITRE_V19_MIN_STACK = Version(9, 5, 0)
+# Stack at which the promoted ATT&CK version becomes the default shipped threat mapping (emit transform gate).
+PROMOTED_THREAT_MAPPING_MIN_STACK = Version(9, 5, 0)
 
 tactics_map: dict[str, Any] = {}
 
@@ -69,9 +70,7 @@ def get_attack_file_path_for_version(version: str) -> Path:
     raise FileNotFoundError(f"No ATT&CK data file found for version {version!r}. Available: {available}")
 
 
-_, _attack_path_base = str(get_attack_file_path()).split("-v")
-_ext_length = len(".json.gz")
-CURRENT_ATTACK_VERSION = _attack_path_base[:-_ext_length]
+CURRENT_ATTACK_VERSION = get_attack_file_path().name.split("-v", 1)[1][: -len(".json.gz")]
 
 
 def load_attack_gz() -> dict[str, Any]:
@@ -201,16 +200,28 @@ def build_attack_lookups_for_version(version: str) -> AttackLookups:
     return _build_lookups(version, raw)
 
 
+# Rules are still authored against the v18 tactic name. v19 renamed TA0005.
+_LEGACY_TACTIC_NAMES = {"Defense Evasion": "Stealth"}
+
+
+def _tactic_lookup_name(tactic: str) -> str:
+    """Return the tactic name present in the loaded ATT&CK data."""
+    if tactic in tactics_map:
+        return tactic
+    return _LEGACY_TACTIC_NAMES.get(tactic, tactic)
+
+
 def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes | None]:
     """Refresh ATT&CK data from Mitre."""
-    attack_path = get_attack_file_path()
-    filename, _, _ = attack_path.name.rsplit(".", 2)
 
     def get_version_from_tag(name: str, pattern: str = "att&ck-v") -> str:
         _, version = name.lower().split(pattern, 1)
         return version
 
-    current_version = Version.parse(get_version_from_tag(filename, "attack-v"), optional_minor_and_patch=True)
+    attack_files = get_etc_glob_path(["attack-v*.json.gz"])
+    if not attack_files:
+        raise FileNotFoundError("Missing required attack-v*.json.gz file")
+    current_version = max(_attack_file_version(path) for path in attack_files)
 
     r = requests.get("https://api.github.com/repos/mitre/cti/tags", timeout=30)
     r.raise_for_status()
@@ -235,8 +246,7 @@ def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes
     if save:
         new_path = get_etc_path([f"attack-v{latest_version}.json.gz"])
         _ = new_path.write_bytes(compressed)
-        attack_path.unlink()
-        print(f"Replaced file: {attack_path} with {new_path}")
+        print(f"Saved ATT&CK data file: {new_path}")
 
     return attack_data, compressed
 
@@ -245,7 +255,8 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
     """Build rule threat map from technique IDs."""
     techniques_redirect_map = load_techniques_redirect()
     url_base = "https://attack.mitre.org/{type}/{id}/"
-    tactic_id = tactics_map[tactic]
+    lookup_tactic = _tactic_lookup_name(tactic)
+    tactic_id = tactics_map[lookup_tactic]
     tech_entries: dict[str, Any] = {}
 
     def make_entry(_id: str) -> dict[str, Any]:
@@ -259,10 +270,11 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
         # fail if deprecated or else convert if it has been replaced
         if tid in deprecated:
             raise ValueError(f"Technique ID: {tid} has been deprecated and should not be used")
-        if tid in techniques_redirect_map:
-            tid = techniques_redirect_map[tid]  # noqa: PLW2901
+        redirected = techniques_redirect_map.get(tid)
+        if redirected in matrix[lookup_tactic]:
+            tid = redirected  # noqa: PLW2901
 
-        if tid not in matrix[tactic]:
+        if tid not in matrix[lookup_tactic]:
             raise ValueError(f"Technique ID: {tid} does not fall under tactic: {tactic}")
 
         # sub-techniques
@@ -594,7 +606,7 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
 ) -> list[dict[str, Any]]:
     """Convert a raw threat list to the target version; techniques follow tactic migrations.
 
-    Shared by build-time emit (stack_emit mitre_attack_v19) and the CLI remapper
+    Shared by build-time emit (stack_emit mitre_attack_vPROMOTED_VERSION) and the CLI remapper
     (devtools._remap_threat_entries). When a source tactic is dropped (e.g. Defense Evasion
     in v19), techniques are still placed using the target STIX matrix when lookups are available.
 
@@ -777,9 +789,10 @@ def resolve_output_threat_version(stack: Version | str | None = None) -> tuple[s
     framework = os.getenv(THREAT_MAPPING_FRAMEWORK_ENV, cfg.threat_mapping_framework)
     version = str(os.getenv(THREAT_MAPPING_VERSION_ENV, cfg.threat_mapping_version))
 
-    # Auto-promote to v19 when targeting a stack that ships with v19 ATT&CK mappings,
-    # but only when neither the env var nor the config file has explicitly pinned a version.
-    # An explicit pin (even "18") suppresses auto-promotion so callers can lock a version.
+    # Auto-promote to PROMOTED_THREAT_MAPPING_VERSION when targeting a stack that ships with
+    # PROMOTED_THREAT_MAPPING_VERSION ATT&CK mappings, but only when neither the env var nor the
+    # config file has explicitly pinned a version. An explicit pin (even "18") suppresses
+    # auto-promotion so callers can lock a version.
     env_version_explicit = os.getenv(THREAT_MAPPING_VERSION_ENV) is not None
     if (
         not env_version_explicit
@@ -790,8 +803,8 @@ def resolve_output_threat_version(stack: Version | str | None = None) -> tuple[s
         try:
             raw = stack if stack is not None else load_current_package_version()
             stack_ver = raw if isinstance(raw, Version) else Version.parse(str(raw), optional_minor_and_patch=True)
-            if stack_ver >= MITRE_V19_MIN_STACK:
-                version = "19"
+            if stack_ver >= PROMOTED_THREAT_MAPPING_MIN_STACK:
+                version = PROMOTED_THREAT_MAPPING_VERSION
         except ValueError:
             pass
 

@@ -2,7 +2,7 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -68,10 +68,14 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS EC2",
-    "Use Case: Network Security Monitoring",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
     "Tactic: Persistence",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Fast",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -84,6 +88,7 @@ data_stream.dataset: "aws.cloudtrail"
         "CreateRouteTable"
     ) 
     and event.outcome: "success"
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 [rule.investigation_fields]

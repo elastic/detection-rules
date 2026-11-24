@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects termination of a virtual machine process on an ESXi host, including `esxcli vm process kill`, `pkill` of
+`vmx` processes, and `vmdumper` suspend. A running VM holds a lock on its disks. Stopping the process releases
+that lock and makes the disks writable.
+"""
+false_positives = [
+    """
+    Virtual machine process kills also happen during planned maintenance, host upgrades, and
+troubleshooting of a stuck VM. Confirm the world id, the account, and whether the same session also enumerates
+`/vmfs/volumes` or removes snapshots.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Virtual Machine Process Killed"
+note = """## Triage and analysis
+
+### Investigating ESXi Virtual Machine Process Killed
+
+Stopping vmx releases the lock on a virtual disk. ESXi ransomware does this immediately before it encrypts files under /vmfs/volumes.
+
+#### Possible investigation steps
+
+- Read the full command in message and event.original. Note --type (soft, hard, force), --world-id / -w, and whether the line is an awk loop over vm process list.
+- Identify the account and source from the same host in /var/log/shell.log and /var/log/auth.log around @timestamp.
+- Check whether the same session listed VMs, searched for *.vmdk, removed snapshots, or reset the syslog loghost.
+- Confirm with the VM owner whether that world id was shut down on purpose.
+
+### False positive analysis
+
+Maintenance and crash recovery use the same esxcli kill types. A single soft shutdown of a named VM during a change window is often expected. A loop that kills every world id is not.
+
+### Response and remediation
+
+- If the kill was not approved, isolate the host from the management network and stop further shell activity.
+- Leave powered-on VMs running. Shutting them down releases disk locks and lets encryption continue.
+- Preserve shell.log, hostd.log, and auth.log, and restore any VM that was stopped from a known-good backup.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "2f0a3a40-1b21-5201-8657-ed84f67600c9"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:vsphere.log and message:("vm process kill" or pkill and vmx or suspend_v and vmdumper)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "host.hostname",
+    "log.file.path",
+]

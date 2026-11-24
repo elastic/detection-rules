@@ -90,14 +90,15 @@ normalize_kql_keywords: False
 # Mind that for unit tests, you also want to disable the filename test in the test_config.yaml
 # no_tactic_filename: True
 
-# Multi-version threat mappings (e.g. MITRE ATT&CK v18/v19)
-# ---------------------------------------------------------
+# Multi-version threat mappings (baseline and promoted MITRE ATT&CK versions)
+# ---------------------------------------------------------------------------
 # Rules may carry additional framework/version-tagged threat mappings in the `threat_mappings` field
 # alongside the default `threat` field. At build time exactly one mapping is emitted as the API
 # `threat`. The version emitted is chosen automatically based on the target stack:
-#   stack <= 9.4  ->  v18 (the baseline stored in `threat`)
-#   stack >= 9.5  ->  v19 (auto-converted from baseline via STIX/version maps, or an explicit
-#                         `threat_mappings` override when present)
+#   stack <= 9.4  ->  the baseline version stored in `threat`
+#   stack >= 9.5  ->  the promoted version (auto-converted from baseline via STIX/version maps, or
+#                     an explicit `threat_mappings` override when present)
+# The current baseline/promoted versions are listed in docs-dev/multi-version-threat-mappings.md.
 # Tactic tags are rewritten to match the emitted threat mapping.
 #
 # Versioning uses `stack_emit` epochs in version.lock.json so 9.5+ packages can bump independently
@@ -106,7 +107,7 @@ normalize_kql_keywords: False
 # Override the framework/version explicitly with the keys below or the DR_THREAT_MAPPING_FRAMEWORK /
 # DR_THREAT_MAPPING_VERSION environment variables (env vars take precedence over the keys). Setting
 # a version explicitly through either source pins it and suppresses auto-promotion, so e.g.
-# `threat_mapping_version: "18"` keeps v18 output even for stacks >= 9.5:
+# pinning the baseline (`threat_mapping_version: "18"`) keeps baseline output even for stacks >= 9.5:
 # threat_mapping_framework: "MITRE ATT&CK"
 # threat_mapping_version: "18"
 #

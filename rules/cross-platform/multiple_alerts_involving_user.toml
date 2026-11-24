@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2026/04/27"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,15 @@ name = "Multiple Alerts Involving a User"
 risk_score = 73
 rule_id = "0d160033-fab7-4e72-85a3-3a9d80c8bff7"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Fast",
+    "Rule Type: ES|QL",
+    "Domain: Endpoint",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -40,7 +48,7 @@ from .alerts-security.*
     Esql.process_command_line_values = VALUES(process.command_line), 
     Esql.host_id_values = VALUES(host.id), 
     Esql.source_ip_values = VALUES(source.ip), 
-    Esql.destination_ip_values = VALUES(destination.ip) by user.id
+    Esql.destination_ip_values = VALUES(destination.ip) by user.id, user.name
 
 | where Esql.kibana_alert_rule_name_distinct_count >= 4 AND Esql.kibana_alert_rule_rule_id_distinct_count >= 2 and
  // Exclude known system accounts with matches in more than one host
@@ -49,7 +57,7 @@ from .alerts-security.*
    (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
  )
 
-| keep user.id, Esql.*
+| keep user.id, user.name, Esql.*
 '''
 note = """## Triage and analysis
 

@@ -5,6 +5,7 @@ Windows related audit policies that need to be implemented in order to generate 
 Audit Policies:
 
 * [Audit Authorization Policy Change](audit_authorization_policy_change.md)
+* [Audit Certification Services](audit_certification_services.md)
 * [Audit Computer Account Management](audit_computer_account_management.md)
 * [Audit Detailed File Share](audit_detailed_file_share.md)
 * [Audit Directory Service Access](audit_directory_service_access.md)
@@ -12,6 +13,8 @@ Audit Policies:
 * [Audit Filtering Platform Connection](audit_filtering_platform_connection.md)
 * [Audit Filtering Platform Packet Drop](audit_filtering_platform_packet_drop.md)
 * [Audit Handle Manipulation](audit_handle_manipulation.md)
+* [Audit Kerberos Authentication Service](audit_kerberos_authentication_service.md)
+* [Audit Kerberos Service Ticket Operations](audit_kerberos_service_ticket_operations.md)
 * [Audit Logon](audit_logon.md)
 * [Audit Other Object Access Events](audit_other_object_access_events.md)
 * [Audit Policy Change](audit_policy_change.md)
@@ -46,6 +49,7 @@ For a production-ready and more integrated solution that is designed to work wit
 * [Sysmon Event ID 10: Process Accessed](sysmon_eventid10_process_access.md)
 * [Sysmon Event ID 11: File Create](sysmon_eventid11_file_create.md)
 * [Sysmon Event IDs 12, 13, 14: Registry Events](sysmon_eventid12_13_14_registry_event.md)
+* [Sysmon Event ID 15: File Create Stream Hash](sysmon_eventid15_file_create_stream_hash.md)
 * [Sysmon Event IDs 17, 18: Named Pipe Events](sysmon_eventid17_18_pipe_event.md)
 * [Sysmon Event IDs 19, 20, 21: WMI Events](sysmon_eventid19_20_21_wmi_event.md)
 * [Sysmon Event ID 22: DNS Query](sysmon_eventid22_dns_query.md)

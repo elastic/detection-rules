@@ -2,7 +2,9 @@
 creation_date = "2026/06/25"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/06/25"
+min_stack_comments = "Requires ES|QL JSON_EXTRACT on _source to read DHCPv4 fields across current and legacy schemas."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +63,9 @@ setup = """## Setup
 This rule requires the Elastic network_traffic (Packetbeat) integration capturing DHCP (UDP 67/68) on the broadcast
 segment where clients acquire leases, either Packetbeat running on the segment or a SPAN/mirror feeding it.
 
+The query supports Network Packet Capture 2.0.0 and later, earlier integration versions, and standalone Packetbeat by
+reading both the `network_traffic.dhcpv4.*` and legacy `dhcpv4.*` field layouts.
+
 Zeek and flow-only firewall sources are intentionally not supported: this rule requires per-DISCOVER DHCP transaction
 fields and client hardware address values (`client_mac`) to measure high client MAC cardinality in a short time window.
 """
@@ -72,15 +77,25 @@ tags = [
     "Tactic: Impact",
     "Data Source: Network Traffic",
     "Resources: Investigation Guide",
+    "Noise: Unknown",
+    "Performance: Fast",
+    "Rule Type: ES|QL",
+    "Data Source: Network Packet Capture",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.dhcpv4-*, packetbeat-*
+from logs-network_traffic.dhcpv4-*, packetbeat-* metadata _source
 | eval
-    Esql.message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type)),
-    Esql.client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac),
+    Esql.message_type = TO_LOWER(COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.dhcpv4.option.message_type"),
+        JSON_EXTRACT(_source, "dhcpv4.option.message_type")
+    )),
+    Esql.client_mac = COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.dhcpv4.client_mac"),
+        JSON_EXTRACT(_source, "dhcpv4.client_mac")
+    ),
     Esql.observer_hostname = COALESCE(host.name, observer.hostname)
 | where Esql.message_type == "discover" and Esql.client_mac is not null and Esql.observer_hostname is not null
 | eval Esql.time_window = DATE_TRUNC(1 minute, @timestamp)
