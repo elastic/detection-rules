@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "sonicwall_firewall", "suricata"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -106,8 +106,8 @@ query = '''
     and event.type:(connection and not (denied or end))
     and not event.action:(Reject or client-rst or connection-denied or
         connection-end or denied or deny or flow_denied or flow_dropped or
-        flow_terminated or network_flow or server-rst or timeout)
-    and not (event.action:netflow_flow and not network.packets > 1)
+        flow_terminated or server-rst or timeout)
+    and not (event.action:(netflow_flow or network_flow) and not network.packets > 1)
     and not network.application:(stretchoid-scanning or traceroute)
     and not (
         data_stream.dataset:panw.panos and
@@ -166,5 +166,5 @@ missing_fields_strategy = "doNotSuppress"
 
 [rule.alert_suppression.duration]
 unit = "h"
-value = 1
+value = 24
 
