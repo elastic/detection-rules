@@ -46,7 +46,14 @@ process where host.os.type == "macos" and event.type == "start" and event.action
   process.args like ("-c", "-c?", "-?c", "-?c?")
  ) and
  not process.parent.executable like ("/opt/homebrew/Library/Homebrew/vendor/portable-ruby/*/bin/ruby",
-                                     "/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/*/bin/ruby")
+                                     "/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/*/bin/ruby") and
+ /* AI coding agents */
+ not process.Ext.effective_parent.executable in ("/Applications/Cursor.app/Contents/MacOS/Cursor",
+                                                 "/Applications/Claude.app/Contents/MacOS/Claude",
+                                                 "/Applications/Codex.app/Contents/MacOS/Codex",
+                                                 "/Applications/Codex.app/Contents/MacOS/ChatGPT",
+                                                 "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT",
+                                                 "/Applications/OpenCode.app/Contents/MacOS/OpenCode")
 '''
 
 
