@@ -19,40 +19,10 @@ index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Sensitive File Collection via Find -exec"
-note = """## Triage and analysis
 
-### Investigating Sensitive File Collection via Find -exec
-
-`find -exec` and `find -execdir` run a command on every path that matches. `-ok` and `-okdir` are the interactive forms of the same option. A search rooted at `/` or a home directory for browser profile files, keychains, SSH keys, cloud credentials, or a cryptocurrency wallet is a collection step used by information stealers. The command that follows `-exec` is often `echo` (to record the path), `cat` (to read the file), or `cp` (to copy it).
-
-Browser files covered here are Firefox `places.sqlite`, `cookies.sqlite`, `formhistory.sqlite`, `signons.sqlite`, `logins.json`, `key3.db` or `key4.db`, and `cert8.db` or `cert9.db`; Chromium `Login Data`, `Local State`, `Bookmarks`, `History`, `Cookies`, and `Web Data` for Chrome, Edge, Brave, Chromium, Opera, Vivaldi, and Arc; and Safari `Bookmarks.plist`, `History.db`, `CloudTabs.db`, and `Cookies.binarycookies`. Credential files covered here are login and System keychains, SSH private keys and `authorized_keys`, the GnuPG directory, TLS key and certificate files (`.pem`, `.key`, `.pfx`, `.p12`), AWS, gcloud, and Azure credential files, kubeconfig, Docker config, Terraform variable and state files, `.netrc`, git credentials, `.npmrc`, a Vault token, GitHub CLI hosts, and database client files (`.pgpass`, `.my.cnf`, `.mongorc.js`). Wallet paths covered here are Electrum, Exodus, Coinomi, Atomic, Trezor, Ledger Live, Wasabi, Monero, Bitcoin, Litecoin, Dash, Electron Cash, Guarda, and Dogecoin.
-
-### Possible investigation steps
-
-- Review `process.command_line` and `process.args` for the `-exec` or `-execdir` payload and for which sensitive path was searched.
-- Check the parent process (`process.parent.executable`, `process.parent.command_line`) for a shell, `osascript`, `python`, or an unsigned binary.
-- Look for a follow-on read, copy, or archive of the same files by that user, and for a new text file under `/tmp`, `/private/tmp`, or the user home that lists the matching paths.
-- Identify `user.name` and confirm whether that account would search these paths.
-
-### False positive analysis
-
-- An administrator inventorying a browser profile, keychain, SSH directory, or cloud configuration may run `find` with `-exec`. Confirm the parent process and the user before excluding the activity.
-- Developers sometimes search a repository for `.npmrc`, `.netrc`, or `.aws` files. Confirm the working directory is a source tree before excluding that command.
-- Developers fix GnuPG directory permissions with `find ~/.gnupg -type f -exec chmod 600 {} +`. Confirm the command after `-exec` is `chmod` before excluding it.
-- A search for `.pem` or `.key` files is not always a search for private keys. Tooling that installs a certificate bundle looks for `cacert.pem`, and `.key` is also the Keynote document extension. Check which files the command matched before excluding it.
-- Security testing that emulates browser discovery, including Atomic Red Team T1217, runs `find -path` with `-exec echo`. Confirm the test window with the team that executed it.
-
-### Response and remediation
-
-- If the search is unauthorized, preserve the command line and any output file that received the matching paths.
-- Review the same session for access to the discovered files and for an archive or outbound transfer.
-- Remove any staging file that lists the discovered paths, and terminate the process tree that launched `find` when the parent is not an expected administrative tool.
-- Isolate the host if a copy of a credential store or an outbound transfer follows the search.
-"""
 references = [
     "https://attack.mitre.org/techniques/T1217/",
     "https://attack.mitre.org/techniques/T1119/",
-    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1217/T1217.md",
 ]
 risk_score = 21
 rule_id = "afee5aa8-3e45-48b8-b872-bbc2b9555e93"
