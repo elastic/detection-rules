@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the creation of a local user record with the dscl command line utility on macOS, including the attributes
+that complete an account. Adversaries create local accounts to maintain access to a host and may assign a low unique ID
+so that the account does not appear in the user interface.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.process-*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Local Account Creation via Dscl"
+references = [
+    "https://attack.mitre.org/techniques/T1136/001/",
+]
+risk_score = 21
+rule_id = "0a13f199-d0c4-4892-8b8f-b7b932915a30"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ process.name == "dscl" and process.args in ("-create", "create") and process.args like "/Users/*" and
+ (
+  process.args_count == 4 or
+  process.args in ("UniqueID", "PrimaryGroupID", "NFSHomeDirectory")
+ ) and
+ not process.args regex ".*/Users/_nixbld[0-9]{1,3}" and
+ not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                                                   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+                                                   "/usr/local/jamf/bin/jamf",
+                                                   "/opt/jc/bin/jumpcloud-agent",
+                                                   "/Library/Addigy/go-agent",
+                                                   "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer",
+                                                   "/usr/sbin/installer",
+                                                   "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+                                                   "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+                                                   "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                   "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "user.id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 5
+
