@@ -1,0 +1,77 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the xattr utility used to delete the com.apple.quarantine extended attribute or to clear all extended
+attributes of a file on macOS. Removing the quarantine attribute from a downloaded application or script prevents
+Gatekeeper from assessing it on first launch. This is also done by developers and package managers, so each match
+produces a building block signal for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Quarantine Attribute Removal via Xattr"
+references = [
+    "https://attack.mitre.org/techniques/T1553/001/",
+]
+risk_score = 21
+rule_id = "eb14227c-7285-4767-a4e1-df3bd84025fa"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ process.name == "xattr" and
+ (
+  (process.args == "com.apple.quarantine" and process.args like ("-d", "-d?", "-?d", "-?d?")) or
+  process.args like ("-c", "-c?", "-?c", "-?c?")
+ ) and
+ not process.parent.executable like ("/opt/homebrew/Library/Homebrew/vendor/portable-ruby/*/bin/ruby",
+                                     "/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/*/bin/ruby") and
+ /* AI coding agents */
+ not process.Ext.effective_parent.executable in ("/Applications/Cursor.app/Contents/MacOS/Cursor",
+                                                 "/Applications/Claude.app/Contents/MacOS/Claude",
+                                                 "/Applications/Codex.app/Contents/MacOS/Codex",
+                                                 "/Applications/Codex.app/Contents/MacOS/ChatGPT",
+                                                 "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT",
+                                                 "/Applications/OpenCode.app/Contents/MacOS/OpenCode")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.001"
+name = "Gatekeeper Bypass"
+reference = "https://attack.mitre.org/techniques/T1553/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

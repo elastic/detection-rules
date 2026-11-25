@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/11/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/18"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the first time a parent process uses a built-in macOS utility to query the state of a security control or
+security relevant configuration on a host, such as System Integrity Protection, Gatekeeper, the application firewall,
+FileVault, the account password policy, or the loaded kernel and system extensions. Adversaries collect this information
+to decide how to proceed and which defenses they need to evade.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.process-*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Security Configuration Discovery via Built-In Tools"
+risk_score = 21
+rule_id = "05901cc2-39ec-4360-bc32-2ba0f76a4f97"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:process and host.os.type:macos and event.type:start and event.action:exec and (
+  (process.name:csrutil and process.args:status) or
+  (process.name:spctl and process.args:"--status") or
+  (process.name:socketfilterfw and process.args:(
+     "--getglobalstate" or "--getstealthmode" or "--getblockall" or "--getallowsigned" or "--getloggingmode" or
+     "--listapps"
+  )) or
+  (process.name:defaults and process.args:(read and *com.apple.alf*)) or
+  (process.name:fdesetup and process.args:(status or list)) or
+  (process.name:pwpolicy and process.args:(
+     getaccountpolicies or "-getaccountpolicies" or getglobalpolicy or "-getglobalpolicy"
+  )) or
+  process.name:(kextstat or kextfind) or
+  (process.name:kmutil and process.args:showloaded) or
+  (process.name:systemextensionsctl and process.args:list)
+) and
+not process.parent.name:system_profiler and
+not process.Ext.effective_parent.executable:(
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon" or
+  "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService" or
+  "/usr/local/jamf/bin/jamf" or
+  "/opt/jc/bin/jumpcloud-agent" or
+  "/Library/Addigy/go-agent" or
+  "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon" or
+  "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM" or
+  "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager" or
+  "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[[rule.threat.technique]]
+id = "T1201"
+name = "Password Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1201/"
+
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
+
+
+[[rule.threat.technique]]
+id = "T1518"
+name = "Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/"
+[[rule.threat.technique.subtechnique]]
+id = "T1518.001"
+name = "Security Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/001/"
+
+
+[[rule.threat.technique]]
+id = "T1652"
+name = "Device Driver Discovery"
+reference = "https://attack.mitre.org/techniques/T1652/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable", "process.command_line"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
