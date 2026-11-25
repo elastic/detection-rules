@@ -7,14 +7,14 @@ updated_date = "2026/11/25"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first observed authentication of a Microsoft Entra agent identity blueprint principal, scoped by blueprint
-application ID, within the history window. When a tenant admin consents to a third-party (multitenant) agent blueprint, a
-blueprint principal is created locally and can immediately authenticate using credentials held in the blueprint's home
-(attacker) tenant. Because the blueprint principal authenticates locally in the victim tenant, standard cross-tenant
-sign-in indicators are not set, so a newly observed blueprint principal authenticating is one of the few sign-in-side
-signals of a freshly consented blueprint, including a malicious externally owned one as described in Proofpoint's
-"BluePhishing" research. This complements the companion rule that detects a known blueprint authenticating with a new
-credential, catching the case where no credential key ID is present on the sign-in.
+Identifies the first observed authentication of a Microsoft Entra agent identity blueprint principal, scoped by
+blueprint application ID, within the history window. When a tenant admin consents to a third-party (multitenant) agent
+blueprint, a blueprint principal is created locally and can immediately authenticate using credentials held in the
+blueprint's home (attacker) tenant. Because the blueprint principal authenticates locally in the victim tenant, standard
+cross-tenant sign-in indicators are not set, so a newly observed blueprint principal authenticating is one of the few
+sign-in-side signals of a freshly consented blueprint, including a malicious externally owned one as described in
+Proofpoint's "BluePhishing" research. This complements the companion rule that detects a known blueprint authenticating
+with a new credential, catching the case where no credential key ID is present on the sign-in.
 """
 false_positives = [
     """
@@ -97,16 +97,16 @@ data_stream.dataset:azure.signinlogs
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0001"
@@ -129,10 +129,9 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = [
-    "azure.signinlogs.properties.app_id",
-]
-
+value = ["azure.signinlogs.properties.app_id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

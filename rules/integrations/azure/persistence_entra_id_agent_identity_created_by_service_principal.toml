@@ -8,21 +8,22 @@ updated_date = "2026/11/25"
 author = ["Elastic"]
 description = """
 Identifies a Microsoft Entra agent identity blueprint principal creating a new service principal (agent identity) using
-an app-only token. The detection correlates an "Add service principal" audit event whose initiator is an application with
-a ServicePrincipalSignInLogs event in which that same service principal authenticated as an agent identity blueprint
-principal (`azure.signinlogs.properties.agent.agent_type` is `agentIdentityBlueprintPrincipal`). In the Entra Agent ID
-model a consented blueprint principal holds the implicit, non-revocable AgentIdentity.CreateAsManager permission and uses
-it to create tenant-local agent identities that silently inherit the blueprint's permissions. This is the post-consent
-step of a third-party agent blueprint consent attack ("BluePhishing"): after a victim admin consents to an externally
-owned multitenant blueprint, the attacker authenticates as the blueprint principal and creates agent identities. Scoping
-to a blueprint-principal initiator distinguishes this from ordinary user-driven or first-party service principal creation.
+an app-only token. The detection correlates an "Add service principal" audit event whose initiator is an application
+with a ServicePrincipalSignInLogs event in which that same service principal authenticated as an agent identity
+blueprint principal (`azure.signinlogs.properties.agent.agent_type` is `agentIdentityBlueprintPrincipal`). In the Entra
+Agent ID model a consented blueprint principal holds the implicit, non-revocable AgentIdentity.CreateAsManager
+permission and uses it to create tenant-local agent identities that silently inherit the blueprint's permissions. This
+is the post-consent step of a third-party agent blueprint consent attack ("BluePhishing"): after a victim admin consents
+to an externally owned multitenant blueprint, the attacker authenticates as the blueprint principal and creates agent
+identities. Scoping to a blueprint-principal initiator distinguishes this from ordinary user-driven or first-party
+service principal creation.
 """
 false_positives = [
     """
     Legitimate onboarding of agent identities under an approved internal blueprint will match, because an approved
     blueprint principal also creates agent identities app-only. Validate the blueprint principal's owner
-    (`appOwnerOrganizationId`) and the consent that established it, and allowlist reviewed internal blueprints rather than
-    disabling the rule.
+    (`appOwnerOrganizationId`) and the consent that established it, and allowlist reviewed internal blueprints rather
+    than disabling the rule.
     """,
 ]
 from = "now-65m"
@@ -124,16 +125,16 @@ from logs-azure.auditlogs-*, logs-azure.signinlogs-* metadata _id, _index
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1136.003"
 name = "Cloud Account"
 reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -150,3 +151,4 @@ field_names = [
     "Esql.first_seen",
     "Esql.last_seen",
 ]
+
