@@ -2,21 +2,22 @@
 creation_date = "2025/06/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a sequence of events in Microsoft Entra ID indicative of suspicious cloud-based device registration via automated
-tooling like ROADtools or similar frameworks. This behavior involves adding a device via the Device Registration Service,
-followed by the assignment of registered users and owners — a pattern consistent with techniques used to establish persistence or
-acquire a Primary Refresh Token (PRT). ROADtools and similar tooling leave distinct telemetry signatures such as the
-`Microsoft.OData.Client` user agent. These sequences are uncommon in typical user behavior and may reflect abuse of device
-trust for session hijacking or silent token replay.
+Detects a sequence of Microsoft Entra ID audit events indicative of cloud device registration using the default device
+profile of ROADtools (roadtx). The sequence begins with an "Add device" operation from the Device Registration Service
+where the user agent is "Microsoft.OData.Client/*", the recorded cloud device OS build is a ROADtools default
+("10.0.19041.928" or "10.0.19045.2006") and the display name follows the default "DESKTOP-" pattern, followed within the
+same correlation ID by "Add registered users to device" or "Add registered owner to device", which completes the
+registration and binds the device to a user. This flow is used to establish persistence or acquire a Primary Refresh
+Token (PRT). The OS build and naming are tool defaults, so this is a high-fidelity but evadable indicator.
 """
 from = "now-30m"
-interval = "15m"
 index = ["filebeat-*", "logs-azure.auditlogs-*"]
+interval = "15m"
 language = "eql"
 license = "Elastic License v2"
 name = "Entra ID Unusual Cloud Device Registration"
@@ -24,24 +25,19 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Unusual Cloud Device Registration
 
-This rule detects a sequence of Microsoft Entra ID audit events consistent with cloud device registration abuse via ROADtools or similar automation frameworks. The activity includes three correlated events:
+This rule detects a sequence of Microsoft Entra ID audit events, correlated by `azure.correlation_id`, consistent with a device registered using the ROADtools (roadtx) default profile:
 
-1. Add device operation from the Device Registration Service using suspicious user-agents (`Dsreg/*`, `DeviceRegistrationClient`, or `Microsoft.OData.Client/*`).
-2. Addition of a registered user with an `enterprise registration` URN.
-3. Assignment of a registered owner to the device.
+1. An `Add device` operation from the Device Registration Service where the user agent is `Microsoft.OData.Client/*`, `CloudDeviceOSVersion` is `10.0.19041.928` or `10.0.19045.2006` (ROADtools default builds) and `CloudDisplayName` matches `DESKTOP-*`.
+2. An `Add registered users to device` or `Add registered owner to device` operation, which binds the new device to a user. Either one satisfies the sequence, as their order is not stable.
 
-This pattern has been observed in OAuth phishing and PRT abuse campaigns where adversaries silently register a cloud device to obtain persistent, trusted access.
+Rogue device registration is typically a precursor to PRT acquisition, MFA/Conditional Access bypass, and persistent token-based access.
 
 ### Possible investigation steps
 
 - Identify the user principal associated with the device registration.
 - Review the `azure.auditlogs.identity` field to confirm the Device Registration Service initiated the request.
-- Check the user-agent in `azure.auditlogs.properties.additional_details.value`. Known attack tooling signatures include:
-  - `Dsreg/10.0 (Windows X.X.X)` - ROADtools Windows device registration
-  - `DeviceRegistrationClient` - ROADtools MacOS/Android device registration
-  - `Microsoft.OData.Client/*` - .NET-based tools or Graph SDK
-- Examine the OS version in the modified properties to identify potentially suspicious or outdated versions.
-- Verify the URN in the new value field (`urn:ms-drs:enterpriseregistration.windows.net`) is not being misused.
+- Check the user-agent in `azure.auditlogs.properties.additional_details.value`. This rule requires `Microsoft.OData.Client/*` (the roadtx Graph/OData client); native Windows joins present `Dsreg/*` instead.
+- Confirm `CloudDeviceOSVersion` (`modified_properties.3`) and `CloudDisplayName` (`modified_properties.4`) on the `Add device` event, and compare the device name to your naming convention.
 - Use `azure.correlation_id` to pivot across all three steps of the registration flow.
 - Pivot to `azure.signinlogs` to detect follow-on activity using the new device, such as sign-ins involving refresh or primary refresh tokens.
 - Look for signs of persistence or lateral movement enabled by the newly registered device.
@@ -53,6 +49,7 @@ This pattern has been observed in OAuth phishing and PRT abuse campaigns where a
 
 - Some MDM, autopilot provisioning flows, or third-party device management tools may generate similar sequences. Validate against known provisioning tools, expected rollout windows, and device inventory.
 - Investigate whether the device name, OS version, and registration details align with normal IT workflows.
+- Authorized red team activity using ROADtools will match; scope exceptions to the user, source IP, or device name.
 - Check if the user-agent corresponds to legitimate automation or tooling used by your organization.
 
 ### Response and remediation
@@ -66,7 +63,7 @@ This pattern has been observed in OAuth phishing and PRT abuse campaigns where a
 references = [
     "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
     "https://github.com/dirkjanm/ROADtools",
-    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/"
+    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/",
 ]
 risk_score = 47
 rule_id = "90efea04-5675-11f0-8f80-f661ea17fbcd"
@@ -89,57 +86,70 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by azure.correlation_id with maxspan=5m
+sequence by azure.correlation_id with maxspan=30s
 [any where data_stream.dataset == "azure.auditlogs" and
     azure.auditlogs.identity == "Device Registration Service" and
-    azure.auditlogs.operation_name == "Add device" and
+    event.action == "Add device" and
+    azure.auditlogs.properties.additional_details.value like "Microsoft.OData.Client/*" and
     (
-        azure.auditlogs.properties.additional_details.value like "Microsoft.OData.Client/*" or
-        azure.auditlogs.properties.additional_details.value like "Dsreg/*" or
-        azure.auditlogs.properties.additional_details.value == "DeviceRegistrationClient"
+        `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value` like "*10.0.19041.928*" or
+        `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value` like "*10.0.19045.2006*"
     ) and
-    `azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "CloudAccountEnabled" and
-    `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value` == "[true]"]
+    `azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value` like "*DESKTOP-*"]
 [any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered users to device" and
-    `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value` like "*urn:ms-drs:enterpriseregistration.windows.net*"]
-[any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered owner to device"]
+    event.action in ("Add registered users to device", "Add registered owner to device")]
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.identity",
+    "azure.auditlogs.properties.target_resources.0.id",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.user_principal_name",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value",
+    "azure.auditlogs.properties.initiated_by.app.displayName",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.tenant_id",
+    "azure.correlation_id",
+]

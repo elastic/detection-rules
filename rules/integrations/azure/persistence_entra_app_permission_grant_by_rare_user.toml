@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/11/12"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time, within a lookback window, a user grants application permissions in Entra ID ("Add app role
+assignment to service principal" or "Add delegated permission grant"). Adversaries abuse application role assignments
+and delegated permission grants to obtain durable, token-based access to tenant data without requiring interactive
+consent. This is a New Terms rule keyed on the granting user; known cloud-provider egress networks are excluded.
+"""
+false_positives = [
+    """
+    Administrators grant application and delegated permissions as part of legitimate onboarding and integration work.
+    The New Terms logic baselines known administrators; a newly seen user granting permissions, especially from an
+    unusual network, warrants review.
+    """,
+]
+from = "now-6m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID App Permission Grant by Rare User"
+note = """## Triage and analysis
+
+### Investigating Entra ID App Permission Grant by Rare User
+
+Direct application role assignments (`Add app role assignment to service principal`) and OAuth delegated permission grants (`Add delegated permission grant`) hand service principals standing access to tenant resources without requiring an interactive `"Consent to application"` flow. Adversaries with privileged roles or application ownership abuse these operations for persistence and data access.
+
+### Possible investigation steps
+
+- Confirm the initiating user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) and whether the permission grant (`event.action`) was expected.
+- Identify the target service principal or application (`azure.auditlogs.properties.target_resources.0.display_name`) and the permissions, roles, or scopes granted (`modified_properties`).
+- Review `source.as.organization.name` and `source.ip`; permission grants from an unusual or residential network warrant scrutiny.
+- Determine whether the grant gives tenant-wide access (`PrincipalId` / `ConsentType: AllPrincipals` or high-privilege Graph app roles) and whether the app is first-party or third-party.
+
+### False positive analysis
+
+- Legitimate admin onboarding/integration permission grants; add exceptions by initiating UPN or known application/service-principal IDs.
+
+### Response and remediation
+
+- If unauthorized, revoke the app role assignment or delegated permission grant and service-principal credentials, review data accessed via the app, and rotate the initiating user's credentials.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/manage-consent-requests",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1098/T1098.md",
+]
+risk_score = 47
+rule_id = "84234d81-a716-4641-9cce-802a5e6c2ca1"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Domain: Identity",
+    "Platform: Azure",
+    "Tactic: Persistence",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "azure.auditlogs"
+    and event.action: ("Add app role assignment to service principal" or "Add delegated permission grant")
+    and event.outcome: "success"
+    and not source.as.organization.name: (
+        "Google LLC" or "Amazon.com, Inc." or "Microsoft Corporation" or "GOOGLE-CLOUD-PLATFORM"
+        or "MICROSOFT-CORP-MSN-AS-BLOCK" or "AMAZON-AES" or "AMAZON-02"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "event.action",
+    "event.outcome",
+    "source.ip",
+    "source.as.organization.name",
+    "cloud.account.id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

@@ -324,6 +324,7 @@ EXPECTED_RULE_TAGS = [
     "Service: Azure Functions",
     "Service: Azure Key Vault",
     "Service: Azure OpenAI",
+    "Service: Azure Resource Manager",
     "Service: Azure Storage",
     "Service: GCP BigQuery",
     "Service: GCP Cloud Functions",
@@ -357,6 +358,7 @@ EXPECTED_RULE_TAGS = [
     "Tactic: Reconnaissance",
     "Tactic: Resource Development",
     "Tactic: Stealth",
+    "Threat: Agentic Offensive Frameworks",
     "Threat: AiTM Phishing",
     "Threat: BPFDoor",
     "Threat: Browser Extension Abuse",
@@ -470,7 +472,7 @@ EXPECTED_RULE_TAGS = [
 ]
 
 
-MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD"]
+MACHINE_LEARNING_PACKAGES = ["LMD", "DGA", "DED", "ProblemChild", "Beaconing", "PAD", "security_ai"]
 
 CodeString = NewType("CodeString", str)
 Markdown = NewType("Markdown", CodeString)
