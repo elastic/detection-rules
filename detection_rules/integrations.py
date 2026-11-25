@@ -658,7 +658,7 @@ def get_integration_schema_fields(
     # Resolves against the bundled integration-manifests / integration-schemas via memoized helpers
     # keyed on hashable args. The returned schema is memoized and shared, so callers must treat it
     # as read-only.
-    package_version, notice = _latest_compatible_version_from_etc(package, integration, str(min_stack))
+    package_version, notice = latest_compatible_version_from_etc(package, integration, str(min_stack))
     notify_user_if_update_available(data, list(notice), integration)
 
     integration_schema = _integration_schema(package, package_version, integration)
@@ -666,7 +666,7 @@ def get_integration_schema_fields(
 
 
 @cached
-def _latest_compatible_version_from_etc(
+def latest_compatible_version_from_etc(
     package: str, integration: str, stack_version: str
 ) -> tuple[str, tuple[str, ...]]:
     """Memoized `find_latest_compatible_version` against the bundled manifests and schemas."""
