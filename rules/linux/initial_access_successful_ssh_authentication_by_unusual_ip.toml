@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["system"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/25"
 
 [rule]
 author = ["Elastic"]
@@ -91,6 +91,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success
+and user.name:* and not user.name:("git" or "ansible" or "deploy" or "postgres" or "oracle")
+and not source.ip:("127.0.0.1" or "::1")
 '''
 
 [[rule.threat]]
@@ -129,4 +131,4 @@ value = ["related.ip"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-5d"
+value = "now-10d"
