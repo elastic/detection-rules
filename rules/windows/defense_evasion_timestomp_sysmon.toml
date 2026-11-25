@@ -2,7 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/25"
 
 [rule]
 author = ["Elastic"]
@@ -129,9 +129,31 @@ file where host.os.type == "windows" and
     "?:\\Windows\\Microsoft.NET\\*",
     "?:\\Windows\\SystemApps\\*",
     "?:\\Windows\\uus\\*\\wuaucltcore.exe",
-    "?:\\$WINDOWS.~BT\\Sources\\mighost.exe"
+    "?:\\$WINDOWS.~BT\\Sources\\mighost.exe",
+    "?:\\Windows\\system32\\conhost.exe",
+    "?:\\Windows\\system32\\dllhost.exe",
+    "?:\\Windows\\system32\\backgroundTaskHost.exe",
+    "?:\\Windows\\system32\\RuntimeBroker.exe",
+    "?:\\Windows\\system32\\taskhostw.exe",
+    "?:\\Windows\\system32\\wermgr.exe",
+    "?:\\Windows\\system32\\MusNotification.exe",
+    "?:\\Windows\\system32\\MusNotificationUx.exe",
+    "?:\\Windows\\system32\\MusNotifyIcon.exe",
+    "?:\\Windows\\system32\\wbem\\WmiPrvSE.exe",
+    "?:\\Windows\\system32\\wbem\\WmiApSrv.exe",
+    "?:\\Windows\\system32\\fontdrvhost.exe",
+    "?:\\Windows\\system32\\LogonUI.exe",
+    "?:\\Windows\\system32\\smartscreen.exe",
+    "?:\\Windows\\system32\\ApplicationFrameHost.exe",
+    "?:\\Windows\\system32\\winlogon.exe",
+    "?:\\Windows\\system32\\sihost.exe",
+    "?:\\Windows\\system32\\userinit.exe",
+    "?:\\Windows\\system32\\msdtc.exe",
+    "?:\\Windows\\system32\\SppExtComObj.Exe",
+    "?:\\Windows\\SoftwareDistribution\\*"
   ) and
   not (process.executable : "?:\\Windows\\System32\\spoolsv.exe" and file.path : "?:\\Windows\\System32\\spool\\*") and
+  not (process.name : "npcap*" and process.executable : ("?:\\Windows\\Temp\\*", "?:\\Windows\\SystemTemp\\*")) and
   not user.name : ("SYSTEM", "Local Service", "Network Service")
 '''
 
