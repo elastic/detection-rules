@@ -178,12 +178,15 @@ class TestParseEsqlQuery(unittest.TestCase):
 
     def test_repeat_parses_reuse_one_parse(self):
         """Test that a query parses once per stack version."""
+        # stay on the branch's own minor so every release branch parses with a grammar it ships
+        current = _current_package()
+        minor = f"{current.major}.{current.minor}"
         query = "FROM logs-cache-repeat-* METADATA _id, _version, _index | KEEP _id, _version, _index"
         with mock.patch.object(esql, "parse_query", wraps=esql.parse_query) as parse:
-            _ = parse_esql_query(query, "9.3")
-            _ = parse_esql_query(query, "9.3.0")
+            _ = parse_esql_query(query, minor)
+            _ = parse_esql_query(query, f"{minor}.0")
             self.assertEqual(parse.call_count, 1)
-            _ = parse_esql_query(query, "9.4.0")
+            _ = parse_esql_query(query, f"{minor}.1")
             self.assertEqual(parse.call_count, 2)
 
     def test_each_call_gets_its_own_tree(self):
