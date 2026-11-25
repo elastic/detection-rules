@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/11/24"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/24"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the use of SetFile on macOS to change a file's creation or modification timestamp. SetFile, included with
+Xcode Command Line Tools, sets the creation date with -d and the modification date with -m. Unlike touch, it can alter
+the file birth time. Adversaries use it to timestomp files so they blend in with legitimate content and hinder forensic
+analysis.
+"""
+from = "now-119m"
+index = ["logs-endpoint.events.process-*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Timestomping using SetFile"
+
+references = ["https://ss64.com/mac/setfile.html", "https://attack.mitre.org/techniques/T1070/006/"]
+risk_score = 21
+rule_id = "d093c7c1-d6cb-4277-b2c9-74477b393b7f"
+
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "SetFile" and process.args in ("-d", "-m")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.006"
+name = "Timestomp"
+reference = "https://attack.mitre.org/techniques/T1070/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "process.parent.executable"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
