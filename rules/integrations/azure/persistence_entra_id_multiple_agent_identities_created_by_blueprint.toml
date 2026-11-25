@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a single application identity, typically a Microsoft Entra agent identity blueprint principal, creating
+multiple agent identities within one hour. A blueprint principal holds the implicit, non-revocable
+`AgentIdentity.CreateAsManager` permission and can create up to 250 agent identities, each inheriting the blueprint's
+permissions. Every agent identity must have a sponsor, so each creation produces an `Add user sponsor` audit event on a
+service principal target, initiated by the blueprint principal. An attacker who controls a blueprint credential, or a
+third-party blueprint consented into the tenant, can rapidly create agent identities for persistence and to spread
+activity across many identities.
+"""
+false_positives = [
+    """
+    Agent factory or orchestration platforms legitimately create agent identities in bulk. Baseline the expected
+    creators and volume, and exclude known blueprint principals by
+    `azure.auditlogs.properties.initiated_by.app.servicePrincipalId`.
+    """,
+]
+from = "now-65m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Multiple Agent Identities Created by a Single Application"
+note = """## Triage and analysis
+
+### Investigating Entra ID Multiple Agent Identities Created by a Single Application
+
+This rule counts distinct agent identities that received a sponsor (`Add user sponsor` on a `ServicePrincipal` target)
+where the action was initiated by an application identity, and fires when one application creates five or more within
+the window.
+
+#### Possible investigation steps
+
+- Identify the creator from `azure.auditlogs.properties.initiated_by.app.servicePrincipalId` and confirm it is an agent
+  identity blueprint principal (its sign-ins carry `azure.signinlogs.properties.agent.agent_type` of
+  `agentIdentityBlueprintPrincipal` and `azure.signinlogs.properties.service_principal_id` equal to this ID).
+- Review `Esql.agent_identity_names` and `Esql.sponsor_ids` for the created agents and the users assigned as sponsors.
+- Determine whether the blueprint is owned by this tenant or by an external organization (service principal
+  `appOwnerOrganizationId`), which would indicate a consented third-party blueprint.
+- Review sign-ins and Microsoft Graph activity of the created agent identities for data access.
+
+### False positive analysis
+
+- Agent factory platforms can create many agents during deployment. Confirm with the owner and baseline expected volume.
+
+### Response and remediation
+
+- If unexpected, disable the blueprint principal, delete the unauthorized agent identities, rotate blueprint credentials,
+  and revoke consent for an untrusted third-party blueprint.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/BluePhishing-Initial-Access-via-Third-Party-Agent-Blueprint-Consent",
+    "https://learn.microsoft.com/en-us/entra/agent-id/sign-in-audit-logs-agents",
+    "https://securitylabs.datadoghq.com/articles/agent-id-inside-agent-compromise/",
+    "https://github.com/splunk/security_content/blob/develop/detections/cloud/azure_ad_multiple_service_principals_created_by_sp.yml",
+]
+risk_score = 47
+rule_id = "8d3a6f1e-2c94-4b57-a0e8-5f7b9c1d3e26"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+| where data_stream.dataset == "azure.auditlogs"
+    and azure.auditlogs.operation_name == "Add user sponsor"
+    and event.outcome in ("success", "Success")
+    and `azure.auditlogs.properties.target_resources.0.type` == "ServicePrincipal"
+    and azure.auditlogs.properties.initiated_by.app.servicePrincipalId is not null
+| stats
+    Esql.agent_identity_count = count_distinct(`azure.auditlogs.properties.target_resources.0.id`),
+    Esql.agent_identity_names = values(`azure.auditlogs.properties.target_resources.0.display_name`),
+    Esql.sponsor_ids = values(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`),
+    Esql.first_seen = min(@timestamp),
+    Esql.last_seen = max(@timestamp)
+  by azure.auditlogs.properties.initiated_by.app.servicePrincipalId
+| where Esql.agent_identity_count >= 5
+| keep azure.auditlogs.properties.initiated_by.app.servicePrincipalId, Esql.agent_identity_count, Esql.agent_identity_names, Esql.sponsor_ids, Esql.first_seen, Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Higher-order rule that leverages alert data to identify three or more detection alerts raised for the same Microsoft
+Entra agent identity or agent identity blueprint principal within a short window. The rule matches signals whose
+underlying event is agentic, meaning the sign-in field `azure.signinlogs.properties.agent.agent_type` exists and is not
+`notAgentic` (that is, it is `agentIdentityBlueprintPrincipal`, `agenticApp`, or `agenticAppInstance`). Multiple distinct
+detections converging on one agent or blueprint identity is a stronger indicator of blueprint credential abuse, a
+consented third-party blueprint being operated by an attacker ("BluePhishing"), or agent identity takeover than any
+single alert, and helps analysts prioritize triage.
+"""
+false_positives = [
+    """
+    Onboarding of a new agent blueprint or agent identity can briefly raise several first-seen agentic alerts (new
+    blueprint principal, new source ASN, new country) for the same identity. Validate with the owning team and baseline
+    expected onboarding before excluding.
+    """,
+]
+from = "now-70m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Multiple Alerts for a Single Agent or Blueprint Identity"
+note = """## Triage and analysis
+
+### Investigating Entra ID Multiple Alerts for a Single Agent or Blueprint Identity
+
+This higher-order rule groups detection signals by the agent or blueprint application ID
+(`azure.signinlogs.properties.app_id`) and fires when three or more agentic signals occur for the same identity within
+one hour. An agentic signal is one where `azure.signinlogs.properties.agent.agent_type` exists and is not `notAgentic`.
+
+#### Possible investigation steps
+
+- Review `Esql.alert_count`, `Esql.rule_names`, and `Esql.agent_types` to see which detections converged on the identity.
+- Identify the agent or blueprint from `azure.signinlogs.properties.app_id`; for child agents, pivot on the blueprint via
+  the contributing sign-in alerts (`azure.signinlogs.properties.agent.parent_app_id`).
+- Determine whether the identity or its blueprint is owned by an external organization (service principal
+  `appOwnerOrganizationId` differs from the tenant), which would indicate a consented third-party blueprint.
+- Review the sources in `Esql.source_ips` and the timeline (`Esql.first_seen`, `Esql.last_seen`).
+- Review Entra audit logs for recent credential additions or agent identity creations tied to the blueprint.
+
+### False positive analysis
+
+- New blueprint or agent onboarding can raise several first-seen agentic alerts at once. Confirm with the owner and the
+  consent record before excluding.
+
+### Response and remediation
+
+- If the convergence is unexpected, treat as a probable blueprint credential or consent incident: rotate blueprint
+  credentials, review and remove unapproved third-party consent, and review all agent identities and their inherited
+  permissions.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/BluePhishing-Initial-Access-via-Third-Party-Agent-Blueprint-Consent",
+    "https://learn.microsoft.com/en-us/entra/agent-id/sign-in-audit-logs-agents",
+    "https://learn.microsoft.com/en-us/entra/agent-id/agent-autonomous-app-oauth-flow",
+    "https://securitylabs.datadoghq.com/articles/agent-id-inside-agent-compromise/",
+]
+risk_score = 73
+rule_id = "c9f4e8a2-1b73-4d6e-8c05-2a9f7e3b1d64"
+setup = """## Setup
+
+This rule is a higher-order rule that correlates alerts produced by the Entra agent identity sign-in detection rules.
+Those base rules must be enabled and writing alerts to the `.alerts-security.*` indices, and they must carry the
+`azure.signinlogs.properties.agent.agent_type` field (sign-in based New Terms rules copy the source event into the alert).
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Rule Type: Higher-Order Rule",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from .alerts-security.*, logs-azure.signinlogs-* metadata _id, _version, _index
+| where event.kind == "signal"
+    and azure.signinlogs.properties.agent.agent_type is not null
+    and azure.signinlogs.properties.agent.agent_type != "notAgentic"
+| stats
+    Esql.alert_count = count(*),
+    Esql.rule_names = values(kibana.alert.rule.name),
+    Esql.agent_types = values(azure.signinlogs.properties.agent.agent_type),
+    Esql.source_ips = values(source.ip),
+    Esql.first_seen = min(@timestamp),
+    Esql.last_seen = max(@timestamp)
+  by azure.signinlogs.properties.app_id
+| where Esql.alert_count >= 3
+| keep azure.signinlogs.properties.app_id, Esql.alert_count, Esql.rule_names, Esql.agent_types, Esql.source_ips, Esql.first_seen, Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

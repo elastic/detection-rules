@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a service principal (application identity, not a user) creating another service principal in Microsoft Entra
+ID, observed as an "Add service principal" audit event whose initiator is an application. Most service principals are
+created by administrators or a small set of first-party Microsoft provisioning services, so an arbitrary application
+creating service principals is uncommon and can indicate application-driven persistence, abuse of a consented
+application's permissions, or automated identity sprawl. This rule uses New Terms on the initiating application so each
+newly observed application-creator surfaces once. It is intentionally generic; the companion rule "Entra ID Agent
+Identity Created by an Agent Blueprint Principal" covers the specific Entra Agent ID blueprint case.
+"""
+false_positives = [
+    """
+    A limited set of first-party Microsoft provisioning services and sanctioned automation or provisioning applications
+    create service principals app-only. Baseline expected application creators and allowlist reviewed ones rather than
+    disabling the rule.
+    """,
+]
+from = "now-65m"
+index = ["filebeat-*", "logs-azure.auditlogs-*"]
+interval = "1h"
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Service Principal Created by an Application Identity"
+note = """## Triage and analysis
+
+### Investigating Entra ID Service Principal Created by an Application Identity
+
+This rule matches successful Entra ID audit events where `azure.auditlogs.operation_name` is `Add service principal` and
+the initiator is an application (`azure.auditlogs.properties.initiated_by.app.servicePrincipalId` is present) rather than
+a user, keyed first-seen on the initiating application. Application-driven service principal creation is uncommon and can
+represent persistence or abuse of an application's granted permissions.
+
+#### Possible investigation steps
+
+- Identify the initiating application from `azure.auditlogs.properties.initiated_by.app.displayName` and
+  `azure.auditlogs.properties.initiated_by.app.servicePrincipalId`.
+- Determine whether the initiating application is expected to create service principals and whether it is owned by an
+  external organization (service principal `appOwnerOrganizationId` differs from the tenant).
+- Review the created identity in `azure.auditlogs.properties.target_resources.0.display_name` / `AppPrincipalId`.
+- Review the permissions (direct and inherited) available to the newly created identity and whether it is an agent
+  identity (see the companion Agent ID blueprint rule).
+- Correlate with any admin-consent (`Consent to application`) event that granted the initiating application its
+  permissions.
+
+### False positive analysis
+
+- A limited set of first-party Microsoft provisioning services and sanctioned automation create service principals
+  app-only. Baseline and allowlist these rather than disabling the rule.
+
+### Response and remediation
+
+- If the creation is unexpected, disable or delete the created service principal, review the initiating application and
+  the consent grant that established its permissions, and restrict who can consent to applications via consent policies.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/BluePhishing-Initial-Access-via-Third-Party-Agent-Blueprint-Consent",
+    "https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal",
+    "https://securitylabs.datadoghq.com/articles/agent-id-inside-agent-compromise/",
+]
+risk_score = 47
+rule_id = "a1b2c3d4-7e58-4f69-8a0c-9d1e2f3a4b5c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.auditlogs
+    and azure.auditlogs.operation_name:"Add service principal"
+    and event.outcome:(success or Success)
+    and azure.auditlogs.properties.initiated_by.app.servicePrincipalId:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.auditlogs.operation_name",
+    "azure.auditlogs.properties.initiated_by.app.displayName",
+    "azure.auditlogs.properties.initiated_by.app.servicePrincipalId",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.type",
+    "source.ip",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.auditlogs.properties.initiated_by.app.servicePrincipalId",
+]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

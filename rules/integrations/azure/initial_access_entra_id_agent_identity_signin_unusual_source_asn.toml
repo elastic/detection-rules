@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra agent identity (child of an agent identity blueprint) authenticating where the agent and
+source autonomous system number (ASN) together have not appeared in recent history. Agent identities authenticate through
+the blueprint token-exchange flow and normally originate from a fixed runtime egress. A first-seen network path for an
+agent identity can indicate a leaked blueprint credential being used from attacker infrastructure to mint child tokens,
+or an agent being driven from outside its intended runtime.
+"""
+false_positives = [
+    """
+    New agent runtime deployments, egress or region changes, or DR exercises can produce a legitimate first-seen ASN for
+    an agent identity. Validate with the owning team and baseline expected egress before excluding.
+    """,
+    """
+    Initial onboarding of new agent identities under a blueprint will register as first-seen network paths. Suppress
+    expected onboarding waves rather than disabling the rule.
+    """,
+    """
+    GeoIP or ASN enrichment updates can occasionally produce a one-time new tuple for a stable egress.
+    """,
+]
+from = "now-65m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+interval = "1h"
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Agent Identity Sign-in with Unusual Source ASN"
+note = """## Triage and analysis
+
+### Investigating Entra ID Agent Identity Sign-in with Unusual Source ASN
+
+This rule matches successful **ServicePrincipalSignInLogs** events where the acting identity is a child agent identity
+(`azure.signinlogs.properties.agent.agent_type` is `agenticAppInstance`) and the pair
+`azure.signinlogs.properties.app_id` + `source.as.number` has not been seen in the history window. This is a first-seen
+network path for the agent, not proof of compromise by itself.
+
+#### Possible investigation steps
+
+- Identify the agent and its blueprint using `azure.signinlogs.properties.app_id` and
+  `azure.signinlogs.properties.agent.parent_app_id` (the parent blueprint client ID).
+- Review `source.ip`, `source.as.organization.name`, and `source.geo.*` against the agent's expected runtime and egress.
+- Check for a preceding blueprint sign-in with a new credential (`agent.agent_type:agentIdentityBlueprintPrincipal` for the
+  same `parent_app_id`), which would indicate the two-stage token exchange with a possibly leaked credential.
+- Review the resource the agent accessed (`azure.signinlogs.properties.resource_display_name`) and whether it matches the
+  agent's intended function.
+- Pivot on `azure.signinlogs.properties.agent.parent_app_id` to see whether multiple sibling agents authenticated from the
+  same unusual source.
+
+### False positive analysis
+
+- New runtimes, regions, or CI/CD expansion can produce a legitimate first-seen ASN. Validate with the owner and prefer
+  allowlisting reviewed agents over disabling the rule.
+
+### Response and remediation
+
+- If the path is unexpected, treat as a potential blueprint credential incident: rotate blueprint credentials, review
+  child agent permissions (direct and inherited), and review Conditional Access for the blueprint.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/agent-id/sign-in-audit-logs-agents",
+    "https://learn.microsoft.com/en-us/entra/agent-id/agent-autonomous-app-oauth-flow",
+    "https://securitylabs.datadoghq.com/articles/agent-id-inside-agent-compromise/",
+    "https://blog.compass-security.com/2026/06/entra-agent-id-from-a-security-perspective/",
+]
+risk_score = 47
+rule_id = "c3b8f6e1-2d47-4a9c-b05e-7a1f9c3d6e82"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.signinlogs
+    and azure.signinlogs.category:ServicePrincipalSignInLogs
+    and azure.signinlogs.properties.status.error_code:0
+    and azure.signinlogs.properties.agent.agent_type:"agenticAppInstance"
+    and azure.signinlogs.properties.app_id:*
+    and source.as.number:*
+    and not source.as.organization.name:(*MICROSOFT* or *Microsoft*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "source.geo.country_name",
+    "source.as.number",
+    "source.as.organization.name",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.agent.parent_app_id",
+    "azure.signinlogs.properties.agent.agent_type",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.correlation_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.signinlogs.properties.app_id",
+    "source.as.number",
+]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Microsoft Graph application permissions being granted that allow takeover of Microsoft Entra agent identities
+or of user authentication methods. `AgentIdentityBlueprint.AddRemoveCreds.All` and `AgentIdentityBlueprint.ReadWrite.All`
+let the holder add credentials to any agent identity blueprint and therefore control every agent identity, agent user,
+and blueprint principal created from it, including those in other tenants. The `UserAuthMethod-*` write permissions
+remain assignable to agent identities and allow the holder to change the authentication methods of any user. An adversary
+who can grant app roles may assign these permissions to an application or agent they control to escalate privileges and
+persist.
+"""
+false_positives = [
+    """
+    Identity governance or agent management platforms may legitimately require these permissions. Confirm the change
+    request and the receiving application, and exclude approved assignments by the grantee service principal ID.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Agent Identity or Authentication Method Takeover Permission Granted"
+note = """## Triage and analysis
+
+### Investigating Entra ID Agent Identity or Authentication Method Takeover Permission Granted
+
+This rule matches `Add app role assignment to service principal` audit events where the granted Microsoft Graph app role
+(`AppRole.Value`) is `AgentIdentityBlueprint.AddRemoveCreds.All`, `AgentIdentityBlueprint.ReadWrite.All`, or a
+`UserAuthMethod-*` write or delete permission.
+
+#### Possible investigation steps
+
+- Review `Esql.app_role_value` for the granted permission and `Esql.grantee_display_name` / `Esql.grantee_id` for the
+  receiving application or agent.
+- Identify the actor from `azure.auditlogs.properties.initiated_by.user.userPrincipalName` or
+  `azure.auditlogs.properties.initiated_by.app.servicePrincipalId`. A grant made by an application identity, rather than an
+  administrator, is especially suspicious.
+- Determine whether the grantee is an agent identity or blueprint principal (its sign-ins carry
+  `azure.signinlogs.properties.agent.agent_type`), and whether it is owned by an external organization.
+- Review Graph activity of the grantee after the grant for blueprint credential changes or authentication method changes.
+
+### False positive analysis
+
+- Agent or identity management platforms may need these permissions. Validate with the owner and the change record.
+
+### Response and remediation
+
+- If unauthorized, remove the app role assignment, review credentials on all agent identity blueprints, and review recent
+  authentication method changes for users.
+- Investigate how the actor obtained the ability to grant app roles.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/agent-id-protect-detect-respond/",
+    "https://learn.microsoft.com/en-us/graph/permissions-reference",
+    "https://github.com/splunk/security_content/blob/develop/detections/cloud/azure_ad_privileged_graph_api_permission_assigned.yml",
+]
+risk_score = 73
+rule_id = "2e9c5b7a-4d18-4f36-9a7b-6c0e8d2f1a53"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+| where data_stream.dataset == "azure.auditlogs"
+    and azure.auditlogs.operation_name == "Add app role assignment to service principal"
+    and event.outcome in ("success", "Success")
+// modified_properties order can vary, so locate each value by its property name
+| eval Esql.app_role_value = replace(coalesce(
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "AppRole.Value", `azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "AppRole.Value", `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.2.display_name` == "AppRole.Value", `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value`, null)
+  ), "\"", "")
+| eval Esql.grantee_id = replace(coalesce(
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.5.display_name` == "ServicePrincipal.ObjectID", `azure.auditlogs.properties.target_resources.0.modified_properties.5.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.6.display_name` == "ServicePrincipal.ObjectID", `azure.auditlogs.properties.target_resources.0.modified_properties.6.new_value`, null)
+  ), "\"", "")
+| eval Esql.grantee_display_name = replace(coalesce(
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.6.display_name` == "ServicePrincipal.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.6.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.7.display_name` == "ServicePrincipal.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.7.new_value`, null)
+  ), "\"", "")
+| where Esql.app_role_value in ("AgentIdentityBlueprint.AddRemoveCreds.All", "AgentIdentityBlueprint.ReadWrite.All")
+    or (Esql.app_role_value like "UserAuthMethod-*" and not Esql.app_role_value like "*.Read.All")
+| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, source.*, related.*, tags, _id, _version, _index, data_stream.namespace
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
