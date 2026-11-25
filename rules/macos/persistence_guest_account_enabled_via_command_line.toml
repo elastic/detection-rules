@@ -1,0 +1,177 @@
+[metadata]
+creation_date = "2026/11/16"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to enable the macOS built-in Guest account, or unauthenticated guest access to SMB or AFP file
+shares, via the sysadminctl or defaults command-line utilities. The Guest account does not require a password, and
+guest file sharing allows unauthenticated network access to shared folders. Adversaries may enable these default
+accounts to maintain access to a host or to stage and collect data without valid credentials.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "macOS Guest Account or Guest Access Enabled"
+references = [
+    "https://support.apple.com/guide/mac-help/set-up-other-users-on-your-mac-mtusr001/mac",
+    "https://attack.mitre.org/techniques/T1078/001/",
+]
+risk_score = 47
+rule_id = "127d103c-464a-4a16-89e6-1cedf074bac4"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ (
+  (process.name == "sysadminctl" and process.args like~ ("-guestAccount", "-smbGuestAccess", "-afpGuestAccess") and
+   process.args like~ "on") or
+  (process.name == "defaults" and process.args like~ "write" and process.args like~ ("GuestEnabled", "AllowGuestAccess") and
+   process.args like~ ("true", "yes", "1"))
+ ) and
+ not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                                                   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+                                                   "/usr/local/jamf/bin/jamf",
+                                                   "/opt/jc/bin/jumpcloud-agent",
+                                                   "/Library/Addigy/go-agent",
+                                                   "/Library/Addigy/auditor",
+                                                   "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+                                                   "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+                                                   "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                   "/Library/Iru/Iru Agent.app/Contents/Helpers/Iru Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                   "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld",
+                                                   "/Applications/NinjaRMMAgent/programfiles/ninjarmm-macagent",
+                                                   "/Library/Tanium/TaniumClient/TaniumClient",
+                                                   "/Library/PrivilegedHelperTools/com.jigsaw24.Elevate24Helper.app/Contents/MacOS/com.jigsaw24.Elevate24Helper")
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating macOS Guest Account or Guest Access Enabled
+
+macOS ships with a built-in Guest account that has no password, and it can also allow unauthenticated guest access to SMB and AFP file shares. These are disabled by default on most managed systems. They can be enabled from System Settings, or from the command line with `sysadminctl -guestAccount on`, `sysadminctl -smbGuestAccess on`, `sysadminctl -afpGuestAccess on`, or by writing the `GuestEnabled` or `AllowGuestAccess` preference keys with `defaults`. Adversaries with administrative access may enable these default accounts to keep a credential-less way back onto the host, or to expose shared folders to the network. This rule alerts when one of these commands is executed outside of common device management agents.
+
+### Possible investigation steps
+
+- Review the full command line (`process.command_line`) to determine which setting was changed: the local Guest login account, SMB guest access, or AFP guest access.
+- Identify the user that ran the command (`user.name`) and whether it was run through `sudo`, and confirm whether the change was requested or approved.
+- Review the parent (`process.parent.executable`) and effective parent (`process.Ext.effective_parent.executable`) to determine whether the change was interactive or came from a script, installer, or unexpected application.
+- Check whether File Sharing or Screen Sharing is enabled on the host, and whether there are inbound SMB/AFP connections or Guest logins after the change.
+- Look for other account or access changes on the same host around the same time, such as new or hidden local accounts, admin group additions, or remote access services being enabled.
+- Review recent process, file, and network activity on the host for signs of initial access or follow-on activity, such as downloads, script interpreters, or new LaunchAgents and LaunchDaemons.
+
+### False positive analysis
+
+- Device management solutions, configuration profiles, or provisioning scripts may enable or reset guest settings. Common management agents such as Jamf, JumpCloud, Addigy, Intune, Mosyle, Kandji, FileWave, NinjaOne, and Tanium are excluded; add exceptions for other approved management tools by their effective parent executable.
+- Shared or kiosk systems, labs, and classrooms may intentionally enable the Guest account. Confirm the host's role and create exceptions for those hosts.
+- Administrators may enable guest file sharing temporarily for troubleshooting. Verify the change with the administrator and confirm that the setting was reverted afterwards.
+
+### Response and remediation
+
+- If the change was not authorized, disable guest access with `sudo sysadminctl -guestAccount off`, `sudo sysadminctl -smbGuestAccess off`, and `sudo sysadminctl -afpGuestAccess off`.
+- Review shared folders and remove any that were created or exposed without authorization.
+- Investigate how the adversary obtained administrative privileges, and reset credentials for the account that performed the change.
+- Isolate the host if there is evidence of Guest logins, unauthenticated share access, or other malicious activity.
+- Enforce guest account and guest sharing settings through configuration profiles so that unauthorized changes are reverted.
+- Escalate to the incident response team and search for the same commands across other macOS hosts.
+"""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
