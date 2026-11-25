@@ -34,6 +34,7 @@ from .esql import (
     get_esql_query_event_dataset_integrations,
     get_esql_query_index_datasets,
     normalize_dataset_package,
+    parse_esql_query,
 )
 from .esql_errors import EsqlSemanticError, public_esql_error
 from .integrations import (
@@ -1111,7 +1112,7 @@ class ESQLRuleData(QueryRuleData):
                 )
 
         try:
-            tree = parse_esql_query(data["query"], load_current_package_version())
+            tree = parse_esql_query(data["query"])
             if not bypass_metadata and not bypass_keep:
                 esql.validate_detection_rule_query(tree, name=data["name"])
                 reject_incomplete_keeps(tree)

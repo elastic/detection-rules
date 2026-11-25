@@ -21,7 +21,7 @@ from .config import CUSTOM_RULES_DIR, load_current_package_version
 from .schemas.definitions import (
     ESQL_INDEX_PATTERN_REGEX,
 )
-from .utils import strip_index_expression
+from .utils import cached, strip_index_expression
 
 # Legacy / alternate dataset package prefixes → Fleet package names.
 DATASET_PACKAGE_ALIASES: dict[str, str] = {
@@ -194,6 +194,8 @@ def infer_packages_from_indices(indices: list[str]) -> list[str]:
 @cached
 def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
     """Merge the non-ECS, alert, endpoint and custom field schemas for FROM indices."""
+    # mirrors remote `prepare_mappings`, so offline validation also sees `kibana.alert.*` fields,
+    # integration gaps tracked in `non-ecs-schema.json` and custom index schemas
     # cached: the returned dict is shared, so callers must treat it as read-only
     fields: dict[str, Any] = {}
     non_ecs = ecs.get_non_ecs_schema()
@@ -208,7 +210,9 @@ def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
 
 def collect_lookup_index_field_schemas(indices: list[str]) -> dict[str, dict[str, Any]]:
     """Get the non-ECS and custom field schemas for each LOOKUP JOIN target."""
-    # ECS and package stream fields are merged in by the validator
+    # unlike `collect_index_field_schemas`, the endpoint schemas are not unioned in, so a named
+    # lookup table only gets the fields that match it. ECS and package stream fields are merged
+    # in by the validator
     non_ecs = ecs.get_non_ecs_schema()
     result: dict[str, dict[str, Any]] = {}
     for index in indices:
@@ -256,6 +260,9 @@ def collect_package_fields_for_indices(
     allow_fallback: bool = True,
 ) -> dict[str, Any]:
     """Collect the package fields from streams that match the FROM indices."""
+    # with `integration` set, only that stream is returned, and only if it matches. Otherwise the
+    # matching streams are unioned, and when none match (rare) `allow_fallback` unions every
+    # stream so broad patterns are not under-validated
     if integration is not None:
         if integration not in package_schema:
             return {}
@@ -310,6 +317,7 @@ def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[Es
 
 def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
     """Extract unique FROM/TS index patterns with any cluster prefix removed."""
+    # pass `tree=` from an earlier parse so schema planning does not parse the query again
     indices: list[str] = []
     for _, index in get_esql_query_source_patterns(query, tree=tree):
         if index not in indices:
@@ -319,7 +327,8 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
 
 def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[tuple[str, str]]:
     """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs."""
-    # The written form keeps any `cluster:` prefix and `::` selector
+    # the written form keeps any `cluster:` prefix and `::` selector, which is what the parser
+    # matches when it narrows a multi-index schema to one FROM. The local pattern drops both
     try:
         parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments yield no sources

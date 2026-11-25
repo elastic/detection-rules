@@ -61,9 +61,9 @@ from .index_mappings import (
     validate_offline_esql_from_indices,
 )
 from .integrations import (
-    _latest_compatible_version_from_etc,  # type: ignore[reportPrivateUsage]
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
+    latest_compatible_version_from_etc,
     load_integrations_manifests,
     load_integrations_schemas,
     parse_datasets,
@@ -824,7 +824,7 @@ def _package_fields_for_indices(
     # cached: the returned dict is shared, so callers must treat it as read-only
     integrations_schemas = load_integrations_schemas()
     try:
-        package_version, _ = _latest_compatible_version_from_etc(package, integration or "", stack_version)
+        package_version, _ = latest_compatible_version_from_etc(package, integration or "", stack_version)
     except ValueError:
         return None
     if package not in integrations_schemas or package_version not in integrations_schemas[package]:
@@ -867,7 +867,7 @@ def _lookup_join_schemas_for_stack(
     stack_version: str,
     ecs_version: str,
 ) -> dict[str, dict[str, Any]]:
-    """Build ``Schema(lookups=)`` maps without dumping FROM packages onto lookup indices."""
+    """Build `Schema(lookups=)` maps without dumping FROM packages onto lookup indices."""
     # cached: the returned maps are shared, so callers must treat them as read-only
     if not lookup_targets:
         return {}
@@ -901,7 +901,9 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
     event_datasets: list[EventDataset],
 ) -> tuple[dict[str, Any], set[str]]:
     """Build the FROM schema, with one map per index when several patterns are present."""
-    # sibling subqueries only see the fields for the patterns on their own FROM
+    # a single `FROM a, b` still unions those maps, while sibling subqueries only see the fields
+    # for the patterns on their own FROM. Each index keeps full ECS on its own, so a Beats pattern
+    # next to a package stream does not attach ECS to the package stream
     package_names = [
         normalize_dataset_package(str(item["package"])) for item in package_integrations if item.get("package")
     ]

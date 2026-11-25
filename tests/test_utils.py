@@ -18,7 +18,7 @@ from detection_rules.utils import (
     cached_method,
     clear_caches,
     normalize_timing_and_sort,
-    registered_cache
+    registered_cache,
     strip_index_expression,
 )
 
