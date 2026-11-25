@@ -3,7 +3,7 @@ creation_date = "2026/02/27"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.4.0"
-updated_date = "2026/11/03"
+updated_date = "2026/11/25"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ from = "now-9m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
-name = "Elastic Defend Alert from GenAI Utility or Descendant"
+name = "Elastic Defend Alerts from GenAI Utility or Descendant"
 note = """## Triage and analysis
 
 ### Investigating Elastic Defend Alert from GenAI Utility or Descendant
@@ -67,8 +67,8 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _version, _index 
-| EVAL is_genai_spawn =  TO_LOWER(process.parent.name) IN (
+FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _version, _index
+| EVAL is_genai_spawn = TO_LOWER(process.parent.name) IN (
         "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
         "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
         "openai", "openai.exe", "ollama", "ollama.exe", "llm", "llm.exe",
@@ -77,28 +77,66 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
         "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
         "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
     ),
-     is_openclaw_spawn = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*")
-| WHERE process.Ext.ancestry IS NOT NULL and 
-   (data_stream.dataset == "endpoint.alerts" or is_genai_spawn or is_openclaw_spawn)
+    is_openclaw_spawn = process.parent.name IN ("node", "node.exe") AND (
+        process.parent.command_line LIKE "*openclaw*" OR
+        process.parent.command_line LIKE "*moltbot*" OR
+        process.parent.command_line LIKE "*clawdbot*"
+    )
+| WHERE process.Ext.ancestry IS NOT NULL AND
+        (data_stream.dataset == "endpoint.alerts" OR is_genai_spawn OR is_openclaw_spawn)
+
 // Identify GenAI tool spawn events and capture their entity_ids
-| EVAL genai_entity_id = CASE(is_genai_spawn or is_openclaw_spawn, process.parent.entity_id, NULL)
+| EVAL genai_entity_id = CASE(is_genai_spawn OR is_openclaw_spawn, process.parent.entity_id, NULL)
 
 // Collect ALL GenAI entity_ids globally across the dataset
-| INLINE STATS 
+| INLINE STATS
     all_genai_entity_ids = VALUES(genai_entity_id) WHERE genai_entity_id IS NOT NULL
+
 // Find which GenAI entity_ids appear in this process's ancestry
 | EVAL Esql.genai_ancestor_ids = MV_INTERSECTION(all_genai_entity_ids, process.Ext.ancestry)
 
-// Elastic Defend alerts from a GenAI grandparent 
-| WHERE Esql.genai_ancestor_ids IS NOT NULL 
-        AND data_stream.dataset == "endpoint.alerts" AND not rule.name in (
+// Elastic Defend alerts from a GenAI ancestor
+| WHERE Esql.genai_ancestor_ids IS NOT NULL
+        AND data_stream.dataset == "endpoint.alerts"
+
+// Normalize detection identity: rule.name when present, else alert type (malicious_file, shellcode_thread, ...)
+| EVAL Esql.detection_name = COALESCE(rule.name, event.code)
+
+// Null-safe exclusion list
+| WHERE Esql.detection_name IS NOT NULL AND NOT Esql.detection_name IN (
             "Persistence via GenAI Tool",
             "Code Editor Untrusted or Unsigned Child Process Execution",
             "Suspicious Credential Access via GenAI Tool",
-            "Credential Access via GenAI Tool Descendant"
+            "Credential Access via GenAI Tool Descendant",
+            "Execution via Electron Child Process Node.js Module",
+            "Potential Decoy Document via User Execution",
+            "Suspicious Communication via Mail Protocol",
+            "Decoy Document Creation via Curl",
+            "Sleep Execution from Suspicious Process Path"
         )
 
-| KEEP *
+// Aggregate per agent + GenAI ancestor process
+| STATS
+    Esql.alerts_count = COUNT(*),
+    Esql.unique_detections_count = COUNT_DISTINCT(Esql.detection_name),
+    Esql.detection_name_values = VALUES(Esql.detection_name),
+    Esql.rule_name_values = VALUES(rule.name),
+    Esql.event_code_values = VALUES(event.code),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.process_name_values = VALUES(process.name),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.process_entity_id_values = VALUES(process.entity_id),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_hash_values = VALUES(process.hash.sha256),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.alert_id_values = VALUES(_id),
+    Esql.first_alert = MIN(@timestamp),
+    Esql.last_alert = MAX(@timestamp)
+  BY data_stream.namespace, host.id, host.name, agent.id, Esql.genai_ancestor_ids
+
+// More than 2 distinct detections (rule.name or event.code)
+| WHERE Esql.unique_detections_count >= 2
+| keep data_stream.namespace, host.id, host.name, agent.id, Esql.*
 '''
 
 
