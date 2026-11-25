@@ -1,0 +1,171 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the find utility started with -exec, -execdir, -ok, or -okdir and an argument that names a sensitive file.
+Adversaries use this to locate browser history and credential stores, keychains, SSH, TLS, and GnuPG keys, cloud,
+Terraform, and database credentials, or cryptocurrency wallets and then run a command against each match, such as
+echo, cat, or cp. Each matching process start produces one signal with full process context for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Sensitive File Collection via Find -exec"
+
+references = [
+    "https://attack.mitre.org/techniques/T1217/",
+    "https://attack.mitre.org/techniques/T1119/",
+]
+risk_score = 21
+rule_id = "afee5aa8-3e45-48b8-b872-bbc2b9555e93"
+
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Credential Access",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name == "find" and process.args in ("-exec", "-execdir", "-ok", "-okdir") and
+  (
+    /* Substrings go to process.command_line. That field is mapped as wildcard, so a leading
+       asterisk is an ngram lookup. The same pattern on process.args scans the keyword dictionary. */
+    process.command_line like~ (
+      /* Firefox profile stores */
+      "*places.sqlite*", "*cookies.sqlite*", "*formhistory.sqlite*", "*signons.sqlite*", "*logins.json*",
+      "*key3.db*", "*key4.db*", "*cert8.db*", "*cert9.db*",
+      /* Safari stores */
+      "*Bookmarks.plist*", "*Cookies.binarycookies*", "*Safari/History.db*", "*Safari/CloudTabs.db*",
+      /* Chromium password and key files. The name is distinctive without a browser path. */
+      "*Login Data*",
+      /* Keychains and SSH keys */
+      "*Library/Keychains*", "*login.keychain*", "*System.keychain*",
+      "*id_rsa*", "*id_ed25519*", "*id_ecdsa*", "*id_dsa*", "*id_xmss*",
+      "*/.ssh/id_*", "*/.ssh/authorized_keys*",
+      /* GnuPG directory, and TLS key and certificate files by extension at the end of an argument */
+      "*.gnupg*", "*.pem", "*.pem *", "*.key", "*.key *", "*.pfx", "*.pfx *", "*.p12", "*.p12 *",
+      /* Cloud, kube, and token files */
+      "*/.aws/credentials*", "*/.aws/config*",
+      "*gcloud/credentials.db*", "*gcloud/access_tokens.db*", "*application_default_credentials.json*",
+      "*/.azure/accessTokens.json*", "*/.azure/azureProfile.json*", "*/.azure/msal_token_cache.json*",
+      "*/.kube/config*", "*/.docker/config.json*",
+      "*git-credentials*", "*.netrc*", "*.npmrc*", "*.vault-token*", "*/.config/gh/hosts.yml*",
+      /* Terraform variable and state files, and database client credential files */
+      "*.tfvars*", "*.tfstate*", "*.pgpass*", "*.my.cnf*", "*.mongorc.js*",
+      "*.env", "*.env *", "*.env.*",
+      /* Cryptocurrency wallets */
+      "*/.electrum/*",
+      "*Application Support/Electrum*", "*Application Support/Exodus*", "*Application Support/Coinomi*",
+      "*Application Support/Atomic*", "*Application Support/@trezor*", "*Application Support/Ledger Live*",
+      "*Application Support/WasabiWallet*", "*Application Support/Bitcoin*", "*Application Support/Litecoin*",
+      "*Application Support/DashCore*", "*Application Support/ElectronCash*", "*Application Support/Guarda*",
+      "*Application Support/Dogecoin*", "*/Monero/*"
+    ) or
+    (
+      process.command_line like~ (
+        "*Chrome*", "*Edge*", "*Brave*", "*Chromium*", "*Opera*", "*Vivaldi*", "*Application Support/Arc*"
+      ) and
+      process.command_line like~ ("*Bookmarks*", "*History*", "*Cookies*", "*Web Data*", "*Local State*")
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1119"
+name = "Automated Collection"
+reference = "https://attack.mitre.org/techniques/T1119/"
+
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1217"
+name = "Browser Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1217/"
+
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1555"
+name = "Credentials from Password Stores"
+reference = "https://attack.mitre.org/techniques/T1555/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1555.001"
+name = "Keychain"
+reference = "https://attack.mitre.org/techniques/T1555/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1555.003"
+name = "Credentials from Web Browsers"
+reference = "https://attack.mitre.org/techniques/T1555/003/"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.001"
+name = "Credentials In Files"
+reference = "https://attack.mitre.org/techniques/T1552/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.004"
+name = "Private Keys"
+reference = "https://attack.mitre.org/techniques/T1552/004/"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
