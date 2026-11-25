@@ -358,6 +358,7 @@ EXPECTED_RULE_TAGS = [
     "Tactic: Reconnaissance",
     "Tactic: Resource Development",
     "Tactic: Stealth",
+    "Threat: Agentic Offensive Frameworks",
     "Threat: AiTM Phishing",
     "Threat: BPFDoor",
     "Threat: Browser Extension Abuse",

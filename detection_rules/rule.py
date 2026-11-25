@@ -445,7 +445,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     tags: list[str] | None = None
     threat: list[ThreatMapping] | None = None
     # additional framework/version-tagged mappings; the build emits one as the API threat and strips
-    # this field (see stack_emit.apply_emit_transforms / mitre_attack_v19)
+    # this field (see stack_emit.apply_emit_transforms)
     threat_mappings: list[VersionedThreatMapping] | None = None
     throttle: str | None = None
     timeline_id: definitions.TimelineTemplateId | None = None

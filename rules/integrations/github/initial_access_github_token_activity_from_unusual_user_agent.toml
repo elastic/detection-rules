@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time a GitHub token is used with a given user agent to perform a clone, push, archive download, or
+API request. The rule tracks new combinations of `user.name` and `github.user_agent` over a 14-day history and
+covers classic personal access tokens, fine-grained personal access tokens, and OAuth access tokens. A token that
+suddenly authenticates from a new client is a common indicator of a stolen or misused credential, since an adversary
+replaying a token rarely reproduces the victim's original tooling. Named credential scanners such as TruffleHog or Nord
+Stream are covered by a dedicated rule; this rule surfaces the broader set of first-seen clients, including generic
+libraries like python-requests.
+"""
+false_positives = [
+    """
+    CI, git GUI, or library upgrades that change the User-Agent on an existing PAT or OAuth token. Confirm the token
+    owner and whether the client is expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GitHub Token Activity from Unusual User Agent"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Token Activity from Unusual User Agent
+
+This rule fires when a user (`user.name`) is observed with a `github.user_agent` that has not been seen for them in the previous 14 days while performing token-authenticated activity: a clone (`git.clone`), push (`git.push`), archive download (`repo.download_zip`), or API request (`api.request`). A new client for an established user is a strong signal that one of their tokens has been exported and replayed elsewhere, because legitimate usage tends to keep a stable toolchain. Keying novelty on the user rather than the token avoids noise from routine token creation and rotation, since a freshly minted token would otherwise always look new. Review the token owner and type (`user.name`, `github.programmatic_access_type`), the new client string (`github.user_agent`), the source address (`github.actor_ip`), and the action and resources involved (`event.action`, `github.org`, `github.repo`, `github.route`) to decide whether this is a benign client change or credential misuse. Named credential scanners are handled by a separate rule, so matches here are typically generic clients such as `python-requests`, `curl`, or custom scripts.
+
+### Possible investigation steps
+
+- Identify the token and its owner using `github.hashed_token`, `github.token_id`, `user.name`, and `github.programmatic_access_type`, and determine whether the owner recognizes the new client.
+- Review the new `github.user_agent` value against the user agents this token and user normally present; generic libraries (for example `python-requests` or `curl`) on an interactive user's token are higher risk.
+- Examine `github.actor_ip` and its geolocation and ASN to confirm whether the source is expected for the token owner and whether it coincides with the user's other activity.
+- Review `event.action` and, for `api.request`, `github.route` to understand what the token accessed; for `git.clone` and `repo.download_zip`, count distinct `github.repo` values to gauge bulk collection.
+- Pivot on the same token and actor across the surrounding window for secret-scope API calls, additional clones, or archive downloads that indicate the activity escalated to collection or exfiltration.
+
+### False positive analysis
+
+- Legitimate client or tooling changes, such as a CI image upgrade, a new git GUI, or a library bump that alters the User-Agent on an existing token. Confirm with the token owner and scope exceptions to the specific `user.name` and token where appropriate.
+- New internal automation that reuses an existing token from a new host or runner. Validate against deployment and change-management records before dismissing.
+
+### Response and remediation
+
+- If the new client is not an approved tool for the token owner, revoke the token identified by `github.hashed_token` / `github.token_id` and require the owner to issue a new one.
+- Review the token owner's recent GitHub audit activity for clones, archive downloads, and secret-scope API calls performed from the new user agent or IP.
+- Rotate any secrets or deploy keys in repositories the token accessed if misuse is confirmed.
+- Reset the owning user's credentials and review their OAuth app authorizations and PAT grants if the identity is suspected compromised.
+- Escalate to the repository and organization owners and engage incident response per your organization's playbooks when sensitive data may have been accessed.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
+risk_score = 21
+rule_id = "702f8d5d-04be-4ef6-a2be-4a3a331530ca"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+    "Data Source: Github",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:"github.audit" and event.category:"configuration" and user.name:* and github.user_agent:* and
+github.hashed_token:* and
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token" or "Personal access token") and
+event.action:("git.clone" or "git.push" or "repo.download_zip" or "api.request")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.route",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.token_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "github.user_agent"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
