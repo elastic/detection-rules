@@ -33,7 +33,7 @@ note = """## Triage and analysis
 
 Elastic Defend behavior alerts on one host each contain an intent ID: the letter i, then four to seven digits, then a short filename token. ARTEX-family harnesses assign that number from one database sequence and the model copies it into scripts, scheduled tasks, and service names. The rule fires when one host has ten or more such alerts in an hour, or alerts from at least two distinct Elastic Defend rule names. The one-hour lookback is the rule's `from` window. A repeat for the same host.id is suppressed for one hour.
 
-The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a directory named `i17`) match ordinary software. The token after the digits is capped at 16 characters so a long random string such as an SSH control socket does not match. ES|QL `RLIKE` uses Lucene regular expressions, which match the whole field and do not support lookaround, so the pattern is anchored with a leading prefix and an optional trailing separator.
+The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a directory named `i17`) match ordinary software. The token after the digits is capped at 16 characters, and an underscore stays inside the token, so a long random string such as an SSH control socket does not match. ES|QL `RLIKE` uses Lucene regular expressions, which match the whole field and do not support lookaround, so the pattern is anchored with a leading prefix and an optional trailing separator.
 
 ### Possible investigation steps
 
@@ -75,12 +75,12 @@ query = '''
 from logs-endpoint.alerts-* metadata _id
 | where data_stream.dataset == "endpoint.alerts" and event.code == "behavior" and host.id is not null
 // Lucene RLIKE is a whole-string match and has no lookaround.
-// i + 4-7 digits + a short token. Drops i18n, i386, i17/, and long random ids.
-| where process.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
-    or process.parent.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
-    or process.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
-    or process.parent.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
-    or file.path rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+// i + 4-7 digits + at most 16 token characters. Underscore stays inside the token.
+| where process.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,15}([^A-Za-z0-9_].*)?"
+    or process.parent.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,15}([^A-Za-z0-9_].*)?"
+    or process.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,15}([^A-Za-z0-9_].*)?"
+    or process.parent.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,15}([^A-Za-z0-9_].*)?"
+    or file.path rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,15}([^A-Za-z0-9_].*)?"
 | stats Esql.alert_count = count(*),
         Esql.rule_name_count_distinct = count_distinct(rule.name),
         Esql.rule_name_values = values(rule.name),
