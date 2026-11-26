@@ -2,7 +2,7 @@
 creation_date = "2025/12/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
@@ -100,12 +100,18 @@ process.args:(-c or -cl or -lc) and
 not (
   process.parent.name:java and not process.parent.executable:/u0*/* or
   process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/db_* or /u0*/app/oracle/product/*/dbhome_* or /var/www/*edoc*) or
-  process.args:(/usr/bin/rsvg-convert* or /usr/local/bin/wkhtmltopdf*) or
+  process.args:(/usr/bin/rsvg-convert* or *wkhtmltopdf*) or
   process.command_line:*/opt/sc/bin/showvulns* or
+  process.args:(/usr/bin/rrdtool* or /usr/bin/magick* or /usr/bin/exiftool* or /usr/sbin/sendmail* or /usr/bin/msmtp* or /usr/bin/mutt* or /usr/bin/rotatelogs*) or
+  process.command_line:(*ood_auth_map* or *shellbox* or */nagios/sbin/* or *zabbix_sender* or *nginx_stage*) or
+  process.args:("-sDEVICE=*") or
   (process.parent.name:nginx and process.name:busybox and process.args:gcc*/tmp/lua_*) or
-  (process.parent.name:apache2 and process.args:\"/usr/bin/7za*) or
+  (process.parent.name:apache2 and process.args:"/usr/bin/7za*) or
+  (process.parent.name:apache2 and process.command_line:*ps\ -p\ *) or
+  (process.parent.name:(apache2 or httpd or php-fpm*) and process.args:("command -v" or "which") and process.args:(libreoffice or openoffice or wine or python*)) or
   (process.parent.name:zabbix_server and process.command_line:*fping*) or
-  (process.parent.name:php-fpm* and (process.command_line:*/usr/bin/pdftotext* or process.args:clamdscan*))
+  (process.parent.name:php-fpm* and (process.command_line:*/usr/bin/pdftotext* or process.args:clamdscan*)) or
+  (process.parent.name:httpd and process.command_line:*/usr/bin/pdftotext*)
 )
 '''
 
