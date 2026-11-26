@@ -66,6 +66,7 @@ tags = [
     "Rule Type: ES|QL",
     "Platform: AWS",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0012",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -76,12 +77,13 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     event.provider == "bedrock-agentcore.amazonaws.com" and
     event.action == "UpdateGateway" and
     aws.cloudtrail.request_parameters is not null
-| eval Esql.sets_log_only = aws.cloudtrail.request_parameters RLIKE """.*policyEngineConfiguration=\{[^}]*mode=LOG_ONLY.*"""
+| eval Esql.sets_log_only = aws.cloudtrail.request_parameters RLIKE """\{policyEngineConfiguration=\{[^}]*mode=LOG_ONLY.*""" or
+    aws.cloudtrail.request_parameters RLIKE """.*, policyEngineConfiguration=\{[^}]*mode=LOG_ONLY.*"""
 | where Esql.sets_log_only
 | keep _id, _version, _index, @timestamp, event.action, event.provider, event.outcome,
     aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type,
     aws.cloudtrail.user_identity.access_key_id, user.name, user_agent.original,
-    source.ip, source.geo.country_name, cloud.account.id, cloud.region,
+    source.ip, source.geo.country_name, cloud.account.id, cloud.region, data_stream.namespace,
     aws.cloudtrail.request_id, aws.cloudtrail.request_parameters
 '''
 
@@ -92,10 +94,6 @@ framework = "MITRE ATT&CK"
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-[[rule.threat.technique.subtechnique]]
-id = "T1562.007"
-name = "Disable or Modify Cloud Firewall"
-reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 
 [rule.threat.tactic]
@@ -133,6 +131,7 @@ field_names = [
     "event.outcome",
     "cloud.account.id",
     "cloud.region",
+    "data_stream.namespace",
     "aws.cloudtrail.request_id",
     "aws.cloudtrail.request_parameters",
 ]
