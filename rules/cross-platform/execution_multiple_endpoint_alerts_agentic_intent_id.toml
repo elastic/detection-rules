@@ -8,17 +8,18 @@ updated_date = "2026/11/26"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a host with three or more Elastic Defend behavior alerts in an hour, from at least two different behavior
-rules, whose command line, parent command line, executable path, or file path carries an agentic-framework intent ID. The ID is
-the unpadded counter ARTEX-family harnesses embed in filenames and comments, shaped like i42463_dbg.b64 or i43345sys.
-A single match is too common. The rule counts alerts on one host.id inside the one-hour lookback and suppresses
-repeat alerts for that host for one hour.
+Detects a host with Elastic Defend behavior alerts whose command line, parent command line, executable path, or file
+path carries an agentic-framework intent ID. The ID is the unpadded counter ARTEX-family harnesses embed in filenames
+and comments, shaped like i42463_dbg.b64 or i43345sys. A single match is too common. The rule fires when one host.id
+has ten or more such alerts in the one-hour lookback, or alerts from at least two different behavior rules. Repeat
+alerts for that host are suppressed for one hour.
 """
 false_positives = [
     """
-    A short token inside a base64 blob can still match. The two-rule requirement drops a host whose only matching
-    alerts come from one encoded-command rule. Exclude a host.id if two legitimate behavior rules both fire on
-    encoded content that happens to contain this token.
+    A short token inside a base64 blob, a Claude shell-snapshot suffix, or a build id such as i8129m can still match.
+    One encoded-command rule firing a handful of times stays under the count of ten. Exclude a host.id if one behavior
+    rule repeats ten times on encoded content, or if two legitimate behavior rules both fire on a token that is not an
+    iNNNN filename.
     """,
 ]
 from = "now-60m"
@@ -30,7 +31,7 @@ note = """## Triage and analysis
 
 ### Investigating Multiple Elastic Defend Alerts with Agentic Intent IDs
 
-Elastic Defend behavior alerts on one host each contain an intent ID: the letter i, then four to seven digits, then a short filename token. ARTEX-family harnesses assign that number from one database sequence and the model copies it into scripts, scheduled tasks, and service names. The threshold is three or more such alerts in an hour from at least two distinct Elastic Defend rule names. The one-hour lookback is the rule's `from` window. A repeat for the same host.id is suppressed for one hour.
+Elastic Defend behavior alerts on one host each contain an intent ID: the letter i, then four to seven digits, then a short filename token. ARTEX-family harnesses assign that number from one database sequence and the model copies it into scripts, scheduled tasks, and service names. The rule fires when one host has ten or more such alerts in an hour, or alerts from at least two distinct Elastic Defend rule names. The one-hour lookback is the rule's `from` window. A repeat for the same host.id is suppressed for one hour.
 
 The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a directory named `i17`) match ordinary software. The token after the digits is capped at 16 characters so a long random string such as an SSH control socket does not match. ES|QL `RLIKE` uses Lucene regular expressions, which match the whole field and do not support lookaround, so the pattern is anchored with a leading prefix and an optional trailing separator.
 
@@ -43,7 +44,7 @@ The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a
 
 ### False positive analysis
 
-- Encoded command lines can contain a short `i` + digits + letter run by chance. The four-digit floor, the 16-character token cap, and the requirement for two distinct rule names remove the case of one base64 rule firing alone. Two legitimate rules firing together on encoded content can still match. Exclude that host.id after confirming the commands are not `iNNNN` filenames.
+- Encoded command lines can contain a short `i` + digits + letter run by chance. The four-digit floor and the 16-character token cap drop ordinary paths. A single base64 rule stays under the count of ten when it fires only a handful of times. Ten repeats of one encoded-command rule, or two legitimate rules firing together on encoded content, can still match. Exclude that host.id after confirming the commands are not `iNNNN` filenames.
 - Build paths and localization directories (`i18n`, `i18next`, `lib/i386`) do not match this pattern.
 
 ### Response and remediation
@@ -90,7 +91,7 @@ from logs-endpoint.alerts-* metadata _id
         Esql.file_path_values = values(file.path),
         Esql.user_name_values = values(user.name)
     by host.id
-| where Esql.alert_count >= 3 and Esql.rule_name_count_distinct >= 2
+| where Esql.alert_count >= 10 or Esql.rule_name_count_distinct >= 2
 | eval process.command_line = mv_first(Esql.process_command_line_values),
        process.parent.command_line = mv_first(Esql.process_parent_command_line_values),
        process.executable = mv_first(Esql.process_executable_values),
