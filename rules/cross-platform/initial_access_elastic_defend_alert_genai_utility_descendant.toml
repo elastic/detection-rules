@@ -137,7 +137,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
     Esql.last_alert = MAX(@timestamp)
   BY data_stream.namespace, host.id, host.name, agent.id, Esql.genai_ancestor_ids
 
-// More than 2 distinct detections (rule.name or event.code)
+// 2 or more distinct detections (rule.name or event.code)
 | WHERE Esql.unique_detections_count >= 2
 | keep data_stream.namespace, host.id, host.name, agent.id, Esql.*
 '''
