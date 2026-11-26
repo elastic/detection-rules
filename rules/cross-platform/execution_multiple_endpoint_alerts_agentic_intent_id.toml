@@ -9,7 +9,7 @@ updated_date = "2026/11/26"
 author = ["Elastic"]
 description = """
 Detects a host with three or more Elastic Defend behavior alerts in an hour, from at least two different behavior
-rules, whose command line, parent command line, or executable path carries an agentic-framework intent ID. The ID is
+rules, whose command line, parent command line, executable path, or file path carries an agentic-framework intent ID. The ID is
 the unpadded counter ARTEX-family harnesses embed in filenames and comments, shaped like i42463_dbg.b64 or i43345sys.
 A single match is too common. The rule counts alerts on one host.id inside the one-hour lookback and suppresses
 repeat alerts for that host for one hour.
@@ -36,7 +36,7 @@ The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a
 
 ### Possible investigation steps
 
-- Open `Esql.rule_name_values`, `Esql.process_command_line_values`, and `Esql.process_parent_command_line_values` for this `host.id`.
+- Open `Esql.rule_name_values`, `Esql.process_command_line_values`, `Esql.process_parent_command_line_values`, and `Esql.file_path_values` for this `host.id`. File-event behavior alerts often carry the intent ID only in `file.path`.
 - List the distinct `i` + digits tokens. A climbing sequence (`i39350`, then `i40939`, then `i42463`) is one harness. A single repeated ID is one intent reused as a shell or a loop.
 - Compare alert time with the numeric order. Alert time is when the file ran. The number is closer to when the harness assigned the intent. A smaller ID running after a larger one is an old file executed again.
 - Review the underlying Elastic Defend rule names. Web-server child processes, certutil decode, scheduled-task creation, and registry credential access in the same hour are the same session, not separate incidents.
@@ -79,6 +79,7 @@ from logs-endpoint.alerts-* metadata _id
     or process.parent.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
     or process.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
     or process.parent.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+    or file.path rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
 | stats Esql.alert_count = count(*),
         Esql.rule_name_count_distinct = count_distinct(rule.name),
         Esql.rule_name_values = values(rule.name),
@@ -86,6 +87,7 @@ from logs-endpoint.alerts-* metadata _id
         Esql.process_parent_command_line_values = values(process.parent.command_line),
         Esql.process_executable_values = values(process.executable),
         Esql.process_parent_executable_values = values(process.parent.executable),
+        Esql.file_path_values = values(file.path),
         Esql.user_name_values = values(user.name)
     by host.id
 | where Esql.alert_count >= 3 and Esql.rule_name_count_distinct >= 2
@@ -93,8 +95,9 @@ from logs-endpoint.alerts-* metadata _id
        process.parent.command_line = mv_first(Esql.process_parent_command_line_values),
        process.executable = mv_first(Esql.process_executable_values),
        process.parent.executable = mv_first(Esql.process_parent_executable_values),
+       file.path = mv_first(Esql.file_path_values),
        user.name = mv_first(Esql.user_name_values)
-| keep host.id, user.name, process.command_line, process.parent.command_line, process.executable, process.parent.executable, Esql.*
+| keep host.id, user.name, process.command_line, process.parent.command_line, process.executable, process.parent.executable, file.path, Esql.*
 '''
 
 [[rule.threat]]
