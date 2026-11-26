@@ -125,7 +125,7 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.events.process-*
-| WHERE event.type == "start"
+| WHERE KQL("""event.type:start and ((host.os.type:windows and event.action:start) or (host.os.type:(linux or macos) and event.action:exec))""")
     AND host.os.type IN ("linux", "macos", "windows")
     AND host.id IS NOT NULL
     AND process.name IS NOT NULL
