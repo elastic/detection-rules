@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/11/26"
+maturity = "production"
+min_stack_comments = "ES|QL STATS, RLIKE, and MV_FIRST"
+min_stack_version = "9.4.0"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a host with three or more Elastic Defend behavior alerts in an hour, from at least two different behavior
+rules, whose command line, parent command line, or executable path carries an agentic-framework intent ID. The ID is
+the unpadded counter ARTEX-family harnesses embed in filenames and comments, shaped like i42463_dbg.b64 or i43345sys.
+A single match is too common. The rule counts alerts on one host.id inside the one-hour lookback and suppresses
+repeat alerts for that host for one hour.
+"""
+false_positives = [
+    """
+    A short token inside a base64 blob can still match. The two-rule requirement drops a host whose only matching
+    alerts come from one encoded-command rule. Exclude a host.id if two legitimate behavior rules both fire on
+    encoded content that happens to contain this token.
+    """,
+]
+from = "now-60m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Elastic Defend Alerts with Agentic Intent IDs"
+note = """## Triage and analysis
+
+### Investigating Multiple Elastic Defend Alerts with Agentic Intent IDs
+
+Elastic Defend behavior alerts on one host each contain an intent ID: the letter i, then four to seven digits, then a short filename token. ARTEX-family harnesses assign that number from one database sequence and the model copies it into scripts, scheduled tasks, and service names. The threshold is three or more such alerts in an hour from at least two distinct Elastic Defend rule names. The one-hour lookback is the rule's `from` window. A repeat for the same host.id is suppressed for one hour.
+
+The pattern starts at four digits. Two- and three-digit forms (`i18n`, `i386`, a directory named `i17`) match ordinary software. The token after the digits is capped at 16 characters so a long random string such as an SSH control socket does not match. ES|QL `RLIKE` uses Lucene regular expressions, which match the whole field and do not support lookaround, so the pattern is anchored with a leading prefix and an optional trailing separator.
+
+### Possible investigation steps
+
+- Open `Esql.rule_name_values`, `Esql.process_command_line_values`, and `Esql.process_parent_command_line_values` for this `host.id`.
+- List the distinct `i` + digits tokens. A climbing sequence (`i39350`, then `i40939`, then `i42463`) is one harness. A single repeated ID is one intent reused as a shell or a loop.
+- Compare alert time with the numeric order. Alert time is when the file ran. The number is closer to when the harness assigned the intent. A smaller ID running after a larger one is an old file executed again.
+- Review the underlying Elastic Defend rule names. Web-server child processes, certutil decode, scheduled-task creation, and registry credential access in the same hour are the same session, not separate incidents.
+
+### False positive analysis
+
+- Encoded command lines can contain a short `i` + digits + letter run by chance. The four-digit floor, the 16-character token cap, and the requirement for two distinct rule names remove the case of one base64 rule firing alone. Two legitimate rules firing together on encoded content can still match. Exclude that host.id after confirming the commands are not `iNNNN` filenames.
+- Build paths and localization directories (`i18n`, `i18next`, `lib/i386`) do not match this pattern.
+
+### Response and remediation
+
+- Isolate the host if the filenames are `iNNNN` scripts, tasks, or services and the underlying rules are execution or credential access.
+- Collect the `iNNNN` filenames and hashes before the host is rebuilt. The same sequence on another host is the same harness database.
+- Rotate credentials referenced by those scripts. These sessions read registry hives, enrollment material, and application passwords when they can.
+"""
+references = [
+    "https://www.elastic.co/security-labs/threat-command/agentic-offensive-frameworks-detection-artex",
+]
+risk_score = 99
+rule_id = "6197bd39-4b1e-4fc0-aec6-d3846976d08b"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Rule Type: ES|QL",
+    "Threat: Agentic Offensive Frameworks",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.alerts-* metadata _id
+| where data_stream.dataset == "endpoint.alerts" and event.code == "behavior" and host.id is not null
+// Lucene RLIKE is a whole-string match and has no lookaround.
+// i + 4-7 digits + a short token. Drops i18n, i386, i17/, and long random ids.
+| where process.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+    or process.parent.command_line rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+    or process.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+    or process.parent.executable rlike "(.*[^A-Za-z0-9])?i[0-9]{4,7}[A-Za-z_][A-Za-z0-9_]{0,16}([^A-Za-z0-9].*)?"
+| stats Esql.alert_count = count(*),
+        Esql.rule_name_count_distinct = count_distinct(rule.name),
+        Esql.rule_name_values = values(rule.name),
+        Esql.process_command_line_values = values(process.command_line),
+        Esql.process_parent_command_line_values = values(process.parent.command_line),
+        Esql.process_executable_values = values(process.executable),
+        Esql.process_parent_executable_values = values(process.parent.executable),
+        Esql.user_name_values = values(user.name)
+    by host.id
+| where Esql.alert_count >= 3 and Esql.rule_name_count_distinct >= 2
+| eval process.command_line = mv_first(Esql.process_command_line_values),
+       process.parent.command_line = mv_first(Esql.process_parent_command_line_values),
+       process.executable = mv_first(Esql.process_executable_values),
+       process.parent.executable = mv_first(Esql.process_parent_executable_values),
+       user.name = mv_first(Esql.user_name_values)
+| keep host.id, user.name, process.command_line, process.parent.command_line, process.executable, process.parent.executable, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.alert_suppression]
+group_by = ["host.id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
