@@ -20,9 +20,9 @@ note = """## Triage and analysis
 ### Investigating Potential Network Scan via Shell TCP or UDP
 
 Bash and compatible shells can open connections by redirecting input or output to `/dev/tcp/host/port` or
-`/dev/udp/host/port`. Zsh networking modules can provide similar functionality through `zsh/net/tcp`, `zsh/net/udp`,
-`ztcp`, or `zudp`. Adversaries can repeatedly invoke these features to identify reachable hosts or exposed services
-without using a dedicated scanning utility.
+`/dev/udp/host/port`. The Zsh TCP networking module provides similar functionality through `zsh/net/tcp` and `ztcp`.
+Adversaries can repeatedly invoke these features to identify reachable hosts or exposed services without using a
+dedicated scanning utility.
 
 This rule groups process command lines by their direct parent and alerts when one parent targets at least five distinct
 destination addresses or five distinct ports in a one-minute bucket. The destination parser supports IPv4 addresses,
@@ -97,19 +97,16 @@ FROM logs-endpoint.events.process-*
       process.command_line LIKE "*/dev/tcp/*"
       OR process.command_line LIKE "*/dev/udp/*"
       OR process.command_line LIKE "*zsh/net/tcp*"
-      OR process.command_line LIKE "*zsh/net/udp*"
       OR process.command_line LIKE "*ztcp *"
-      OR process.command_line LIKE "*zudp *"
     )
 | GROK process.command_line """(?<Esql.shell_network_endpoint>(?:/dev|zsh/net)/(?<Esql.path_transport>tcp|udp)/(?<Esql.path_destination_address>[^/\s]+)/(?<Esql.path_destination_port>[0-9]{1,5}))(?:[^0-9]|$)"""
-| GROK process.command_line """(?:^|.*[\s;&|])(?<Esql.zsh_network_utility>ztcp|zudp)\s+(?:-[A-Za-z]+\s+)*(?<Esql.zsh_destination_address>[^;\s]+)\s+(?<Esql.zsh_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
+| GROK process.command_line """(?:^|.*[\s;&|])(?<Esql.zsh_network_utility>ztcp)\s+(?:-[A-Za-z]+\s+)*(?:[0-9]+\s+)?(?<Esql.zsh_destination_address>[^;\s]+)\s+(?<Esql.zsh_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
 | EVAL
     Esql.destination_address = COALESCE(Esql.path_destination_address, Esql.zsh_destination_address),
     Esql.destination_port_string = COALESCE(Esql.path_destination_port, Esql.zsh_destination_port),
     Esql.network_transport = CASE(
       Esql.path_transport IS NOT NULL, Esql.path_transport,
-      Esql.zsh_network_utility == "ztcp", "tcp",
-      Esql.zsh_network_utility == "zudp", "udp"
+      Esql.zsh_network_utility == "ztcp", "tcp"
     ),
     Esql.shell_network_endpoint = CASE(
       Esql.shell_network_endpoint IS NOT NULL, Esql.shell_network_endpoint,

@@ -95,7 +95,7 @@ FROM logs-endpoint.events.process-*
       process.command_line LIKE "*/dev/tcp/*"
       OR process.command_line LIKE "*/dev/udp/*"
       OR process.command_line LIKE "*zsh/net/tcp*"
-      OR process.command_line LIKE "*zsh/net/udp*"
+      OR process.command_line LIKE "*ztcp *"
     )
     AND (
       process.command_line LIKE "*&>*"
@@ -104,7 +104,7 @@ FROM logs-endpoint.events.process-*
       OR process.command_line LIKE "*<&*"
     )
 | GROK process.command_line """(?<Esql.reverse_shell_endpoint>(?:/dev|zsh/net)/(?<Esql.path_transport>tcp|udp)/(?<Esql.path_destination_address>[^/\s]+)/(?<Esql.path_destination_port>[0-9]{1,5}))(?:[^0-9]|$)"""
-| GROK process.command_line """(?:^|.*[\s;&|])ztcp\s+(?:-[A-Za-z]+\s+)*(?<Esql.ztcp_destination_address>[^;\s]+)\s+(?<Esql.ztcp_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
+| GROK process.command_line """(?:^|.*[\s;&|])ztcp\s+(?:-[A-Za-z]+\s+)*(?:[0-9]+\s+)?(?<Esql.ztcp_destination_address>[^;\s]+)\s+(?<Esql.ztcp_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
 | EVAL
     Esql.destination_address = COALESCE(Esql.path_destination_address, Esql.ztcp_destination_address),
     Esql.destination_port_string = COALESCE(Esql.path_destination_port, Esql.ztcp_destination_port),
