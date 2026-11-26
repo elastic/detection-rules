@@ -1,0 +1,127 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the use of tmutil or defaults to disable Time Machine, delete backups or local snapshots, or remove a backup
+destination on macOS. Adversaries disable or delete Time Machine backups to inhibit system recovery before a destructive
+action such as data encryption or wiping. Administrators and users run the same commands to manage backups and reclaim
+disk space, so each match produces a building block signal for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Time Machine Backup Disabled or Deleted"
+note = """## Triage and analysis
+
+### Investigating Time Machine Backup Disabled or Deleted
+
+Time Machine is the built-in macOS backup facility. `tmutil disable` turns off automatic backups, `tmutil delete` and `tmutil deletelocalsnapshots` remove existing backups and local APFS snapshots, and `tmutil removedestination` detaches the backup disk. Writing `AutoBackup` to false in the `com.apple.TimeMachine` preference domain has the same effect as `tmutil disable`. Ransomware and wipers remove recovery options before they encrypt or destroy data, so these commands are an early indicator of an impact operation when they are not part of planned administration.
+
+### Possible investigation steps
+
+- Review `process.command_line` to identify which Time Machine operation was requested and, for deletions, which backup, snapshot date or destination was targeted.
+- Examine `process.parent.executable`, `process.parent.command_line` and `process.Ext.effective_parent.executable` to determine whether the command was started from an interactive terminal, a script, a remote session or an unsigned binary.
+- Identify the account in `user.name` and confirm whether it belongs to an administrator who is expected to manage backups on this host.
+- Look for activity on the same host shortly before and after the command, such as mass file modification or renaming, archive or encryption utilities, deletion of logs, or other attempts to disable security tooling.
+- Check whether the same command ran on other hosts in a short period, which can indicate scripted deployment by an attacker or by a management tool.
+
+### False positive analysis
+
+- Administrators and device management scripts may disable Time Machine or change its destination during provisioning or migration. Confirm the change with the owner and add an exception for the management agent in `process.Ext.effective_parent.executable`.
+- Users sometimes delete local snapshots to reclaim disk space. Confirm the activity with the user and the parent process, which is normally an interactive terminal.
+- Backup and disk cleanup utilities may remove old backups. Add an exception for the signed parent executable after validating the product.
+
+### Response and remediation
+
+- If the change is unauthorized, isolate the host to prevent further destructive activity and preserve the process tree that issued the command.
+- Re-enable Time Machine with `tmutil enable`, restore the backup destination, and verify that existing backups and snapshots are intact.
+- Review the host for data encryption, deletion or exfiltration that followed the command, and restore affected data from a known good backup.
+- Reset credentials for the account that issued the command if compromise is confirmed, and review other hosts for the same behavior.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1490/",
+    "https://ss64.com/mac/tmutil.html",
+]
+risk_score = 21
+rule_id = "b6bf36fe-6930-49f2-8615-4fb9b4959139"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ (
+  (process.name == "tmutil" and
+   process.args in ("disable", "delete", "deletelocalsnapshots", "removedestination")) or
+  (process.name == "defaults" and process.args == "write" and process.args like~ "*com.apple.TimeMachine*" and
+   process.args == "AutoBackup" and process.args like~ ("false", "0", "no"))
+ ) and
+ not process.Ext.effective_parent.executable like ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                                                   "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService",
+                                                   "/usr/local/jamf/bin/jamf",
+                                                   "/opt/jc/bin/jumpcloud-agent",
+                                                   "/Library/Addigy/go-agent",
+                                                   "/Library/Intune/Microsoft Intune Agent.app/Contents/MacOS/IntuneMdmDaemon",
+                                                   "/Library/Application Support/Mosyle/MosyleMDM.app/Contents/MacOS/MosyleMDM",
+                                                   "/Library/Kandji/Kandji Agent.app/Contents/Helpers/Kandji Library Manager.app/Contents/MacOS/kandji-library-manager",
+                                                   "/usr/local/sbin/FileWave.app/Contents/MacOS/fwcld")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

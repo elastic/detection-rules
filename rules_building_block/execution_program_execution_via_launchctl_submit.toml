@@ -1,0 +1,85 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/11/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the legacy launchctl submit subcommand used to hand a program to launchd under a chosen job label on macOS.
+The submitted job runs detached from the calling process and launchd restarts it when it exits, without a property
+list on disk. Adversaries use it to proxy execution through launchd and to keep a payload running under a label that
+imitates a legitimate service. This is also done by administration and management tooling, so each match produces a
+building block signal for correlation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Program Execution via Launchctl Submit"
+references = [
+    "https://attack.mitre.org/techniques/T1569/001/",
+]
+risk_score = 21
+rule_id = "e9489b4d-9449-4473-9b80-d191a19afd60"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+ process.name == "launchctl" and process.args == "submit" and process.args == "-l" and
+ not process.Ext.effective_parent.executable like
+                ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+                 "/usr/local/jamf/bin/jamf")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+[[rule.threat.technique.subtechnique]]
+id = "T1569.001"
+name = "Launchctl"
+reference = "https://attack.mitre.org/techniques/T1569/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.001"
+name = "Launch Agent"
+reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
