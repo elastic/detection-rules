@@ -89,9 +89,8 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.events.process-*
-| WHERE host.os.type IN ("linux", "macos")
-    AND event.type == "start"
-    AND event.action == "exec"
+| WHERE KQL("""event.type:start and event.action:exec""")
+    AND host.os.type IN ("linux", "macos")
     AND host.id IS NOT NULL
     AND process.parent.entity_id IS NOT NULL
     AND process.command_line IS NOT NULL
