@@ -1,17 +1,19 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2025/12/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-This rule leverages the "new_terms" rule type to detect unusual command executions originating
-from web server processes on Linux systems. Attackers may exploit web servers to maintain
-persistence on a compromised system, often resulting in atypical command executions. As command
-execution from web server parent processes is common, the "new_terms" rule type approach helps to
-identify deviations from normal behavior.
+This building-block rule leverages the "new_terms" rule type to detect unusual command executions originating from web
+server processes on Linux systems. Attackers may exploit web servers to maintain persistence on a compromised system,
+often resulting in atypical command executions. As command execution from web server parent processes is common, the
+"new_terms" rule type approach helps to identify deviations from normal behavior for correlation with higher-order
+rules.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -49,9 +51,9 @@ This rule detects shells invoked by web server processes on Linux to run one-off
 - Escalate to full incident response and forensic imaging if any reverse shell artifacts (nc -e sh, bash -i >& /dev/tcp/*), privileged writes (/etc/systemd/system/*.service, /var/spool/cron/*), or sudo execution by the web server user are observed.
 - Harden by disabling risky exec paths (PHP exec/system/shell_exec and unsafe plugins), enforcing noexec,nodev,nosuid mounts on web roots, applying SELinux/AppArmor confinement to web processes, narrowing outbound egress, and deploying WAF/mod_security rules for upload and RCE vectors.
 """
-risk_score = 47
+risk_score = 21
 rule_id = "65f28c4d-cfc8-4847-9cca-f2fb1e319151"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "Domain: Web",
@@ -64,11 +66,13 @@ tags = [
     "Performance: Normal",
     "Profile: Recommended",
     "Threat: Web Shell",
+    "Rule Type: BBR",
     "Rule Type: New Terms",
     "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
   process.parent.name:(
@@ -109,62 +113,60 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
+
 
 [rule.threat.tactic]
 id = "TA0001"
@@ -174,7 +176,6 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.command_line", "host.id", "process.parent.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

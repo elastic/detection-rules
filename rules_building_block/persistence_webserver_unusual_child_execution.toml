@@ -1,17 +1,19 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2026/06/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-This rule leverages the "new_terms" rule type to detect unusual child process executions originating
-from web server processes on Linux systems. Attackers may exploit web servers to maintain persistence
-on a compromised system, often resulting in atypical child process executions. As child process spawns
-from web server parent processes are common, the "new_terms" rule type approach helps identify deviations
-from normal behavior.
+This building-block rule leverages the "new_terms" rule type to detect unusual child process executions originating from
+web server processes on Linux systems. Attackers may exploit web servers to maintain persistence on a compromised
+system, often resulting in atypical child process executions. As child process spawns from web server parent processes
+are common, the "new_terms" rule type approach helps identify deviations from normal behavior for correlation with
+higher-order rules.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -50,9 +52,9 @@ This alert flags a Linux web service starting a child program it does not normal
 - Harden the environment by patching the exploited web component, disabling unnecessary script execution from upload and web content directories, enforcing least privilege for the web service account, restricting outbound network access, and expanding monitoring for similar child-process launches and persistence artifacts across peer web servers.
 
 """
-risk_score = 47
+risk_score = 21
 rule_id = "b2f0ea08-2b60-4a2d-93d7-fe996a30031a"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "Domain: Web",
@@ -65,11 +67,13 @@ tags = [
     "Performance: Normal",
     "Profile: Aggressive",
     "Threat: Web Shell",
+    "Rule Type: BBR",
     "Rule Type: New Terms",
     "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
   process.parent.name:(
@@ -117,62 +121,60 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
+
 
 [rule.threat.tactic]
 id = "TA0001"
@@ -182,7 +184,6 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.command_line", "host.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
