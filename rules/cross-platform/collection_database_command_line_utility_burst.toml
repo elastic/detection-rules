@@ -18,7 +18,8 @@ false_positives = [
     execution schedule, and output location before creating narrowly scoped exceptions.
     """,
 ]
-from = "now-9m"
+from = "now-5m"
+interval = "1m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential Database Collection via Command Line Burst"
@@ -36,9 +37,8 @@ the chance that unrelated administrative or application activity on the same hos
 The query covers canonical database clients, portable multi-database clients, and distinctive clients for common
 relational, document, key-value, time-series, graph, and cloud databases. This includes `psql`, `mysql`, `mariadb`,
 `mysqlsh`, `sqlcmd`, `sqlplus`, `mongosh`, `mongo`, `redis-cli`, `valkey-cli`, `cqlsh`, `sqlite3`, `duckdb`,
-`clickhouse-client`, `clickhouse`, `usql`, `cockroach-sql`, `cockroach`, `etcdctl`, `influx`, `snowsql`, `cypher-shell`,
-`db2`, and `hdbsql`. The `clickhouse` and `cockroach` multi-call binaries require client-specific arguments. The parent
-grouping key uses `process.parent.entity_id` when available and falls back to `process.parent.pid`.
+`usql`, `etcdctl`, `influx`, `snowsql`, `cypher-shell`, `db2`, and `hdbsql`. The parent grouping key uses
+`process.parent.entity_id` when available and falls back to `process.parent.pid`.
 
 ### Possible investigation steps
 
@@ -82,11 +82,9 @@ references = [
     "https://redis.io/docs/latest/develop/tools/cli/",
     "https://cassandra.apache.org/doc/latest/cassandra/managing/tools/cqlsh.html",
     "https://sqlite.org/cli.html",
-    "https://clickhouse.com/docs/interfaces/cli",
     "https://github.com/xo/usql",
     "https://duckdb.org/docs/stable/clients/cli/overview.html",
     "https://dev.mysql.com/doc/mysql-shell/8.4/en/",
-    "https://www.cockroachlabs.com/docs/stable/cockroach-sql-binary",
     "https://etcd.io/docs/latest/dev-guide/interacting_v3/",
     "https://docs.influxdata.com/influxdb/cloud/reference/cli/influx/",
     "https://docs.snowflake.com/en/user-guide/snowsql",
@@ -138,8 +136,8 @@ FROM logs-endpoint.events.process-*
 
 | WHERE Esql.database_cli IN (
   "psql", "mysql", "mariadb", "mysqlsh", "sqlcmd", "sqlplus", "mongosh", "mongo", "redis-cli",
-  "valkey-cli", "cqlsh", "sqlite3", "duckdb", "clickhouse-client", "usql", "cockroach-sql",
-  "etcdctl", "influx", "snowsql", "cypher-shell", "db2", "hdbsql", "clickhouse", "cockroach"
+  "valkey-cli", "cqlsh", "sqlite3", "duckdb", "usql", "etcdctl", "influx", "snowsql",
+  "cypher-shell", "db2", "hdbsql"
 )
 | STATS
     Esql.command_count = COUNT(*),
