@@ -2,14 +2,17 @@
 creation_date = "2020/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/05"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies the execution of a shell process with suspicious arguments which may be indicative of reverse shell activity."
-from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+description = """
+Identifies a newly observed destination and port combination in a command line that uses a shell TCP or UDP
+pseudo-device together with input or output redirection. This behavior is commonly used to establish a reverse shell.
+"""
+from = "now-10090m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell Activity via Terminal"
 note = """## Triage and analysis
@@ -18,7 +21,10 @@ note = """## Triage and analysis
 
 A reverse shell is a mechanism that's abused to connect back to an attacker-controlled system. It effectively redirects the system's input and output and delivers a fully functional remote shell to the attacker. Even private systems are vulnerable since the connection is outgoing. This activity is typically the result of vulnerability exploitation, malware infection, or penetration testing.
 
-This rule identifies commands that are potentially related to reverse shell activities using shell applications.
+This rule identifies newly observed destination and port combinations in command lines that combine a shell TCP or UDP
+pseudo-device, such as `/dev/tcp`, with input or output redirection. Both elements are required to reduce alerts for
+commands that only mention a socket path without attempting to connect a process's standard streams to it. IPv4
+addresses, IPv6 addresses, and domain names are extracted and normalized before the seven-day first-seen comparison.
 
 #### Possible investigation steps
 
@@ -32,7 +38,10 @@ This rule identifies commands that are potentially related to reverse shell acti
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately. Any activity that triggered the alert and is not inherently malicious must be monitored by the security team.
+- This activity is unlikely to happen legitimately. Security testing, shell feature tests, and uncommon administrative
+  scripts can use the same syntax. Confirm that the destination and command are expected before adding an exception.
+- A destination and port combination is considered new when the same pair has not been observed on the host during the
+  previous seven days. Hosts with less than seven days of retained process telemetry can alert on established activity.
 
 ### Response and remediation
 
@@ -49,16 +58,15 @@ references = [
     "https://github.com/WangYihang/Reverse-Shell-Manager",
     "https://www.netsparker.com/blog/web-security/understanding-reverse-shells/",
     "https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security",
+    "https://github.com/elastic/endpoint-rules/blob/main/rules/linux/execution_reverse_shell_via_cli.toml",
 ]
 risk_score = 73
 rule_id = "a1a0375f-22c2-48c0-81a4-7c2d11cc6856"
 setup = """## Setup
 
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+This rule requires process events from Elastic Defend. At least seven days of retained process telemetry is required for
+a complete baseline. After telemetry loss, agent re-enrollment, or initial deployment, established destination and port
+combinations may be reported as newly observed.
 """
 severity = "high"
 tags = [
@@ -69,53 +77,134 @@ tags = [
     "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
-    "Noise: High",
-    "Performance: Normal",
-    "Profile: Aggressive",
+    "Noise: Low",
+    "Performance: Slow",
+    "Profile: Recommended",
     "Threat: Reverse Shell",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ES|QL",
     "Platform: Linux",
     "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.name in ("sh", "bash", "zsh", "dash", "zmodload") and
-  process.args : ("*/dev/tcp/*", "*/dev/udp/*", "*zsh/net/tcp*", "*zsh/net/udp*") and
-
-  /* noisy FPs */
-  not (process.parent.name : "timeout" and process.executable : "/var/lib/docker/overlay*") and
-  not process.command_line : (
-    "*/dev/tcp/remoteiot.com/*", "*dev/tcp/kafka/*", "*/dev/tcp/$0/$1*", "*/dev/tcp/127.*",
-    "*/dev/udp/127.*", "*/dev/tcp/localhost/*") and
-  not process.parent.command_line : "runc init"
+FROM logs-endpoint.events.process-*
+| WHERE host.os.type IN ("linux", "macos")
+    AND event.type == "start"
+    AND event.action == "exec"
+    AND host.id IS NOT NULL
+    AND process.command_line IS NOT NULL
+    AND (
+      process.command_line LIKE "*/dev/tcp/*"
+      OR process.command_line LIKE "*/dev/udp/*"
+      OR process.command_line LIKE "*zsh/net/tcp*"
+      OR process.command_line LIKE "*zsh/net/udp*"
+    )
+    AND (
+      process.command_line LIKE "*&>*"
+      OR process.command_line LIKE "*<>*"
+      OR process.command_line LIKE "*>&*"
+      OR process.command_line LIKE "*<&*"
+    )
+| GROK process.command_line """(?<Esql.reverse_shell_endpoint>(?:/dev|zsh/net)/(?<Esql.path_transport>tcp|udp)/(?<Esql.path_destination_address>[^/\s]+)/(?<Esql.path_destination_port>[0-9]{1,5}))(?:[^0-9]|$)"""
+| GROK process.command_line """(?:^|.*[\s;&|])ztcp\s+(?:-[A-Za-z]+\s+)*(?<Esql.ztcp_destination_address>[^;\s]+)\s+(?<Esql.ztcp_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
+| EVAL
+    Esql.destination_address = COALESCE(Esql.path_destination_address, Esql.ztcp_destination_address),
+    Esql.destination_port_string = COALESCE(Esql.path_destination_port, Esql.ztcp_destination_port),
+    Esql.network_transport = CASE(
+      Esql.path_transport IS NOT NULL, Esql.path_transport,
+      Esql.ztcp_destination_address IS NOT NULL, "tcp"
+    ),
+    Esql.reverse_shell_endpoint = CASE(
+      Esql.reverse_shell_endpoint IS NOT NULL, Esql.reverse_shell_endpoint,
+      Esql.ztcp_destination_address IS NOT NULL,
+        CONCAT("ztcp ", Esql.ztcp_destination_address, " ", Esql.ztcp_destination_port)
+    )
+| WHERE Esql.destination_address IS NOT NULL AND Esql.destination_port_string IS NOT NULL
+| EVAL
+    Esql.destination_address = TO_LOWER(REPLACE(Esql.destination_address, """^\[|\]$""", "")),
+    Esql.destination_port = TO_INTEGER(Esql.destination_port_string)
+| EVAL Esql.destination_address = REPLACE(Esql.destination_address, """\.$""", "")
+| WHERE Esql.destination_port >= 1
+    AND Esql.destination_port <= 65535
+    AND Esql.destination_address NOT IN ("localhost", "localhost.localdomain", "0.0.0.0", "::1", "0:0:0:0:0:0:0:1")
+    AND NOT Esql.destination_address LIKE "127.*"
+    AND NOT Esql.destination_address LIKE "::ffff:127.*"
+| STATS
+    Esql.event_count = COUNT(*),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.last_time_seen = MAX(@timestamp),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.process_name_values = VALUES(process.name),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_entity_id_values = VALUES(process.entity_id),
+    Esql.process_parent_name_values = VALUES(process.parent.name),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.reverse_shell_endpoint_values = VALUES(Esql.reverse_shell_endpoint),
+    Esql.network_transport_values = VALUES(Esql.network_transport)
+  BY host.id, Esql.destination_address, Esql.destination_port
+| EVAL Esql.first_seen_minutes_ago = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.first_seen_minutes_ago >= 0 AND Esql.first_seen_minutes_ago <= 10
+| EVAL
+    host.name = MV_FIRST(Esql.host_name_values),
+    user.name = MV_FIRST(Esql.user_name_values),
+    process.name = MV_FIRST(Esql.process_name_values),
+    process.executable = MV_FIRST(Esql.process_executable_values),
+    process.entity_id = MV_FIRST(Esql.process_entity_id_values),
+    process.parent.name = MV_FIRST(Esql.process_parent_name_values),
+    process.parent.executable = MV_FIRST(Esql.process_parent_executable_values),
+    process.command_line = MV_FIRST(Esql.process_command_line_values),
+    destination.address = Esql.destination_address,
+    destination.port = Esql.destination_port
+| KEEP
+    host.id,
+    host.name,
+    user.name,
+    destination.address,
+    destination.port,
+    process.name,
+    process.executable,
+    process.entity_id,
+    process.command_line,
+    process.parent.name,
+    process.parent.executable,
+    Esql.*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1095"
 name = "Non-Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1095/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "destination.address", "destination.port"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
