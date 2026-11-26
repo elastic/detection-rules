@@ -141,38 +141,10 @@ FROM logs-endpoint.events.process-*
     )
 
 | WHERE Esql.database_cli IN (
-    "psql",
-    "mysql",
-    "mariadb",
-    "mysqlsh",
-    "sqlcmd",
-    "sqlplus",
-    "mongosh",
-    "mongo",
-    "redis-cli",
-    "valkey-cli",
-    "cqlsh",
-    "sqlite3",
-    "duckdb",
-    "clickhouse-client",
-    "usql",
-    "cockroach-sql",
-    "etcdctl",
-    "influx",
-    "snowsql",
-    "cypher-shell",
-    "db2",
-    "hdbsql"
-  )
-  OR (
-    Esql.database_cli == "clickhouse"
-    AND process.args IN ("client", "local", "--query", "-q")
-  )
-  OR (
-    Esql.database_cli == "cockroach"
-    AND process.args == "sql"
-  )
-
+  "psql", "mysql", "mariadb", "mysqlsh", "sqlcmd", "sqlplus", "mongosh", "mongo", "redis-cli",
+  "valkey-cli", "cqlsh", "sqlite3", "duckdb", "clickhouse-client", "usql", "cockroach-sql",
+  "etcdctl", "influx", "snowsql", "cypher-shell", "db2", "hdbsql", "clickhouse", "cockroach"
+)
 | STATS
     Esql.command_count = COUNT(*),
     Esql.command_line_count_distinct = COUNT_DISTINCT(process.command_line),
