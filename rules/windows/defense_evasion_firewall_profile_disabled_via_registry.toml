@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry changes that configure a Windows Firewall profile to be disabled.
+"""
+false_positives = [
+    "Approved configuration management, troubleshooting, performance tuning, and security policy changes",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Firewall Profile Disabled via Registry"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Firewall Profile Disabled via Registry
+
+Identify the affected firewall profile, initiating process, and account. Check whether the profile is active and verify its effective firewall state, including applicable Group Policy settings. Review connections around the change to determine whether network access changed.
+
+### False positive analysis
+
+Approved network troubleshooting and configuration management can disable a firewall profile. Confirm the affected profile and process ancestry against change records. Scope exceptions to the specific management process and expected profile changes.
+
+### Response and remediation
+
+Preserve the registry events and related network activity. Restore unauthorized profile settings to the approved baseline and verify the effective firewall state. Investigate unexpected connections and related execution through the incident response process.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1686/T1686.yaml",
+]
+risk_score = 47
+rule_id = "e1e722df-3104-5198-a726-f431d0034b30"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.data.strings : ("0", "0x00000000") and
+  registry.path : (
+    "HKLM\\SYSTEM\\ControlSet*\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\PublicProfile\\EnableFirewall",
+    "HKLM\\SYSTEM\\ControlSet*\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\DomainProfile\\EnableFirewall",
+    "HKLM\\SYSTEM\\ControlSet*\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile\\EnableFirewall",
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\EnableFirewall",
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\StandardProfile\\EnableFirewall",
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\EnableFirewall"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.004"
+name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
