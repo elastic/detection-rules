@@ -84,9 +84,14 @@ jobs:
     timeout-minutes: 30
     # Serialize pushes per release branch across concurrent backport workflow
     # runs (different PRs). max-parallel only serializes within one matrix.
+    # queue: max keeps every waiting job (FIFO, up to 100). The default
+    # (queue: single) holds only one pending job per group, so a burst of 3+
+    # merges cancelled the older pending backports and left release branches
+    # missing commits.
     concurrency:
       group: backport-commit-${{ matrix.target_branch }}
       cancel-in-progress: false
+      queue: max
     strategy:
       max-parallel: 1
       matrix:
