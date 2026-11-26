@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful PutResourcePolicy call that attaches a resource-based policy granting any principal or any
+AWS account access to an Amazon Bedrock AgentCore Gateway or Runtime. A Gateway is the integration point between an
+agent and external tools, and a Runtime hosts the deployed agent itself, and either can be configured without an
+authorizer, so a public resource policy on one of them makes every tool or agent the resource exposes invocable by
+any AWS principal with no authentication, the same exposure class as a public S3 bucket.
+"""
+false_positives = [
+    """
+    A deliberately public demo, prototype, or shared-tooling Gateway or Runtime created by a known platform or CI/CD
+    principal. Validate the caller, the resource's `authorizerType`, and whether public invocation was an explicit,
+    reviewed design decision rather than a misconfiguration.
+    """,
+    """
+    A policy statement with a wildcard principal that is actually scoped down by a `Condition` block (for example
+    `aws:PrincipalOrgID`), which is not public despite the wildcard. Review the full policy document for a
+    restricting `Condition` before treating the match as a true public exposure.
+    """,
+]
+from = "now-30m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock AgentCore Gateway or Runtime Exposed via Public Resource Policy"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock AgentCore Gateway or Runtime Exposed via Public Resource Policy
+This rule detects a successful `PutResourcePolicy` call on an AgentCore Gateway or Runtime whose policy document grants `Principal: "*"` or `Principal: {"AWS": "*"}`, making the resource invocable by any AWS principal with no authentication.
+`PutResourcePolicy` is a management-plane event logged to CloudTrail by default, so this detection has no data-plane logging dependency.
+A Gateway with `authorizerType=NONE` and a public policy exposes every tool target it proxies; a Runtime with a public policy exposes the deployed agent itself.
+
+### Possible investigation steps
+- Review `aws.cloudtrail.user_identity.arn`, `user_agent.original`, and `source.ip` for the caller and confirm they are expected to manage AgentCore resource policies.
+- Extract the target resource ARN from `aws.cloudtrail.request_parameters` and call `GetGateway`/`GetAgentRuntime` to check its `authorizerType` and current traffic.
+- Check `GetResourcePolicy` history on the same resource for when the public grant was added and by whom.
+- Look for subsequent invocations of the resource (`InvokeGateway`, `InvokeAgentRuntime`) from source IPs or principals outside your organization's known ranges.
+
+### False positive analysis
+- Intentionally public demos or shared tooling created by a known platform or CI/CD principal. Validate against change tickets and the resource's intended audience.
+
+### Response and remediation
+- If unauthorized, call `PutResourcePolicy` with a scoped principal or `DeleteResourcePolicy` to remove the public grant immediately.
+- Set the resource's `authorizerType` to `CUSTOM_JWT` if public, unauthenticated invocation was never intended.
+- Review all invocations of the resource since the public policy was attached for abuse.
+- Restrict `bedrock-agentcore:PutResourcePolicy` to administrative roles and require review before attaching any policy with a wildcard principal.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-permissions.html",
+    "https://docs.aws.amazon.com/bedrock-agentcore-control/latest/APIReference/API_PutResourcePolicy.html",
+]
+risk_score = 73
+rule_id = "36dbd29c-e14d-4ace-8df1-105b3600efca"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+    "Rule Type: ES|QL",
+    "Platform: AWS",
+    "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where event.dataset == "aws.cloudtrail" and event.outcome == "success" and
+    event.provider == "bedrock-agentcore.amazonaws.com" and
+    event.action == "PutResourcePolicy" and
+    aws.cloudtrail.request_parameters is not null
+| eval Esql.is_gateway_or_runtime = aws.cloudtrail.request_parameters RLIKE """.*resourceArn=[^,]*(gateway|runtime).*"""
+| eval Esql.is_public_principal = aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\s*\"\*\".*""" or
+    aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\s*\{\"AWS\":\s*\"\*\"\}.*"""
+| eval Esql.is_allow_effect = aws.cloudtrail.request_parameters RLIKE """.*\"Effect\":\s*\"Allow\".*"""
+| where Esql.is_gateway_or_runtime and Esql.is_public_principal and Esql.is_allow_effect
+| keep _id, _version, _index, @timestamp, event.action, event.provider, event.outcome,
+    aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type,
+    aws.cloudtrail.user_identity.access_key_id, user.name, user_agent.original,
+    source.ip, source.geo.country_name, cloud.account.id, cloud.region, data_stream.namespace,
+    aws.cloudtrail.request_id, aws.cloudtrail.request_parameters
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "data_stream.namespace",
+    "aws.cloudtrail.request_id",
+    "aws.cloudtrail.request_parameters",
+]
