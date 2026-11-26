@@ -7,57 +7,53 @@ updated_date = "2026/11/25"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a successful AWS Systems Manager (SSM) "CreateDataChannel" request containing a caller-supplied client ID.
-Standard SSM Agent channel creation does not ordinarily include this parameter. Its presence can indicate direct use of
-a managed node's messaging permissions to obtain a client data-channel token and interact with a Session Manager session
-outside the expected "StartSession" or "ResumeSession" authorization path.
+Detects an AWS Systems Manager (SSM) Session Manager session targeting one EC2 or hybrid managed node followed by a
+successful "CreateDataChannel" request for the same session from a different managed node. This mismatch can indicate
+that credentials from a compromised node were used to join another node's session.
 """
 false_positives = [
     """
-    Custom SSM clients, instrumented or non-standard SSM agents, and services that build on the SSM messaging protocol
-    might provide a client ID. Confirm the implementation and expected IAM role before adding a narrow exception.
+    A custom session broker or management integration might intentionally create a data channel from a node other than
+    the session target. Confirm the session architecture and expected IAM role before adding a narrow exception.
     """,
 ]
-from = "now-10m"
+from = "now-35m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS SSM Data Channel Created by Non-Agent Client"
+name = "AWS SSM Data Channel Created for Session Targeted to Another Node"
 note = """## Triage and analysis
 
-### Investigating AWS SSM Data Channel Created by Non-Agent Client
+### Investigating AWS SSM Data Channel Created for Session Targeted to Another Node
 
-This rule identifies successful `CreateDataChannel` requests that include `clientId`. In observed standard SSM Agent
-traffic, the agent used `CreateDataChannel` for the session assigned to its managed node without sending this field.
-A caller using the node's broad `ssmmessages` permissions can instead supply a client ID to request a data-channel token.
-This may indicate an attempt to join another principal's Session Manager session or to use agent authority as an
-interactive client.
+This rule correlates a successful `StartSession` event with a successful `CreateDataChannel` event for the returned
+session ID. During normal Session Manager operation, the agent on the targeted managed node uses that node's credentials
+to create the data channel. The rule alerts when the instance or hybrid-node identity at the end of the channel caller's
+`user.id` differs from the `StartSession` target.
 
-The alert proves non-standard data-channel creation, not by itself cross-instance execution. Treat it as high risk when
-the session belongs to another managed node, when the principal was denied `StartSession` or `ResumeSession`, or when an
-`OpenDataChannel` event from the same source follows without the expected target instance context.
+Managed-node roles commonly receive `ssmmessages:CreateDataChannel` on all resources. A caller with credentials from one
+node may therefore be able to request a data-channel token for a different node's active session without receiving
+`StartSession` or `ResumeSession` permission. A mismatch is a strong lateral-movement signal, but the alert does not by
+itself prove that the returned token was used to open the channel.
 
 ### Possible investigation steps
 
-- Extract `sessionId` and `clientId` from `aws.cloudtrail.request_parameters`.
-- Find the successful `StartSession` event whose `aws.cloudtrail.response_elements` contains the same session ID. Record
-  its target instance and initiating principal.
-- Compare that target with the instance ID at the end of the `CreateDataChannel` event's `user.id`. A mismatch can
-  indicate cross-instance lateral movement.
-- Review preceding failed `StartSession` and `ResumeSession` requests from the same `user.id` and `source.ip`.
-- Identify subsequent `OpenDataChannel` events for the session. Compare their source IPs and check whether
-  `clientInstanceId` identifies the expected target.
-- Confirm whether the source instance runs only the standard Amazon SSM Agent or an approved custom client. Review
-  process, shell, and network telemetry from that instance for access to IMDS credentials and direct SSM messaging calls.
+- Compare `Esql.start_target_values` with `Esql.create_data_channel_caller_node_values` and confirm that they identify
+  different managed nodes. Use `Esql.session_id` to retrieve the original CloudTrail events.
+- Identify the `StartSession` initiator, document name, session parameters, and source address. Determine whether the
+  session was interactive and whether the initiator expected it to reach the recorded target.
+- Review preceding failed `StartSession`, `ResumeSession`, and `DescribeSessions` requests from the channel caller's
+  identity and source address. Search for discovery of active session identifiers.
+- Identify subsequent `OpenDataChannel` events for the session and review the associated source address and user agent.
+- Investigate the source managed node for instance metadata credential access and direct SSM messaging API calls.
 - Review Session Manager audit logs, shell history, and commands executed during the affected session.
 
 ### False positive analysis
 
-- Determine whether an approved custom agent or management integration supplies `clientId`.
-- Do not exclude all instance-profile activity or all `CreateDataChannel` events. Standard managed nodes generate these
-  events, and broad exclusions would remove the signal.
-- The user agent is attacker controlled. Use it for investigation or a narrow environment-specific exception, not as the
-  only detection condition.
+- Determine whether an approved session broker intentionally creates channels on behalf of other managed nodes.
+- Do not exclude all instance-profile activity or all `CreateDataChannel` events. Normal agents generate these events;
+  the cross-node correlation provides the signal.
+- If long-running sessions are expected, increase the lookback to the configured maximum session duration.
 
 ### Response and remediation
 
@@ -65,7 +61,7 @@ the session belongs to another managed node, when the principal was denied `Star
 - Terminate the affected Session Manager session and revoke or replace the source node's instance profile credentials.
 - Review all sessions and channel events involving the source role for additional affected nodes.
 - Restrict discovery of active session identifiers and monitor the four `ssmmessages` channel operations granted to
-  managed-node and ECS task roles.
+  managed-node roles.
 """
 references = [
     "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html",
@@ -90,33 +86,76 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+FROM logs-aws.cloudtrail-*
 | WHERE event.dataset == "aws.cloudtrail"
   AND event.provider == "ssm.amazonaws.com"
-  AND event.action == "CreateDataChannel"
+  AND event.action IN ("StartSession", "CreateDataChannel")
   AND event.outcome == "success"
-  AND aws.cloudtrail.request_parameters LIKE "*clientId=*"
-| KEEP _id, _version, _index, @timestamp, cloud.account.id, cloud.region, user.id, user.name,
-       aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type,
-       source.ip, user_agent.original, event.action, event.outcome,
-       aws.cloudtrail.request_parameters, aws.cloudtrail.response_elements
+| GROK aws.cloudtrail.response_elements
+    """%{GREEDYDATA}sessionId=(?<Esql.start_session_id>[^,}]+)%{GREEDYDATA}"""
+| GROK aws.cloudtrail.request_parameters
+    """%{GREEDYDATA}sessionId=(?<Esql.create_data_channel_session_id>[^,}]+)%{GREEDYDATA}"""
+| GROK aws.cloudtrail.request_parameters
+    """%{GREEDYDATA}target=(?<Esql.start_target>[^,}]+)%{GREEDYDATA}"""
+| GROK user.id
+    """%{GREEDYDATA}:(?<Esql.create_data_channel_caller_node>(?:i|mi)-.+)"""
+| EVAL Esql.is_start_session = event.action == "StartSession"
+| EVAL Esql.is_create_data_channel = event.action == "CreateDataChannel"
+| EVAL Esql.session_id = COALESCE(
+    Esql.start_session_id,
+    Esql.create_data_channel_session_id
+  )
+| EVAL Esql.managed_node = CASE(
+    Esql.is_start_session,
+    Esql.start_target,
+    Esql.create_data_channel_caller_node
+  )
+| WHERE Esql.session_id IS NOT NULL
+  AND Esql.managed_node LIKE ("i-*", "mi-*")
+| STATS
+    Esql.start_session_event_count = SUM(CASE(Esql.is_start_session, 1, 0)),
+    Esql.create_data_channel_event_count = SUM(CASE(Esql.is_create_data_channel, 1, 0)),
+    Esql.managed_node_count = COUNT_DISTINCT(Esql.managed_node),
+    Esql.first_start_session_event = MIN(CASE(Esql.is_start_session, @timestamp, null)),
+    Esql.first_create_data_channel_event = MIN(CASE(Esql.is_create_data_channel, @timestamp, null)),
+    Esql.start_target_values = VALUES(CASE(Esql.is_start_session, Esql.start_target, null)),
+    Esql.create_data_channel_caller_node_values = VALUES(
+      CASE(Esql.is_create_data_channel, Esql.create_data_channel_caller_node, null)
+    ),
+    Esql.source_ip_values = VALUES(CASE(Esql.is_create_data_channel, source.ip, null)),
+    Esql.user_agent_original_values = VALUES(CASE(Esql.is_create_data_channel, user_agent.original, null)),
+    Esql_priv.start_session_principal_arn_values = VALUES(
+      CASE(Esql.is_start_session, aws.cloudtrail.user_identity.arn, null)
+    ),
+    Esql_priv.create_data_channel_principal_arn_values = VALUES(
+      CASE(Esql.is_create_data_channel, aws.cloudtrail.user_identity.arn, null)
+    )
+  BY cloud.account.id, cloud.region, Esql.session_id
+| WHERE Esql.start_session_event_count >= 1
+  AND Esql.create_data_channel_event_count >= 1
+  AND Esql.managed_node_count >= 2
+  AND Esql.first_create_data_channel_event >= Esql.first_start_session_event
+  AND DATE_DIFF(
+    "minutes",
+    Esql.first_start_session_event,
+    Esql.first_create_data_channel_event
+  ) <= 30
+| KEEP cloud.account.id, cloud.region, Esql.*, Esql_priv.*
 '''
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
-    "user.name",
-    "user_agent.original",
-    "source.ip",
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "event.action",
-    "event.outcome",
+    "Esql.session_id",
+    "Esql.first_start_session_event",
+    "Esql.first_create_data_channel_event",
+    "Esql.start_target_values",
+    "Esql.create_data_channel_caller_node_values",
+    "Esql_priv.start_session_principal_arn_values",
+    "Esql_priv.create_data_channel_principal_arn_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
     "cloud.account.id",
     "cloud.region",
-    "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements",
 ]
 
 [[rule.threat]]
