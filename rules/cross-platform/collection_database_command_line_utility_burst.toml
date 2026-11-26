@@ -1,0 +1,252 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects three or more distinct command lines executed with the same database client from the same parent process within
+five minutes. Attackers may use database utilities to enumerate schemas, search for credentials or other sensitive data,
+and collect database contents for exfiltration.
+"""
+false_positives = [
+    """
+    Database administrators, developers, deployment tooling, migrations, health checks, and scheduled jobs may execute
+    several database commands in a short period. Validate the user, parent process, command lines, database target,
+    execution schedule, and output location before creating narrowly scoped exceptions.
+    """,
+]
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Database Collection via Command Line Burst"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Database Collection via Command Line Burst
+
+This rule groups database client process starts by host, user, client, and parent process in five-minute windows. It
+requires at least three distinct command lines using the same client. Grouping by the initiating parent process reduces
+the chance that unrelated administrative or application activity on the same host is combined into one alert.
+
+The query covers canonical database clients, portable multi-database clients, and distinctive clients for common
+relational, document, key-value, time-series, graph, and cloud databases. This includes `psql`, `mysql`, `mariadb`,
+`mysqlsh`, `sqlcmd`, `sqlplus`, `mongosh`, `mongo`, `redis-cli`, `valkey-cli`, `cqlsh`, `sqlite3`, `duckdb`,
+`clickhouse-client`, `clickhouse`, `usql`, `cockroach-sql`, `cockroach`, `etcdctl`, `influx`, `snowsql`, `cypher-shell`,
+`db2`, and `hdbsql`. The `clickhouse` and `cockroach` multi-call binaries require client-specific arguments. The parent
+grouping key uses `process.parent.entity_id` when available and falls back to `process.parent.pid`.
+
+### Possible investigation steps
+
+- Review `Esql.database_cli` and `Esql.process_command_line_values` for connection targets, database and table names,
+  inline queries, input scripts, output paths, and references to credential, token, user, authentication, or
+  configuration tables.
+- Examine `Esql.process_parent_executable_values`, `Esql.process_parent_command_line_values`, and
+  `Esql.process_parent_entity_id_values` to determine whether a shell, web application, script, remote-management
+  process, or approved backup platform initiated the activity.
+- Validate the user and host against expected DBA, application, deployment, migration, monitoring, and backup roles.
+- Look for preceding access to database configuration files or environment variables that may contain credentials.
+- Search for follow-on archive creation, large file writes, cloud-storage clients, file-transfer utilities, or unusual
+  outbound network connections that could indicate staging or exfiltration.
+- Correlate with database audit logs to identify the authenticated principal, source address, queries, affected objects,
+  row counts, and whether the commands succeeded.
+
+### False positive analysis
+
+- Interactive DBA or developer sessions can generate several distinct queries in five minutes.
+- Application deployment, migration, health-check, and troubleshooting scripts may repeatedly invoke a database client.
+- Scheduled reports, health checks, migrations, and data-processing jobs may run one client against several databases.
+  Scope exceptions to known users, parent executables, hosts, targets, and schedules rather than excluding a database
+  client globally.
+
+### Response and remediation
+
+- If unauthorized, isolate the host and terminate the initiating process tree while preserving process, file, and
+  database audit evidence.
+- Disable or rotate exposed database credentials and tokens, revoke suspicious sessions, and review the account for
+  unexpected privileges or access from other systems.
+- Quarantine dump, export, archive, or staging files and determine whether any were transferred outside the environment.
+- Hunt for the same command lines, parent process, user, database target, and output artifacts across other hosts.
+"""
+references = [
+    "https://www.divd.nl/documents/DIVD-2026-00014-forensics-report.pdf",
+    "https://attack.mitre.org/techniques/T1213/006/",
+    "https://www.postgresql.org/docs/current/app-psql.html",
+    "https://dev.mysql.com/doc/refman/8.4/en/mysql-command-options.html",
+    "https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-utility",
+    "https://www.mongodb.com/docs/mongodb-shell/",
+    "https://redis.io/docs/latest/develop/tools/cli/",
+    "https://cassandra.apache.org/doc/latest/cassandra/managing/tools/cqlsh.html",
+    "https://sqlite.org/cli.html",
+    "https://clickhouse.com/docs/interfaces/cli",
+    "https://github.com/xo/usql",
+    "https://duckdb.org/docs/stable/clients/cli/overview.html",
+    "https://dev.mysql.com/doc/mysql-shell/8.4/en/",
+    "https://www.cockroachlabs.com/docs/stable/cockroach-sql-binary",
+    "https://etcd.io/docs/latest/dev-guide/interacting_v3/",
+    "https://docs.influxdata.com/influxdb/cloud/reference/cli/influx/",
+    "https://docs.snowflake.com/en/user-guide/snowsql",
+    "https://neo4j.com/docs/operations-manual/current/cypher-shell/",
+]
+risk_score = 47
+rule_id = "e15436ec-64a6-49fc-a8db-f59df8f54dc4"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which
+provides native endpoint detection and response telemetry.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Rule Type: ES|QL",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-*
+| WHERE event.type == "start"
+    AND host.os.type IN ("linux", "macos", "windows")
+    AND host.id IS NOT NULL
+    AND process.name IS NOT NULL
+    AND process.command_line IS NOT NULL
+    AND (process.parent.entity_id IS NOT NULL OR process.parent.pid IS NOT NULL)
+
+// Normalize Windows executable names and correlate children using the stable parent entity ID when available.
+| EVAL
+    Esql.database_cli = REPLACE(TO_LOWER(process.name), """\.exe$""", ""),
+    Esql.parent_process_key = COALESCE(
+      process.parent.entity_id,
+      CONCAT("pid:", TO_STRING(process.parent.pid))
+    )
+
+| WHERE Esql.database_cli IN (
+    "psql",
+    "mysql",
+    "mariadb",
+    "mysqlsh",
+    "sqlcmd",
+    "sqlplus",
+    "mongosh",
+    "mongo",
+    "redis-cli",
+    "valkey-cli",
+    "cqlsh",
+    "sqlite3",
+    "duckdb",
+    "clickhouse-client",
+    "usql",
+    "cockroach-sql",
+    "etcdctl",
+    "influx",
+    "snowsql",
+    "cypher-shell",
+    "db2",
+    "hdbsql"
+  )
+  OR (
+    Esql.database_cli == "clickhouse"
+    AND process.args IN ("client", "local", "--query", "-q")
+  )
+  OR (
+    Esql.database_cli == "cockroach"
+    AND process.args == "sql"
+  )
+
+| STATS
+    Esql.command_count = COUNT(*),
+    Esql.command_line_count_distinct = COUNT_DISTINCT(process.command_line),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_parent_name_values = VALUES(process.parent.name),
+    Esql.process_parent_pid_values = VALUES(process.parent.pid),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+    Esql.process_parent_entity_id_values = VALUES(process.parent.entity_id),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  BY host.id, user.id, Esql.database_cli, Esql.parent_process_key
+
+| EVAL Esql.burst_duration_seconds = DATE_DIFF("second", Esql.first_seen, Esql.last_seen)
+
+| WHERE Esql.command_count >= 3
+    AND Esql.command_line_count_distinct >= 3
+    AND Esql.burst_duration_seconds <= 300
+
+// Populate ECS fields used for alert triage and exceptions.
+| EVAL
+    host.name = MV_MIN(Esql.host_name_values),
+    user.name = MV_MIN(Esql.user_name_values)
+
+| KEEP host.id, host.name, user.id, user.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1119"
+name = "Automated Collection"
+reference = "https://attack.mitre.org/techniques/T1119/"
+
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.006"
+name = "Databases"
+reference = "https://attack.mitre.org/techniques/T1213/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "Esql.database_cli", "Esql.parent_process_key"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "user.name",
+    "Esql.database_cli",
+    "Esql.process_command_line_values",
+    "Esql.process_parent_pid_values",
+    "Esql.process_parent_executable_values",
+    "Esql.process_parent_command_line_values",
+    "Esql.command_count",
+    "Esql.command_line_count_distinct",
+    "Esql.burst_duration_seconds",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
