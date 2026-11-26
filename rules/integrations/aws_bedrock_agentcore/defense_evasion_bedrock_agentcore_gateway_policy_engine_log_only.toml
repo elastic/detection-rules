@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["aws", "aws_bedrock_agentcore"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful UpdateGateway call against an Amazon Bedrock AgentCore Gateway that sets its
+policyEngineConfiguration mode to LOG_ONLY. UpdateGateway is a full-replace operation, and LOG_ONLY mode evaluates
+Cedar policy but no longer blocks a denied tool call, so this moves the gateway from enforcing authorization to
+merely observing it for every tool call the gateway proxies, even though the Cedar policies themselves remain
+unchanged and still look configured in the policy engine. A caller needs only UpdateGateway, GetGateway, and the
+ability to pass the gateway's execution role to do this, and no Cedar policy permission is required.
+"""
+false_positives = [
+    """
+    Legitimate configuration-management or infrastructure-as-code tooling that deliberately sets LOG_ONLY to test new
+    Cedar policies before enforcing them. Validate the caller identity, its permissions, and whether the change
+    matches an approved rollout or testing plan.
+    """,
+]
+from = "now-30m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock AgentCore Gateway Policy Engine Set to Log Only"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock AgentCore Gateway Policy Engine Set to Log Only
+This rule detects a successful `UpdateGateway` call that sets `policyEngineConfiguration.mode` to `LOG_ONLY`.
+In `LOG_ONLY` mode the gateway still evaluates every tool call against its Cedar policies, but no longer blocks a denied call, so this moves the gateway from enforcing authorization to merely observing it, even though the Cedar policies themselves remain unchanged and still look "active" in the policy engine.
+The caller only needs `UpdateGateway`, `GetGateway`, and `iam:PassRole` on the gateway's execution role; no Cedar policy write permission is required to cause this effect, so look for this from principals who would not normally touch authorization policy.
+
+### Possible investigation steps
+- Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, `user_agent.original`, and `source.ip` for the caller and confirm they are expected to update this Gateway's configuration.
+- Call `GetGateway` on `gatewayIdentifier` from `aws.cloudtrail.request_parameters` to confirm the current `policyEngineConfiguration.mode` is `LOG_ONLY`.
+- Check whether the caller's IAM permissions include any Cedar policy write action; if not, this is the privilege-inversion pattern this rule targets.
+- Look for subsequent tool invocations through the gateway (`InvokeGateway`) from unexpected principals while enforcement was in log-only mode.
+
+### False positive analysis
+- Deliberate platform automation that intentionally sets `LOG_ONLY` to test new Cedar policies before enforcing them. Validate against change tickets and known automation identities.
+
+### Response and remediation
+- Re-attach the gateway's Cedar policy engine in `ENFORCE` mode with another `UpdateGateway` call.
+- Restrict `bedrock-agentcore:UpdateGateway` to principals who also hold Cedar policy-engine write permissions, or require a change-management check before any `UpdateGateway` that touches `policyEngineConfiguration`.
+- Review all gateway invocations since enforcement was set to log-only for activity that Cedar policy would otherwise have denied.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock-agentcore-control/latest/APIReference/API_UpdateGateway.html",
+    "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-policy-engine.html",
+]
+risk_score = 47
+rule_id = "01226f9e-0316-4c08-ae50-645d436659e6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Platform: AWS",
+    "Service: AWS Bedrock",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where event.dataset == "aws.cloudtrail" and event.outcome == "success" and
+    event.provider == "bedrock-agentcore.amazonaws.com" and
+    event.action == "UpdateGateway" and
+    aws.cloudtrail.request_parameters is not null
+| eval Esql.sets_log_only = aws.cloudtrail.request_parameters RLIKE """.*policyEngineConfiguration=\{[^}]*mode=LOG_ONLY.*"""
+| where Esql.sets_log_only
+| keep _id, _version, _index, @timestamp, event.action, event.provider, event.outcome,
+    aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type,
+    aws.cloudtrail.user_identity.access_key_id, user.name, user_agent.original,
+    source.ip, source.geo.country_name, cloud.account.id, cloud.region,
+    aws.cloudtrail.request_id, aws.cloudtrail.request_parameters
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_id",
+    "aws.cloudtrail.request_parameters",
+]
