@@ -19,6 +19,11 @@ false_positives = [
     principal. Validate the caller, the resource's `authorizerType`, and whether public invocation was an explicit,
     reviewed design decision rather than a misconfiguration.
     """,
+    """
+    A policy statement with a wildcard principal that is actually scoped down by a `Condition` block (for example
+    `aws:PrincipalOrgID`), which is not public despite the wildcard. Review the full policy document for a
+    restricting `Condition` before treating the match as a true public exposure.
+    """,
 ]
 from = "now-30m"
 interval = "10m"
@@ -78,13 +83,14 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     event.action == "PutResourcePolicy" and
     aws.cloudtrail.request_parameters is not null
 | eval Esql.is_gateway_or_runtime = aws.cloudtrail.request_parameters RLIKE """.*resourceArn=[^,]*(gateway|runtime).*"""
-| eval Esql.is_public_principal = aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": \"\*\".*""" or
-    aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": \{\"AWS\": \"\*\"\}.*"""
-| where Esql.is_gateway_or_runtime and Esql.is_public_principal
+| eval Esql.is_public_principal = aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\s*\"\*\".*""" or
+    aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\s*\{\"AWS\":\s*\"\*\"\}.*"""
+| eval Esql.is_allow_effect = aws.cloudtrail.request_parameters RLIKE """.*\"Effect\":\s*\"Allow\".*"""
+| where Esql.is_gateway_or_runtime and Esql.is_public_principal and Esql.is_allow_effect
 | keep _id, _version, _index, @timestamp, event.action, event.provider, event.outcome,
     aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type,
     aws.cloudtrail.user_identity.access_key_id, user.name, user_agent.original,
-    source.ip, source.geo.country_name, cloud.account.id, cloud.region,
+    source.ip, source.geo.country_name, cloud.account.id, cloud.region, data_stream.namespace,
     aws.cloudtrail.request_id, aws.cloudtrail.request_parameters
 '''
 
@@ -132,6 +138,7 @@ field_names = [
     "event.outcome",
     "cloud.account.id",
     "cloud.region",
+    "data_stream.namespace",
     "aws.cloudtrail.request_id",
     "aws.cloudtrail.request_parameters",
 ]
