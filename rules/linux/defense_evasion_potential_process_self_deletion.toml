@@ -2,7 +2,7 @@
 creation_date = "2026/11/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/11/10"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
@@ -11,8 +11,7 @@ Detects a Linux process deleting its own executable from a relative, temporary, 
 directory. Adversaries may self-delete payloads after execution to remove artifacts and hinder forensic analysis.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "Potential Process Self-Deletion"
 note = """## Triage and analysis
@@ -85,47 +84,67 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ES|QL",
     "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-file where host.os.type == "linux" and event.action == "deletion" and
-process.executable like (
-  "./*",
-  "/tmp/*",
-  "/var/tmp/*",
-  "/dev/shm/*",
-  "/run/*",
-  "/var/run/*",
-  "/boot/*",
-  "/sys/*",
-  "/lost+found/*",
-  "/proc/*",
-  "/var/mail/*",
-  "/var/www/*",
-  "/home/*/*",
-  "/root/*"
-) and
-startswith~(file.path, process.executable) and
-endswith~(file.path, process.executable)
+FROM logs-endpoint.events.file-* METADATA _id, _index, _version
+| WHERE KQL("""host.os.type:linux and event.category:file and event.type:deletion and event.action:deletion""")
+    AND process.executable IS NOT NULL
+    AND file.path IS NOT NULL
+    // Require an exact, case-sensitive match between the deleting process executable and the deleted file.
+    AND process.executable == file.path
+    AND (
+      process.executable LIKE "./*"
+      OR process.executable LIKE "/tmp/*"
+      OR process.executable LIKE "/var/tmp/*"
+      OR process.executable LIKE "/dev/shm/*"
+      OR process.executable LIKE "/run/*"
+      OR process.executable LIKE "/var/run/*"
+      OR process.executable LIKE "/boot/*"
+      OR process.executable LIKE "/sys/*"
+      OR process.executable LIKE "/lost+found/*"
+      OR process.executable LIKE "/proc/*"
+      OR process.executable LIKE "/var/mail/*"
+      OR process.executable LIKE "/var/www/*"
+      OR process.executable LIKE "/home/*/*"
+      OR process.executable LIKE "/root/*"
+    )
+| KEEP
+    @timestamp,
+    _id,
+    _index,
+    _version,
+    host.id,
+    host.name,
+    user.id,
+    user.name,
+    file.path,
+    file.name,
+    file.hash.sha256,
+    process.entity_id,
+    process.pid,
+    process.name,
+    process.executable,
+    process.parent.entity_id
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1070.004"
 name = "File Deletion"
 reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
