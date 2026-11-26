@@ -1,0 +1,197 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential network scanning through shell TCP or UDP pseudo-devices and zsh networking features. The rule
+detects a single parent process that targets at least five distinct destination addresses or at least five distinct
+destination ports within a one-minute window.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Network Scan via Shell TCP or UDP"
+note = """## Triage and analysis
+
+### Investigating Potential Network Scan via Shell TCP or UDP
+
+Bash and compatible shells can open connections by redirecting input or output to `/dev/tcp/host/port` or
+`/dev/udp/host/port`. The Zsh TCP networking module provides similar functionality through `zsh/net/tcp` and `ztcp`.
+Adversaries can repeatedly invoke these features to identify reachable hosts or exposed services without using a
+dedicated scanning utility.
+
+This rule groups process command lines by their direct parent and alerts when one parent targets at least five distinct
+destination addresses or five distinct ports in a one-minute bucket. The destination parser supports IPv4 addresses,
+bracketed or unbracketed IPv6 addresses, and domain names. Address values are lowercased, IPv6 brackets are removed, and
+domain names with a trailing dot are normalized before counting.
+
+### Possible investigation steps
+
+- Review the parent process executable, command line, user, working directory, and ancestry to determine what initiated
+  the scan.
+- Examine the extracted transports, destination addresses, and ports to establish whether the activity is a horizontal
+  host scan, a vertical port scan, or a combination of both.
+- Correlate the activity with network connection events to determine which connection attempts succeeded and whether
+  subsequent authentication, exploitation, or lateral movement occurred.
+- Check for related shell scripts, downloaded payloads, interactive sessions, web server exploitation, or suspicious
+  scheduled tasks around the alert time.
+- Confirm whether the parent belongs to an approved vulnerability scanner, monitoring check, deployment workflow, or
+  administrator troubleshooting session.
+
+### False positive analysis
+
+- Administrators and security teams may use shell networking features for service availability checks, troubleshooting,
+  or authorized security assessments.
+- Monitoring and orchestration scripts can probe multiple hosts or ports in quick succession. Add narrowly scoped
+  exceptions for verified parent executables, command lines, users, or hosts.
+
+### Response and remediation
+
+- If unauthorized, terminate the scanning process and isolate the host when additional compromise indicators are
+  present.
+- Determine how the parent process was launched and remediate the associated initial-access, persistence, or
+  credential-compromise vector.
+- Review successful connections for follow-on activity and scope the same destination set, script, or parent executable
+  across other hosts.
+"""
+references = [
+    "https://www.gnu.org/software/bash/manual/html_node/Redirections.html",
+    "https://zsh.sourceforge.io/Doc/Release/Zsh-Modules.html#The-zsh_002fnet_002ftcp-Module",
+    "https://attack.mitre.org/techniques/T1046/",
+]
+risk_score = 47
+rule_id = "ac6819cc-1d91-4942-9a8a-85ee5ab3245a"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend on Linux or macOS. The rule evaluates fixed one-minute event-time
+buckets and groups activity by `host.id` and `process.parent.entity_id`.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Linux",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-*
+| WHERE KQL("""event.type:start and event.action:exec""")
+    AND host.os.type IN ("linux", "macos")
+    AND host.id IS NOT NULL
+    AND process.parent.entity_id IS NOT NULL
+    AND process.command_line IS NOT NULL
+    AND (
+      process.command_line LIKE "*/dev/tcp/*"
+      OR process.command_line LIKE "*/dev/udp/*"
+      OR process.command_line LIKE "*zsh/net/tcp*"
+      OR process.command_line LIKE "*ztcp *"
+    )
+| GROK process.command_line """(?<Esql.shell_network_endpoint>(?:/dev|zsh/net)/(?<Esql.path_transport>tcp|udp)/(?<Esql.path_destination_address>[^/\s]+)/(?<Esql.path_destination_port>[0-9]{1,5}))(?:[^0-9]|$)"""
+| GROK process.command_line """(?:^|.*[\s;&|])(?<Esql.zsh_network_utility>ztcp)\s+(?:-[A-Za-z]+\s+)*(?:[0-9]+\s+)?(?<Esql.zsh_destination_address>[^;\s]+)\s+(?<Esql.zsh_destination_port>[0-9]{1,5})(?:[\s;&|]|$)"""
+| EVAL
+    Esql.destination_address = COALESCE(Esql.path_destination_address, Esql.zsh_destination_address),
+    Esql.destination_port_string = COALESCE(Esql.path_destination_port, Esql.zsh_destination_port),
+    Esql.network_transport = CASE(
+      Esql.path_transport IS NOT NULL, Esql.path_transport,
+      Esql.zsh_network_utility == "ztcp", "tcp"
+    ),
+    Esql.shell_network_endpoint = CASE(
+      Esql.shell_network_endpoint IS NOT NULL, Esql.shell_network_endpoint,
+      Esql.zsh_network_utility IS NOT NULL,
+        CONCAT(
+          Esql.zsh_network_utility, " ", Esql.zsh_destination_address, " ", Esql.zsh_destination_port
+        )
+    )
+| WHERE Esql.destination_address IS NOT NULL AND Esql.destination_port_string IS NOT NULL
+| EVAL
+    Esql.destination_address = TO_LOWER(REPLACE(Esql.destination_address, """^\[|\]$""", "")),
+    Esql.destination_port = TO_INTEGER(Esql.destination_port_string)
+| EVAL
+    Esql.destination_address = REPLACE(Esql.destination_address, """\.$""", ""),
+    Esql.window_start = DATE_TRUNC(1 minute, @timestamp)
+| WHERE Esql.destination_port >= 1 AND Esql.destination_port <= 65535
+| STATS
+    Esql.event_count = COUNT(*),
+    Esql.destination_address_count_distinct = COUNT_DISTINCT(Esql.destination_address),
+    Esql.destination_port_count_distinct = COUNT_DISTINCT(Esql.destination_port),
+    Esql.destination_address_values = VALUES(Esql.destination_address),
+    Esql.destination_port_values = VALUES(Esql.destination_port),
+    Esql.network_transport_values = VALUES(Esql.network_transport),
+    Esql.shell_network_endpoint_values = VALUES(Esql.shell_network_endpoint),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.process_name_values = VALUES(process.name),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.process_parent_pid_values = VALUES(process.parent.pid),
+    Esql.process_parent_name_values = VALUES(process.parent.name),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.last_time_seen = MAX(@timestamp)
+  BY Esql.window_start, host.id, process.parent.entity_id
+| WHERE Esql.destination_address_count_distinct >= 5 OR Esql.destination_port_count_distinct >= 5
+| EVAL
+    host.name = MV_FIRST(Esql.host_name_values),
+    user.name = MV_FIRST(Esql.user_name_values),
+    destination.address = Esql.destination_address_values,
+    destination.port = Esql.destination_port_values,
+    network.transport = Esql.network_transport_values,
+    process.name = MV_FIRST(Esql.process_name_values),
+    process.executable = MV_FIRST(Esql.process_executable_values),
+    process.command_line = MV_FIRST(Esql.process_command_line_values),
+    process.parent.pid = MV_FIRST(Esql.process_parent_pid_values),
+    process.parent.name = MV_FIRST(Esql.process_parent_name_values),
+    process.parent.executable = MV_FIRST(Esql.process_parent_executable_values),
+    process.parent.command_line = MV_FIRST(Esql.process_parent_command_line_values)
+| KEEP
+    Esql.*,
+    host.id,
+    host.name,
+    user.name,
+    destination.address,
+    destination.port,
+    network.transport,
+    process.name,
+    process.executable,
+    process.command_line,
+    process.parent.entity_id,
+    process.parent.pid,
+    process.parent.name,
+    process.parent.executable,
+    process.parent.command_line
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "process.parent.entity_id"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 10
