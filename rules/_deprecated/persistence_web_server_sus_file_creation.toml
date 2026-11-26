@@ -1,9 +1,11 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2025/03/06"
+deprecation_date = "2026/11/26"
+deprecated_reason = "This rule is very noisy and has been superseded by the more targeted new-terms rule, Unusual File Creation via Web Server."
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2026/09/18"
+maturity = "deprecated"
+updated_date = "2026/11/26"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +20,14 @@ from = "now-61m"
 interval = "1h"
 language = "esql"
 license = "Elastic License v2"
-name = "Unusual File Creation by Web Server"
+name = "Deprecated - Unusual File Creation by Web Server"
+note = """## Triage and analysis
+
+**Deprecated Notice** - This rule has been deprecated because it produces a high volume of false positives and has been
+superseded by "Unusual File Creation via Web Server" (`9ab15ca6-be79-4718-bae6-5978a3ac6a46`). The replacement uses a
+7-day new-terms history and more targeted web-server process, file-path, file-type, cache, session, upload, and media
+filters to provide a better signal-to-noise ratio.
+"""
 risk_score = 21
 rule_id = "894b7cc9-040b-427c-aca5-36b40d3667bf"
 setup = """## Setup
@@ -114,62 +123,60 @@ from logs-endpoint.events.file-* metadata _id, _index, _version
     Esql.event_count < 5
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
+
 
 [rule.threat.tactic]
 id = "TA0001"
