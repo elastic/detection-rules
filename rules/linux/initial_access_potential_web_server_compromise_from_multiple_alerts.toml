@@ -1,0 +1,259 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a potential web server compromise by correlating multiple suspicious or unusual process-execution alerts on
+the same Linux host within 10 minutes. Unusual file-creation alerts can strengthen the correlation, but cannot trigger
+it without sufficient process-execution activity.
+"""
+false_positives = [
+    """
+    Authorized deployments, administrative actions, vulnerability scans, application diagnostics, and new web
+    application features may generate several unusual process or file alerts in a short period.
+    """,
+]
+from = "now-11m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Web Server Compromise from Multiple Alerts"
+note = """## Triage and analysis
+
+### Investigating Potential Web Server Compromise from Multiple Alerts
+
+This higher-order rule correlates alerts from five web server behavior rules on the same host. It uses a weighted model
+to prioritize combinations that are more likely to represent exploitation, web shell activity, or attacker command
+execution:
+
+- Each alert from "Suspicious Child Execution via Web Server" or "Suspicious Command Execution via Web Server"
+  contributes 3 points.
+- Each alert from "Unusual Child Execution via Web Server" or "Unusual Command Execution via Web Server" contributes
+  2 points. These are new-terms alerts and therefore represent activity that was not observed for the host during the
+  source rule's history window.
+- One or more alerts from "Unusual File Creation via Web Server" contribute a total of 1 point. The contribution is
+  capped because web applications commonly create new files.
+
+The rule requires at least three source alerts, at least two process-execution alerts, a score of at least 6, and no
+more than 10 minutes between the first and last contributing alert. The resulting alert is grouped by `host.id`.
+Multivalued `Esql.*_values` fields summarize the contributing alerts and should not be interpreted as preserving the
+relationship between individual field values.
+
+### Possible investigation steps
+
+- Review `Esql.kibana_alert_rule_name_values`, the component counts, and `Esql.correlation_score` to understand why the
+  correlation triggered. Open the contributing source alerts and reconstruct their original order using the first and
+  last alert timestamps.
+- Examine the process command lines, executables, parents, users, and process trees. Look for shells, interpreters,
+  downloaders, encoded commands, reconnaissance, credential access, reverse shells, or execution from writable paths.
+- Inspect the file paths surfaced in `Esql.file_path_values`. Collect suspicious files and review their contents,
+  hashes, ownership, permissions, and timestamps for web shells, scripts, payloads, or unauthorized application changes.
+- Correlate the activity with web server, reverse-proxy, WAF, and application logs. Identify the request, source IP,
+  URI, parameters, headers, authenticated session, upload, or application error that preceded the activity.
+- Review outbound network connections, listening sockets, credential access, privilege escalation, persistence, and
+  lateral movement around the correlation window. Search peer web servers for the same commands, files, or indicators.
+
+### False positive analysis
+
+- Confirm whether the activity coincides with an approved deployment, plugin installation, maintenance operation,
+  diagnostics workflow, vulnerability assessment, or penetration test.
+- Determine whether the web application legitimately invokes operating-system utilities or creates uncommon files in
+  response to user actions. Compare the behavior with peer hosts and prior approved changes.
+- If a recurring benign workflow is identified, tune the relevant source rule so that the higher-order rule continues
+  to benefit from the source rules' behavioral filtering.
+
+### Response and remediation
+
+- If the activity is unauthorized, isolate the host or remove it from the load balancer while preserving volatile and
+  disk evidence.
+- Block associated source addresses and command-and-control destinations, terminate attacker-controlled processes, and
+  remove web shells, payloads, and persistence only after collecting required evidence.
+- Patch or disable the exploited application component, restore the service from a known-good source, and rotate
+  application, database, cloud, API, and other credentials accessible to the web service.
+- Hunt for the same activity across other internet-facing systems and escalate according to the affected data and
+  observed post-compromise behavior.
+"""
+references = ["https://www.elastic.co/docs/solutions/security/detect-and-alert/about-building-block-rules"]
+risk_score = 73
+rule_id = "21853f73-e3c1-4914-b61d-0c4eca1a57c1"
+setup = """## Setup
+
+This rule requires alert data from Elastic Security and process and file events from Elastic Defend. Enable the
+following source rules:
+
+- Suspicious Child Execution via Web Server
+- Suspicious Command Execution via Web Server
+- Unusual Child Execution via Web Server
+- Unusual Command Execution via Web Server
+- Unusual File Creation via Web Server
+
+The unusual child and command execution rules are building-block rules whose alerts are intended for correlation and
+are not displayed with ordinary detection alerts by default.
+
+The rule searches `.alerts-security.*`. Users configuring this rule must have permission to read Elastic Security alert
+indices.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Web",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Rule Type: Higher-Order Rule",
+    "Rule Type: ES|QL",
+    "Data Source: Elastic Security",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Threat: Web Shell",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM .alerts-security.*
+| WHERE event.kind == "signal"
+    AND host.os.type == "linux"
+    AND host.id IS NOT NULL
+    AND kibana.alert.rule.rule_id IN (
+      "f16fca20-4d6c-43f9-aec1-20b6de3b0aeb",
+      "6148b9f5-5b12-4704-9ef7-f4b4c5dd9bb5",
+      "b2f0ea08-2b60-4a2d-93d7-fe996a30031a",
+      "65f28c4d-cfc8-4847-9cca-f2fb1e319151",
+      "9ab15ca6-be79-4718-bae6-5978a3ac6a46"
+    )
+| EVAL
+    Esql.is_suspicious_process_alert = kibana.alert.rule.rule_id IN (
+      "f16fca20-4d6c-43f9-aec1-20b6de3b0aeb",
+      "6148b9f5-5b12-4704-9ef7-f4b4c5dd9bb5"
+    ),
+    Esql.is_unusual_process_alert = kibana.alert.rule.rule_id IN (
+      "b2f0ea08-2b60-4a2d-93d7-fe996a30031a",
+      "65f28c4d-cfc8-4847-9cca-f2fb1e319151"
+    ),
+    Esql.is_unusual_file_alert = kibana.alert.rule.rule_id == "9ab15ca6-be79-4718-bae6-5978a3ac6a46"
+| STATS
+    Esql.alerts_count = COUNT(*),
+    Esql.suspicious_process_alert_count = SUM(CASE(Esql.is_suspicious_process_alert, 1, 0)),
+    Esql.unusual_process_alert_count = SUM(CASE(Esql.is_unusual_process_alert, 1, 0)),
+    Esql.unusual_file_alert_count = SUM(CASE(Esql.is_unusual_file_alert, 1, 0)),
+    Esql.kibana_alert_rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
+    Esql.process_entity_id_distinct_count = COUNT_DISTINCT(process.entity_id),
+    Esql.first_alert_timestamp = MIN(@timestamp),
+    Esql.last_alert_timestamp = MAX(@timestamp),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+    Esql.kibana_alert_rule_id_values = VALUES(kibana.alert.rule.rule_id),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.process_entity_id_values = VALUES(process.entity_id),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+    Esql.file_path_values = VALUES(file.path)
+  BY host.id, host.os.type
+| EVAL
+    Esql.process_alert_count = Esql.suspicious_process_alert_count + Esql.unusual_process_alert_count,
+    Esql.unusual_file_alert_score = CASE(Esql.unusual_file_alert_count > 0, 1, 0),
+    Esql.correlation_duration_seconds = DATE_DIFF(
+      "second", Esql.first_alert_timestamp, Esql.last_alert_timestamp
+    )
+| EVAL Esql.correlation_score = (
+    Esql.suspicious_process_alert_count * 3
+    + Esql.unusual_process_alert_count * 2
+    + Esql.unusual_file_alert_score
+  )
+| WHERE Esql.alerts_count >= 3
+    AND Esql.suspicious_process_alert_count > 0
+    AND Esql.process_alert_count >= 2
+    AND Esql.correlation_score >= 6
+    AND Esql.correlation_duration_seconds <= 600
+| EVAL host.name = MV_FIRST(Esql.host_name_values)
+| KEEP
+    host.id,
+    host.name,
+    host.os.type,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["host.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "Esql.correlation_score",
+    "Esql.alerts_count",
+    "Esql.suspicious_process_alert_count",
+    "Esql.unusual_process_alert_count",
+    "Esql.unusual_file_alert_count",
+    "Esql.first_alert_timestamp",
+    "Esql.last_alert_timestamp",
+    "Esql.kibana_alert_rule_name_values",
+    "Esql.process_command_line_values",
+    "Esql.file_path_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 15
