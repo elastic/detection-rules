@@ -161,7 +161,7 @@ FROM .alerts-security.*
     Esql.process_parent_executable_values = VALUES(process.parent.executable),
     Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
     Esql.file_path_values = VALUES(file.path)
-  BY host.id, host.os.type
+  BY host.id
 | EVAL
     Esql.process_alert_count = Esql.suspicious_process_alert_count + Esql.unusual_process_alert_count,
     Esql.unusual_file_alert_score = CASE(Esql.unusual_file_alert_count > 0, 1, 0),
@@ -182,7 +182,6 @@ FROM .alerts-security.*
 | KEEP
     host.id,
     host.name,
-    host.os.type,
     Esql.*
 '''
 
