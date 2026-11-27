@@ -1,0 +1,214 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a command line executed as a direct child of systemd, cron, or crond that has not been observed on the same
+Elastic Agent during the previous 7 days. Newly observed scheduled or service execution may indicate persistence,
+privilege escalation, or the execution of unauthorized commands.
+"""
+false_positives = [
+    """
+    New or updated services, newly deployed scheduled jobs, package installation, maintenance activity, and commands
+    containing dynamic arguments may produce previously unseen command lines.
+    """,
+]
+from = "now-10090m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Newly Observed Systemd or Cron Child Command Line"
+note = """## Triage and analysis
+
+### Investigating Newly Observed Systemd or Cron Child Command Line
+
+This rule identifies an exact `process.command_line` value executed as a direct child of `systemd`, `cron`, or `crond`
+that was not observed on the same `agent.id` during the preceding 7 days. The query uses a 7-day history plus a
+10-minute scheduling guard band and alerts only when the earliest matching event was ingested within the most recent
+10 minutes. The original event timestamp is retained for triage. This includes the previous occurrence of a weekly job
+in the baseline while allowing for rule scheduling and ingestion delay.
+
+Cron and crond directly represent scheduled job execution. Systemd also starts ordinary services, transient units, and
+user services, so a systemd parent does not by itself prove that a timer initiated the command. The rule complements
+signature-based scheduled-task detections by surfacing first-seen behavior without requiring a suspicious command-line
+pattern.
+
+### Possible investigation steps
+
+- Review the complete command line, executable, parent executable, working directory, user, and process ancestry.
+  Determine whether cron, a systemd timer, a service unit, a transient unit, or another systemd-managed workflow caused
+  the execution.
+- For cron activity, inspect user and system crontabs, `/etc/cron*`, spool files, anacron configuration, and recent file
+  changes. Verify the schedule, owner, creation time, and authorization for the job.
+- For systemd activity, inspect the associated service and timer unit with `systemctl status`, `systemctl cat`, and
+  `systemctl list-timers`. Review unit drop-ins, `ExecStart`, `ExecStartPre`, `ExecStartPost`, and recent journal entries.
+- Examine the command and any referenced script or executable for unexpected paths, ownership, permissions, hashes,
+  downloads, encoded content, credential access, network connections, or changes to persistence mechanisms.
+- Correlate the execution with package installations, configuration management, deployment records, administrator
+  activity, and other alerts on the host.
+
+### False positive analysis
+
+- Confirm whether a new package, service, timer, backup task, monitoring check, or maintenance job was recently deployed.
+- Exact command-line novelty is sensitive to changing timestamps, identifiers, temporary paths, and other dynamic
+  arguments. If a legitimate task changes arguments on each run, create a narrowly scoped exception using stable process,
+  parent, user, or path attributes.
+- Hosts without at least 7 days of retained Elastic Defend process telemetry can produce alerts for established activity
+  because no historical observation is available.
+
+### Response and remediation
+
+- If the activity is unauthorized, disable the malicious cron entry, timer, or service and stop associated processes
+  after preserving the relevant configuration, scripts, binaries, journal records, and process telemetry.
+- Isolate the host when the command indicates payload execution, credential access, command and control, or other
+  post-compromise behavior.
+- Remove malicious artifacts, rotate exposed credentials, correct the initial access or privilege-escalation vector, and
+  search other hosts for the same command, executable, unit, or cron entry.
+"""
+references = [
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
+]
+risk_score = 21
+rule_id = "ea57e807-f672-4e87-95de-ce699b67d716"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend.
+
+Elastic Defend must be configured to collect process events on Linux hosts. At least 7 days of retained process
+telemetry is required for a complete baseline. After telemetry loss, agent re-enrollment, or initial deployment, normal
+systemd and cron activity may be reported as newly observed.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-*
+| WHERE KQL("""event.type:start and event.action:exec""")
+    AND host.os.type == "linux"
+    AND agent.id IS NOT NULL
+    AND process.command_line IS NOT NULL
+    AND process.parent.name IN ("systemd", "cron", "crond")
+| EVAL
+    Esql.is_systemd_child = process.parent.name == "systemd",
+    Esql.is_cron_child = process.parent.name IN ("cron", "crond")
+| STATS
+    Esql.event_count = COUNT(*),
+    Esql.systemd_event_count = SUM(CASE(Esql.is_systemd_child, 1, 0)),
+    Esql.cron_event_count = SUM(CASE(Esql.is_cron_child, 1, 0)),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.first_time_ingested = MIN(event.ingested),
+    Esql.last_time_seen = MAX(@timestamp),
+    Esql.host_id_values = VALUES(host.id),
+    Esql.host_name_values = VALUES(host.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.process_entity_id_values = VALUES(process.entity_id),
+    Esql.process_executable_values = VALUES(process.executable),
+    Esql.process_working_directory_values = VALUES(process.working_directory),
+    Esql.process_parent_name_values = VALUES(process.parent.name),
+    Esql.process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.process_parent_command_line_values = VALUES(process.parent.command_line)
+  BY agent.id, process.command_line
+| WHERE Esql.first_time_ingested >= NOW() - 10 minutes AND Esql.first_time_ingested <= NOW()
+| EVAL Esql.first_ingested_minutes_ago = DATE_DIFF("minute", Esql.first_time_ingested, NOW())
+| EVAL
+    host.id = MV_FIRST(Esql.host_id_values),
+    host.name = MV_FIRST(Esql.host_name_values),
+    user.name = Esql.user_name_values,
+    process.entity_id = Esql.process_entity_id_values,
+    process.executable = Esql.process_executable_values,
+    process.parent.name = Esql.process_parent_name_values,
+    process.parent.executable = Esql.process_parent_executable_values
+| KEEP
+    agent.id,
+    host.id,
+    host.name,
+    user.name,
+    process.entity_id,
+    process.executable,
+    process.command_line,
+    process.parent.name,
+    process.parent.executable,
+    Esql.*
+'''
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.alert_suppression]
+group_by = ["agent.id", "process.command_line"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "agent.id",
+    "user.name",
+    "process.command_line",
+    "process.executable",
+    "process.parent.name",
+    "process.parent.executable",
+    "Esql.process_working_directory_values",
+    "Esql.process_parent_command_line_values",
+    "Esql.first_time_seen",
+    "Esql.first_time_ingested",
+    "Esql.last_time_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
