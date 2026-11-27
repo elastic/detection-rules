@@ -54,7 +54,7 @@ from .alerts-security.*
  // Exclude known system accounts with matches in more than one host
  not (
    (length(TO_STRING(user.id)) <= 4 or user.id IN ("S-1-5-18", "S-1-5-19", "S-1-5-20", "0")) and
-   (Esql.host_id_distinct_count >= 2 or Esql.host_id_distinct_count == 0)
+   Esql.host_id_distinct_count <= 2
  )
 
 | keep user.id, user.name, Esql.*
@@ -95,3 +95,15 @@ In security environments, monitoring user activity is crucial as adversaries oft
 - Notify relevant stakeholders, including IT security teams and management, about the incident and the steps being taken to address it. This ensures that everyone is aware and can provide support if needed.
 - Implement additional monitoring on the affected user account and related systems to detect any further suspicious activities. This includes setting up alerts for unusual login attempts or data access patterns.
 - Review and update access controls and permissions for the affected user and similar accounts to prevent future incidents. Ensure that least privilege principles are applied."""
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "user.name",
+    "Esql.kibana_alert_rule_name_values",
+    "Esql.kibana_alert_rule_name_distinct_count",
+    "Esql.host_id_values",
+    "Esql.source_ip_values",
+    "Esql.destination_ip_values",
+    "Esql.event_dataset_values",
+]
