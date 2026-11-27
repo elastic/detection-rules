@@ -5,6 +5,7 @@
 
 import unittest
 from copy import deepcopy
+from typing import ClassVar
 
 import eql.ast
 import kql
@@ -182,6 +183,79 @@ class TestNewTerms(BaseRuleTest):
                 assert len(set(rule.contents.data.new_terms.value)) == len(rule.contents.data.new_terms.value), (
                     f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"
                 )
+
+
+class TestKqlQuotedWildcards(BaseRuleTest):
+    """Regression tests for KQL values with wildcards that must not be quoted (issue #7214)."""
+
+    # rule id -> field -> wildcard values that must parse as wildcards rather than literal strings
+    EXPECTED_WILDCARDS: ClassVar[dict[str, dict[str, set[str]]]] = {
+        "2a7823db-0bc2-48f6-aa2f-e6aef233c6dc": {
+            "url.path": {
+                "*splunkd/__raw/v1/postgres/recovery/*",
+                "/v1/postgres/recovery/*",
+                "*splunkd/__raw/v1/postgres/recovery/backup",
+                "*splunkd/__raw/v1/postgres/recovery/restore",
+            },
+            "http.request.body.content": {
+                '*"backupFile"*../*',
+                '*"database"*dbname=*',
+                "*/opt/splunk/var/packages/data/postgres/.pgpass*",
+            },
+        },
+        "2635d2ba-51e7-404a-9b17-db413a1351d5": {
+            "process.args": {"--dry-run*", "--help*", "-help*", "--version*"},
+        },
+        "77c476eb-6a49-402a-a561-267ae66daa5e": {
+            "process.command_line": {"*site-packages/pip*"},
+        },
+        "2917d495-59bd-4250-b395-c29409b76086": {
+            "process.parent.args": {"E:/wamp64/bin/apache/apache*"},
+        },
+    }
+
+    @staticmethod
+    def walk_ast(node):
+        """Yield every KQL AST node reachable from node."""
+        yield node
+        slots = {slot for cls in type(node).__mro__ for slot in getattr(cls, "__slots__", ())}
+        for slot in slots:
+            child = getattr(node, slot, None)
+            if isinstance(child, kql.ast.KqlNode):
+                yield from TestKqlQuotedWildcards.walk_ast(child)
+            elif isinstance(child, list):
+                for item in child:
+                    if isinstance(item, kql.ast.KqlNode):
+                        yield from TestKqlQuotedWildcards.walk_ast(item)
+
+    def test_wildcard_values_parse_as_wildcards(self):
+        """Assert that the tuned values are parsed as wildcard nodes for their fields."""
+        rules = {rule.id: rule for rule in self.all_rules}
+        for rule_id, expected_fields in self.EXPECTED_WILDCARDS.items():
+            with self.subTest(rule_id=rule_id):
+                self.assertIn(rule_id, rules, f"rule {rule_id} not found")
+                parsed = {}
+                for node in self.walk_ast(rules[rule_id].contents.data.ast):
+                    if isinstance(node, kql.ast.FieldComparison):
+                        wildcards = {
+                            child.value for child in self.walk_ast(node.value) if isinstance(child, kql.ast.Wildcard)
+                        }
+                        parsed.setdefault(str(node.field), set()).update(wildcards)
+                for field, expected in expected_fields.items():
+                    missing = expected - parsed.get(field, set())
+                    self.assertFalse(missing, f"{rule_id}: {field} is missing wildcard values {sorted(missing)}")
+
+    def test_no_quoted_wildcards(self):
+        """Assert that the tuned rules have no quoted values containing a literal wildcard."""
+        for rule in self.all_rules:
+            if rule.id not in self.EXPECTED_WILDCARDS:
+                continue
+            quoted = [
+                node.value
+                for node in self.walk_ast(rule.contents.data.ast)
+                if isinstance(node, kql.ast.String) and "*" in node.value
+            ]
+            self.assertEqual(quoted, [], f"{self.rule_str(rule)} has quoted wildcard values: {quoted}")
 
 
 class TestESQLRules(BaseRuleTest):
