@@ -2,7 +2,7 @@
 creation_date = "2025/12/10"
 integration = ["panw", "cisco_ftd", "fortinet_fortigate", "suricata"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/27"
 
 [rule]
 author = ["Elastic"]
@@ -82,7 +82,7 @@ type = "query"
 query = '''
 (data_stream.dataset:"cisco_ftd.log" and message:"SERVER-WEBAPP React Server Components remote code execution attempt") or
 (data_stream.dataset:"fortinet_fortigate.log" and message:"applications3: React.Server.Components.react-flight.Remote.Code.Execution") or
-(data_stream.dataset:"panw.panos" and event.action:"exploit_detected" and event.original :*React*Server*) or
+(data_stream.dataset:"panw.panos" and event.action:"exploit_detected" and panw.panos.threat.name:*React*Server*) or
 (data_stream.dataset:("suricata_corelight" or "suricata.eve") and rule.name:*CVE-2025-55182*)
 '''
 
