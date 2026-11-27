@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/11/25"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra agent identity blueprint principal creating a new service principal (agent identity) using
+an app-only token. The detection correlates an "Add service principal" audit event whose initiator is an application
+with a ServicePrincipalSignInLogs event in which that same service principal authenticated as an agent identity
+blueprint principal (`azure.signinlogs.properties.agent.agent_type` is `agentIdentityBlueprintPrincipal`). In the Entra
+Agent ID model a consented blueprint principal holds the implicit, non-revocable AgentIdentity.CreateAsManager
+permission and uses it to create tenant-local agent identities that silently inherit the blueprint's permissions. This
+is the post-consent step of a third-party agent blueprint consent attack ("BluePhishing"): after a victim admin consents
+to an externally owned multitenant blueprint, the attacker authenticates as the blueprint principal and creates agent
+identities. Scoping to a blueprint-principal initiator distinguishes this from ordinary user-driven or first-party
+service principal creation.
+"""
+false_positives = [
+    """
+    Legitimate onboarding of agent identities under an approved internal blueprint will match, because an approved
+    blueprint principal also creates agent identities app-only. Validate the blueprint principal's owner
+    (`appOwnerOrganizationId`) and the consent that established it, and allowlist reviewed internal blueprints rather
+    than disabling the rule.
+    """,
+]
+from = "now-65m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Agent Identity Created by an Agent Blueprint Principal"
+note = """## Triage and analysis
+
+### Investigating Entra ID Agent Identity Created by an Agent Blueprint Principal
+
+This rule correlates, within one lookback window and by the initiating service principal object ID:
+
+- an Entra audit `Add service principal` event where the initiator is an application
+  (`azure.auditlogs.properties.initiated_by.app.servicePrincipalId`), and
+- a ServicePrincipalSignInLogs event where that same service principal
+  (`azure.signinlogs.properties.service_principal_id`) authenticated as an agent identity blueprint principal
+  (`azure.signinlogs.properties.agent.agent_type` is `agentIdentityBlueprintPrincipal`).
+
+Together these mean an agent blueprint principal used its implicit `AgentIdentity.CreateAsManager` permission to create a
+new agent identity, which is the action an attacker performs after a victim admin consents to a third-party blueprint.
+
+#### Possible investigation steps
+
+- Identify the blueprint principal from `Esql.blueprint_sp_id` / `Esql.blueprint_app_id` and the created identity in
+  `Esql.created_service_principals`.
+- Determine whether the blueprint principal is owned by an external organization (service principal
+  `appOwnerOrganizationId` differs from the tenant). External ownership indicates a consented third-party blueprint
+  (BluePhishing) rather than internal automation.
+- Review the `Consent to application` / `Add service principal` admin-consent event that established the blueprint
+  principal and who granted it (`initiatedBy`).
+- Pivot on child agent sign-ins (`agent.agent_type:agenticAppInstance` with `agent.parent_app_id` equal to the blueprint)
+  and review the inherited and direct permissions available to the new agent identity.
+
+### False positive analysis
+
+- An approved internal blueprint onboarding agent identities will match. Confirm ownership and the consent record, and
+  allowlist reviewed internal blueprints.
+
+### Response and remediation
+
+- If unexpected, disable or delete the created agent identity, review and remove the consent/blueprint principal if it is
+  an unapproved third-party blueprint, and restrict third-party application and agent blueprint consent via consent
+  policies and permission classifications.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/BluePhishing-Initial-Access-via-Third-Party-Agent-Blueprint-Consent",
+    "https://learn.microsoft.com/en-us/entra/agent-id/sign-in-audit-logs-agents",
+    "https://learn.microsoft.com/en-us/entra/agent-id/agent-autonomous-app-oauth-flow",
+    "https://securitylabs.datadoghq.com/articles/agent-id-inside-agent-compromise/",
+]
+risk_score = 73
+rule_id = "b8f3e2a1-5c6d-4e7f-9a0b-1c2d3e4f5a6b"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-*, logs-azure.signinlogs-* metadata _id, _index
+| where
+    (data_stream.dataset == "azure.auditlogs"
+      and azure.auditlogs.operation_name == "Add service principal"
+      and event.outcome in ("success", "Success")
+      and azure.auditlogs.properties.initiated_by.app.servicePrincipalId is not null)
+    or
+    (data_stream.dataset == "azure.signinlogs"
+      and azure.signinlogs.category == "ServicePrincipalSignInLogs"
+      and azure.signinlogs.properties.agent.agent_type == "agentIdentityBlueprintPrincipal"
+      and azure.signinlogs.properties.service_principal_id is not null)
+| eval Esql.blueprint_sp_id = coalesce(azure.auditlogs.properties.initiated_by.app.servicePrincipalId, azure.signinlogs.properties.service_principal_id)
+| eval Esql.create_event = case(data_stream.dataset == "azure.auditlogs", 1, null)
+| eval Esql.blueprint_signin = case(data_stream.dataset == "azure.signinlogs", 1, null)
+| stats
+    Esql.create_count = count(Esql.create_event),
+    Esql.blueprint_signin_count = count(Esql.blueprint_signin),
+    Esql.created_service_principals = values(`azure.auditlogs.properties.target_resources.0.display_name`),
+    Esql.blueprint_app_id = values(azure.signinlogs.properties.app_id),
+    Esql.first_seen = min(@timestamp),
+    Esql.last_seen = max(@timestamp)
+  by Esql.blueprint_sp_id
+| where Esql.create_count >= 1 and Esql.blueprint_signin_count >= 1
+| keep Esql.blueprint_sp_id, Esql.blueprint_app_id, Esql.created_service_principals, Esql.create_count, Esql.blueprint_signin_count, Esql.first_seen, Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.blueprint_sp_id",
+    "Esql.blueprint_app_id",
+    "Esql.created_service_principals",
+    "Esql.create_count",
+    "Esql.blueprint_signin_count",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
+
