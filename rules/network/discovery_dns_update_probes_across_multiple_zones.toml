@@ -1,0 +1,79 @@
+[metadata]
+creation_date = "2026/11/26"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/11/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a DNS server returning NOTAUTH to one client for dynamic updates to at least three distinct zones within
+ten minutes. This pattern can indicate an attempt to discover which zones the server is authoritative for.
+"""
+false_positives = [
+    """
+    Misconfigured DHCP updaters, DNS migrations, and authorized infrastructure assessments can target the wrong
+    authoritative server for several zones.
+    """,
+]
+from = "now-10m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential DNS Zone Authority Discovery via Dynamic Updates"
+note = """## Triage and analysis
+
+### Investigating Potential DNS Zone Authority Discovery via Dynamic Updates
+
+Check the reported zones against the server's authority and identify whether the client is an approved updater.
+Inspect server audit logs for nearby accepted updates and compare zone contents with change history. NOTAUTH
+describes the server's response to the matched requests. Even a NOERROR response to a separate probe can occur
+without a record change.
+"""
+references = [
+    "https://www.rfc-editor.org/rfc/rfc2136",
+]
+risk_score = 47
+rule_id = "0cb65e55-5458-489c-9674-0b8e5005d8bd"
+setup = """## Setup
+
+Enable DNS transaction collection in the Network Packet Capture integration on the authoritative server's network
+path. The sensor must observe replies with the update opcode, response code, and zone name. Monitor both UDP and
+TCP on the DNS listener port.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Tactic: Discovery",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-network_traffic.dns-*
+| WHERE dns.type == "answer" AND dns.op_code == "UPDATE" AND dns.response_code == "NOTAUTH"
+    AND dns.question.name IS NOT NULL AND source.ip IS NOT NULL AND destination.ip IS NOT NULL
+| EVAL zone_name = TO_LOWER(REPLACE(dns.question.name, """\.$""", ""))
+| STATS Esql.zone_count = COUNT_DISTINCT(zone_name), Esql.zones = VALUES(zone_name),
+        Esql.first_seen = MIN(@timestamp), Esql.last_seen = MAX(@timestamp)
+  BY agent.id, source.ip, destination.ip
+| WHERE Esql.zone_count >= 3
+| KEEP agent.id, source.ip, destination.ip, Esql.zone_count, Esql.zones, Esql.first_seen, Esql.last_seen
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
