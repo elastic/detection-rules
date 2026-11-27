@@ -2,7 +2,7 @@
 creation_date = "2024/05/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/11/27"
 
 [rule]
 author = ["Elastic"]
@@ -24,13 +24,13 @@ note = """
 
 ### Investigating AWS S3 Bucket Enumeration or Brute Force
 
-This rule detects when many failed S3 operations (HTTP 403 AccessDenied) hit a single bucket from a single source address in a short window. This can indicate bucket name enumeration, object/key guessing, or brute-force style traffic intended to drive cost or probe for misconfigurations. 403 requests from outside the bucket owner’s account/organization are not billed, but 4XX from inside the owner’s account/org can still incur charges. Prioritize confirming who is making the calls and where they originate.
+This rule detects when many failed S3 operations (HTTP 403 AccessDenied) hit a single bucket from a single source address in a short window. This can indicate bucket name enumeration, object/key guessing, or brute-force style traffic intended to drive cost or probe for misconfigurations. 403 requests from outside the bucket owner's account/organization are not billed, but 4XX from inside the owner's account/org can still incur charges. Prioritize confirming who is making the calls and where they originate.
 
 #### Possible investigation steps
 
 - **Investigate in Timeline.** Investigate the alert in timeline (Take action -> Investigate in timeline) to retrieve and review all of the raw CloudTrail events that contributed to the threshold alert. Threshold alerts only display the grouped fields; Timeline provides a way to see individual event details such as request parameters, full error messages, and additional user context.  
 
-- **Confirm entity & target.** Note the rule’s threshold and window. Identify the target bucket (`tls.client.server_name`) and the source (`source.address`). Verify the caller identity details via any available `aws.cloudtrail.user_identity` fields.  
+- **Confirm entity & target.** Note the rule's threshold and window. Identify the target bucket (`tls.client.server_name`) and the source (`source.address`). Verify the caller identity details via any available `aws.cloudtrail.user_identity` fields.  
 
 - **Actor & session context.** In CloudTrail events, pivot 15–30 minutes around the spike for the same `source.address` or principal. Determine if the source is:
   - **External** to your account/organization (recon/cost DDoS risk is lower for you due to 2024 billing change).  
@@ -106,7 +106,9 @@ query = '''
   data_stream.dataset: "aws.cloudtrail" and 
   event.provider : "s3.amazonaws.com" and 
   aws.cloudtrail.error_code : "AccessDenied" and 
-  tls.client.server_name : * 
+  tls.client.server_name : * and
+  not source.address : *.amazonaws.com and
+  not aws.cloudtrail.user_identity.type : "AWSService"
 '''
 
 [rule.investigation_fields]
