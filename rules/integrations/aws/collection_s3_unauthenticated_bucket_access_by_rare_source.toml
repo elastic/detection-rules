@@ -123,7 +123,10 @@ data_stream.dataset: "aws.cloudtrail"
     and event.outcome: "success"
     and aws.cloudtrail.user_identity.type: ("AWSAccount" or "Unknown")
     and cloud.account.id: "anonymous"
-    and not aws.cloudtrail.flattened.request_parameters.key: (*.svg or *.woff2 or *.jpg or *.css or *.ico or *.png or *index.html or *.gif or robots.txt or security.txt or *.webp)
+    and not (
+        event.action: "GetObject"
+        and aws.cloudtrail.flattened.request_parameters.key: (*.svg or *.woff2 or *.jpg or *.css or *.ico or *.png or *index.html or *.gif or robots.txt or security.txt or *.webp)
+    )
 '''
 
 
