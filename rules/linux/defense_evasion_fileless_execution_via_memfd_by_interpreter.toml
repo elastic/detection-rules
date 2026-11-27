@@ -1,0 +1,238 @@
+[metadata]
+creation_date = "2026/11/27"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Memfd_create syscall collection for Linux was introduced in 9.3.0."
+min_stack_version = "9.4.0"
+updated_date = "2026/11/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects interpreter processes that invoke memfd_create while running inline code or scripts from suspicious paths.
+Attackers can use memory-backed execution to run payloads without a conventional file on disk and evade file-based
+defenses.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Fileless Execution via Memory File Descriptor from Interpreter"
+note = """## Triage and analysis
+
+### Investigating Potential Fileless Execution via Memory File Descriptor from Interpreter
+
+Linux processes can use `memfd_create` to create anonymous files in memory. This rule identifies interpreters using that
+functionality while executing inline code or content from suspicious paths, which can indicate a fileless payload.
+
+### Possible investigation steps
+
+- Review the interpreter command line, arguments, parent process, user, working directory, and memory file descriptor name.
+- Reconstruct the process ancestry and identify the source of any inline script or content referenced from a temporary or unusual path.
+- Inspect `/proc/<pid>/fd`, `/proc/<pid>/exe`, process memory, and loaded mappings before terminating the process when feasible.
+- Correlate the event with recent network connections, DNS activity, file writes, authentication events, and child processes on the host.
+- Determine whether the interpreter belongs to an approved application, observability agent, container runtime, or developer workflow.
+
+### False positive analysis
+
+- Language runtimes, observability libraries, desktop applications, and container tooling may legitimately create memory-backed files.
+- Confirm that the executable path, process lineage, memfd name, package ownership, and surrounding activity match approved behavior.
+
+### Response and remediation
+
+- Isolate the host and terminate the suspicious process tree if malicious activity is confirmed.
+- Preserve volatile evidence and recover the in-memory payload for analysis before remediation when possible.
+- Block related indicators, rotate exposed credentials, and investigate the initial-access and persistence mechanisms used by the attacker.
+- Hunt for matching interpreter arguments, memfd names, process ancestry, hashes, and network indicators across Linux endpoints.
+"""
+references = ["https://man7.org/linux/man-pages/man2/memfd_create.2.html"]
+risk_score = 73
+rule_id = "5ec36c1c-0020-4b3f-898e-b52f6d84854f"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select "Complete EDR (Endpoint Detection and Response)" to collect all events and preventions.
+- Save the integration and add Elastic Agent to the Linux hosts that should be monitored.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "memfd_create" and (
+  (process.name like "python*" and process.args == "-c") or
+  (process.name like ("perl*", "ruby*", "lua*", "node", "nodejs") and process.args like "-e*") or
+  (process.name like "php*" and process.args like "-r*") or
+  process.name like ("*.py", "*.pyc", "*.lua", "*.pl", "*.rb", "*.bin", "*.php", "*.js", "*.mjs") or
+  (
+    process.name like ("python*", "perl*", "php*", "ruby*", "lua*", "node", "java", "javaw") and
+    process.args like (
+      "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/user/*", "/var/run/user/*", "/root/*",
+      "/boot/*", "/sys/*", "/lost+found/*", "/proc/*", "/var/mail/*", "/var/www/*"
+    ) and
+    process.args_count <= 2
+  )
+) and process.Ext.memfd.name != null and
+not (
+  process.executable like (
+    "/usr/lib/libreoffice/program/soffice.bin", "/app/bin/evolution.bin", "/opt/cpanel/ea-php83/root/usr/bin/php-cgi",
+    "/snap/libreoffice/*/lib/libreoffice/program/soffice.bin", "/usr/NX/bin/nxrunner.bin",
+    "/usr/lib64/libreoffice/program/soffice.bin", "/opt/libreoffice*/program/soffice.bin",
+    "/usr/NX/bin/nxplayer.bin", "/usr/bin/qgis.bin", "/opt/gitlab/embedded/bin/ruby",
+    "/app/libreoffice/program/soffice.bin", "/home/*/.local/share/uv/python/cpython*/bin/python*",
+    "/opt/micromamba/bin/python*", "/opt/balenaEtcher/balena-etcher.bin",
+    "/snap/rocketchat-desktop/*/rocketchat-desktop.bin"
+  ) or
+  process.parent.command_line == "/bin/sh -e /usr/lib/php/sessionclean" or
+  (
+    process.name like "php*" and (
+      process.Ext.memfd.name in (
+        "memfd:opcache_lock", "anon_hugepage", "opcache_lock", "memfd:anon-handle",
+        "memfd:anon-shm-handle", "memfd:trampoline_dependencies.so", "memfd:spawn_worker_trampoline"
+      ) or
+      process.command_line == "php public/index.php"
+    )
+  ) or
+  (
+    process.name like "python*" and
+    process.Ext.memfd.name like (
+      "wayland-shm", "memfd:pulseaudio", "memfd:dd_inject_info", "memfd:dd_language_detected", "wayland-cursor",
+      "memfd:wayland-cursor", "pulseaudio", "datadog-tracer-info*", "memfd:datadog-tracer-info-*", "memfd:libffi",
+      "libffi", "memfd:xshmfence", "xshmfence", "JITCode*", "unknown-usage*", "JSVMStack*", "JSGCHeap*",
+      "OTEL_CTX", "memfd:OTEL_CTX"
+    )
+  ) or
+  (
+    process.name like ("ruby*", "node", "nodejs") and
+    process.Ext.memfd.name like ("OTEL_CTX", "memfd:OTEL_CTX")
+  ) or
+  (
+    process.name like "ruby*" and
+    process.Ext.memfd.name like ("memfd:libffi", "libffi")
+  ) or
+  (
+    process.name like ("node", "nodejs") and
+    process.Ext.memfd.name like ("datadog-tracer-info*", "memfd:datadog-tracer-info-*")
+  ) or
+  process.parent.executable like (
+    "/opt/saltstack/salt/bin/python3*", "/usr/lib/systemd/systemd", "/usr/bin/gnome-shell", "/usr/NX/bin/nxexec",
+    "/usr/bin/sddm", "/usr/bin/bwrap", "/usr/bin/rofi", "/usr/bin/dbus-daemon", "/tmp/.mount_*/lm-studio",
+    "/usr/libexec/gnome-session-binary", "/usr/local/aegis/AliSecCheckTmp/AliSecCheck", "./runc", "/usr/bin/runc",
+    "/snap/claude-ai-desktop/*/app/claude-desktop.bin", "/opt/LM-Studio/lm-studio",
+    "/var/lib/rancher/rke2/data/*/bin/runc", "/var/lib/rancher/rke2/data/*/bin/containerd-shim-runc-v2"
+  ) or
+  process.parent.args like ("/opt/plesk/php/*/bin/php", "/usr/lib/plesk-*/maxlifetime") or
+  process.parent.command_line in (
+    "/bin/sh /usr/local/bin/docker-php-ext-enable xdebug",
+    "/usr/bin/python3 /usr/bin/nobara-updater --all"
+  ) or
+  process.parent.command_line like "*/home/*/.claude/shell-snapshots/snapshot-*" or
+  (
+    process.command_line == "buildah-chroot-runtime" and
+    process.Ext.memfd.name == "memfd:buildah-chroot-runtime"
+  ) or
+  (
+    process.name like "ruby*" and
+    process.args == "-e" and
+    process.args == "sandbox"
+  ) or
+  (
+    process.name like "ruby*" and
+    process.Ext.memfd.name like "memfd:datadog-tracer-info-*"
+  ) or
+  (
+    process.executable == "/usr/bin/perl" and
+    process.Ext.memfd.name in ("memfd:dd_inject_info", "memfd:dd_language_detected")
+  ) or
+  (process.name like "python3*" and process.args == "/usr/bin/supervisord") or
+  process.parent.executable like "*/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex" or
+  (process.name like "python*" and process.args == "/etc/supervisor/supervisord.conf") or
+  (process.executable == "/usr/local/bin/php" and process.Ext.memfd.name == "memfd:OTEL_CTX") or
+  (
+    process.executable like "/opt/beyondtrust/*" and
+    process.Ext.memfd.name in ("memfd:xshmfence", "memfd:pulseaudio")
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+[[rule.threat.technique.subtechnique]]
+id = "T1055.009"
+name = "Proc Memory"
+reference = "https://attack.mitre.org/techniques/T1055/009/"
+
+
+[[rule.threat.technique]]
+id = "T1620"
+name = "Reflective Code Loading"
+reference = "https://attack.mitre.org/techniques/T1620/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript/JScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.011"
+name = "Lua"
+reference = "https://attack.mitre.org/techniques/T1059/011/"
+
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
