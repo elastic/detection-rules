@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.4.0"
-updated_date = "2026/11/03"
+updated_date = "2026/11/13"
 
 [rule]
 author = ["Elastic"]
@@ -103,7 +103,10 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
     NOT (
       cmdline_lower LIKE "*169.254.169.254*" OR
       cmdline_lower LIKE "*localhost*" OR
-      cmdline_lower LIKE "*127.0.0.1*"
+      cmdline_lower LIKE "*127.0.0.1*" OR 
+	  cmdline_lower LIKE "*huggingface.co*" OR 
+	  cmdline_lower LIKE "*dl.google.com/linux/*" OR 
+	  cmdline_lower LIKE "*artifacts.elastic.co/downloads*"
     ),
     true, false
   )
